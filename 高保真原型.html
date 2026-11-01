@@ -1,0 +1,1537 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>轻叩伴读 TapAlong · 桌面版高保真原型</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --paper: #fbfaf7;
+        --paper-raised: #ffffff;
+        --chrome: #f6f4ef;
+        --ink: #2b2a27;
+        --ink-soft: #6e6a62;
+        --ink-faint: #a6a198;
+        --ink-ghost: #c7c2b8;
+        --line: #e7e3da;
+        --line-soft: #f1eee7;
+        --green: #4f7a5e;
+        --user-bubble: #efece5;
+        --serif: "Noto Serif SC", "Songti SC", Georgia, serif;
+        --sans:
+          "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        font-family: var(--sans);
+        background: #e8e4dc;
+        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+
+      .proto {
+        display: grid;
+        grid-template-columns: 244px 1fr;
+        min-height: 100vh;
+      }
+
+      /* ============ 侧边导航（原型控制面板） ============ */
+      .nav {
+        padding: 40px 22px;
+        border-right: 1px solid rgba(0, 0, 0, 0.06);
+        background: #efebe3;
+        overflow-y: auto;
+      }
+      .nav-brand {
+        font-family: var(--serif);
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        color: var(--ink);
+      }
+      .nav-sub {
+        font-size: 10px;
+        color: var(--ink-faint);
+        letter-spacing: 0.16em;
+        margin-top: 7px;
+        text-transform: uppercase;
+      }
+      .nav-group {
+        margin-top: 30px;
+      }
+      .nav-group-title {
+        font-size: 10.5px;
+        letter-spacing: 0.18em;
+        color: var(--ink-faint);
+        margin-bottom: 8px;
+        padding-left: 14px;
+      }
+      .nav-item {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: none;
+        font: inherit;
+        font-size: 13px;
+        color: var(--ink-soft);
+        padding: 8px 0 8px 14px;
+        position: relative;
+        cursor: pointer;
+        border-radius: 6px;
+        transition: color 0.18s ease;
+        letter-spacing: 0.02em;
+      }
+      .nav-item::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 50%;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: transparent;
+        transform: translateY(-50%);
+        transition:
+          background 0.18s ease,
+          transform 0.18s ease;
+      }
+      .nav-item:hover {
+        color: var(--ink);
+      }
+      .nav-item.active {
+        color: var(--ink);
+        font-weight: 500;
+      }
+      .nav-item.active::before {
+        background: var(--ink);
+        transform: translateY(-50%) scale(1.3);
+      }
+      .nav-item.reset {
+        font-size: 11.5px;
+        color: var(--ink-faint);
+        padding-top: 4px;
+        padding-bottom: 4px;
+      }
+      .nav-item.reset::before {
+        display: none;
+      }
+
+      .stage {
+        display: grid;
+        place-items: center;
+        padding: 48px;
+        min-height: 100vh;
+      }
+
+      /* ============ 桌面应用窗口 ============ */
+      .window {
+        position: relative;
+        width: min(1180px, 100%);
+        height: clamp(600px, calc(100vh - 96px), 820px);
+        background: var(--paper);
+        border-radius: 14px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow:
+          0 0 0 1px rgba(0, 0, 0, 0.07),
+          0 1px 2px rgba(0, 0, 0, 0.03),
+          0 24px 64px -20px rgba(70, 56, 36, 0.3);
+      }
+
+      .window-chrome {
+        height: 38px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 18px;
+        background: var(--chrome);
+        border-bottom: 1px solid var(--line-soft);
+      }
+      .window-chrome .light {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .light.red {
+        background: #e8c4bd;
+      }
+      .light.yellow {
+        background: #e9dbb9;
+      }
+      .light.green {
+        background: #c6d6c0;
+      }
+
+      .window-body {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+      }
+
+      #screen-root {
+        position: absolute;
+        inset: 0;
+      }
+
+      .screen {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        animation: screenIn 0.3s cubic-bezier(0.2, 0.8, 0.3, 1);
+      }
+      @keyframes screenIn {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ============ 应用栏 ============ */
+      .app-bar {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        height: 58px;
+        padding: 0 32px;
+        flex-shrink: 0;
+      }
+      .app-bar > :first-child {
+        justify-self: start;
+      }
+      .app-bar > :last-child {
+        justify-self: end;
+      }
+      .app-bar .app-title {
+        font-size: 15px;
+        font-weight: 500;
+        letter-spacing: 0.1em;
+        color: var(--ink);
+        white-space: nowrap;
+      }
+      .back-btn,
+      .text-btn {
+        background: none;
+        border: none;
+        font: inherit;
+        font-size: 13px;
+        color: var(--ink-soft);
+        padding: 6px 0;
+        cursor: pointer;
+        letter-spacing: 0.02em;
+        transition: color 0.2s ease;
+      }
+      .back-btn:hover,
+      .text-btn:hover {
+        color: var(--ink);
+      }
+
+      /* ============ 内容列 ============ */
+      .column {
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+        max-width: 860px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ============ 新页边 ============ */
+      .new-page {
+        flex: 1;
+        min-height: 0;
+        padding: 16px 40px 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .note-field {
+        flex: 1;
+        min-height: 220px;
+        width: 100%;
+        border: 1px solid var(--line);
+        background: var(--paper-raised);
+        border-radius: 16px;
+        padding: 24px 26px;
+        font-family: var(--serif);
+        font-size: 16.5px;
+        line-height: 1.9;
+        color: var(--ink);
+        resize: none;
+        outline: none;
+        transition:
+          border-color 0.25s ease,
+          box-shadow 0.25s ease;
+      }
+      .note-field::placeholder {
+        color: var(--ink-ghost);
+      }
+      .note-field:focus {
+        border-color: var(--ink-ghost);
+        box-shadow: 0 2px 14px -6px rgba(70, 56, 36, 0.18);
+      }
+
+      .source-field {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 0 4px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      .source-field .label {
+        font-size: 12.5px;
+        color: var(--ink-faint);
+        letter-spacing: 0.08em;
+        flex-shrink: 0;
+      }
+      .source-field input {
+        flex: 1;
+        border: none;
+        background: none;
+        font: inherit;
+        font-size: 15px;
+        color: var(--ink);
+        outline: none;
+      }
+      .source-field input::placeholder {
+        color: var(--ink-ghost);
+      }
+
+      .submit-row {
+        display: flex;
+        justify-content: flex-end;
+        padding-top: 2px;
+      }
+
+      /* ============ 按钮 ============ */
+      .btn-primary {
+        border: none;
+        background: var(--ink);
+        color: #fcfbf8;
+        font: inherit;
+        font-size: 14px;
+        letter-spacing: 0.08em;
+        height: 44px;
+        padding: 0 30px;
+        border-radius: 999px;
+        cursor: pointer;
+        transition:
+          opacity 0.2s ease,
+          transform 0.2s ease;
+      }
+      .btn-primary:hover {
+        opacity: 0.86;
+      }
+      .btn-primary:active {
+        transform: scale(0.98);
+      }
+      .btn-primary.small {
+        height: 36px;
+        padding: 0 20px;
+        font-size: 13px;
+        letter-spacing: 0.06em;
+      }
+
+      .btn-ghost {
+        border: 1px solid var(--line);
+        background: transparent;
+        color: var(--ink-soft);
+        font: inherit;
+        font-size: 13.5px;
+        height: 40px;
+        padding: 0 22px;
+        border-radius: 999px;
+        cursor: pointer;
+        letter-spacing: 0.04em;
+        transition:
+          border-color 0.2s ease,
+          color 0.2s ease;
+      }
+      .btn-ghost:hover {
+        border-color: var(--ink-ghost);
+        color: var(--ink);
+      }
+
+      .btn-text {
+        border: none;
+        background: none;
+        color: var(--ink-faint);
+        font: inherit;
+        font-size: 13.5px;
+        padding: 8px 12px;
+        cursor: pointer;
+        letter-spacing: 0.04em;
+        transition: color 0.2s ease;
+      }
+      .btn-text:hover {
+        color: var(--ink-soft);
+      }
+
+      /* ============ 蒙层 ============ */
+      .overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 50;
+        background: rgba(251, 250, 247, 0.9);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .overlay-inner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 22px;
+        padding: 32px;
+        text-align: center;
+        max-width: 340px;
+      }
+      .overlay-inner p {
+        font-size: 14.5px;
+        color: var(--ink-soft);
+        letter-spacing: 0.06em;
+        line-height: 1.7;
+      }
+      .spinner {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: 1.5px solid var(--line);
+        border-top-color: var(--ink-soft);
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .overlay-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 4px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      /* ============ 页边卡 ============ */
+      .page-card {
+        flex-shrink: 0;
+        margin-top: 4px;
+        padding: 20px 24px 18px;
+        background: var(--paper-raised);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+      }
+      .page-card-title {
+        font-family: var(--serif);
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--ink);
+        line-height: 1.5;
+      }
+      .page-card-meta {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-top: 8px;
+        font-size: 11.5px;
+        color: var(--ink-faint);
+        letter-spacing: 0.03em;
+      }
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--ink-ghost);
+        display: inline-block;
+      }
+      .dot.reading {
+        background: var(--green);
+      }
+      .check {
+        font-size: 9px;
+        line-height: 1;
+        color: var(--ink-faint);
+      }
+      .page-card-summary {
+        margin-top: 10px;
+        font-size: 13.5px;
+        line-height: 1.75;
+        color: var(--ink-soft);
+        white-space: pre-wrap;
+        max-height: 4.2em;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+
+      /* ============ 改批注编辑态 ============ */
+      .page-card.editing {
+        padding-bottom: 14px;
+      }
+      .edit-area {
+        width: 100%;
+        margin-top: 12px;
+        min-height: 92px;
+        border: none;
+        border-radius: 10px;
+        background: var(--line-soft);
+        padding: 14px 16px;
+        font-family: var(--serif);
+        font-size: 15px;
+        line-height: 1.85;
+        color: var(--ink);
+        resize: vertical;
+        outline: none;
+      }
+      .edit-actions {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      /* ============ 对谈 ============ */
+      .talk {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 26px 4px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--line) transparent;
+      }
+      .talk::-webkit-scrollbar {
+        width: 6px;
+      }
+      .talk::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .talk::-webkit-scrollbar-thumb {
+        background: var(--line);
+        border-radius: 3px;
+      }
+      .talk::-webkit-scrollbar-thumb:hover {
+        background: var(--ink-ghost);
+      }
+
+      .history-toggle {
+        align-self: flex-start;
+        background: none;
+        border: none;
+        font: inherit;
+        font-size: 11.5px;
+        letter-spacing: 0.08em;
+        color: var(--ink-faint);
+        padding: 2px 0;
+        cursor: pointer;
+        transition: color 0.2s ease;
+      }
+      .history-toggle:hover {
+        color: var(--ink-soft);
+      }
+
+      .msg.teacher {
+        font-family: var(--serif);
+        font-size: 15.5px;
+        line-height: 1.9;
+        color: var(--ink);
+        max-width: 82%;
+        align-self: flex-start;
+        letter-spacing: 0.01em;
+        white-space: pre-wrap;
+      }
+      .msg.user {
+        align-self: flex-end;
+        max-width: 76%;
+        background: var(--user-bubble);
+        padding: 11px 16px;
+        border-radius: 14px 14px 4px 14px;
+        font-size: 14.5px;
+        line-height: 1.7;
+        color: var(--ink);
+        white-space: pre-wrap;
+      }
+      .msg.maintenance {
+        align-self: center;
+        background: var(--line-soft);
+        color: var(--ink-faint);
+        font-size: 11.5px;
+        letter-spacing: 0.04em;
+        padding: 5px 14px;
+        border-radius: 999px;
+      }
+
+      .typing-indicator {
+        display: flex;
+        gap: 5px;
+        padding: 6px 0;
+        align-self: flex-start;
+      }
+      .typing-indicator span {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--ink-ghost);
+        animation: blink 1.3s infinite;
+      }
+      .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      @keyframes blink {
+        0%,
+        60%,
+        100% {
+          opacity: 0.3;
+        }
+        30% {
+          opacity: 1;
+        }
+      }
+
+      /* ============ 落笔处 ============ */
+      .composer {
+        flex-shrink: 0;
+        padding: 14px 0 24px;
+        border-top: 1px solid var(--line-soft);
+      }
+      .composer-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--paper-raised);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 5px 5px 5px 20px;
+        transition:
+          border-color 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+      .composer-row:focus-within {
+        border-color: var(--ink-ghost);
+        box-shadow: 0 2px 12px -6px rgba(70, 56, 36, 0.16);
+      }
+      .composer-row input {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        background: none;
+        font: inherit;
+        font-size: 14.5px;
+        color: var(--ink);
+        outline: none;
+      }
+      .composer-row input::placeholder {
+        color: var(--ink-ghost);
+      }
+
+      .send-btn {
+        border: none;
+        background: var(--ink);
+        color: #fcfbf8;
+        font: inherit;
+        font-size: 13px;
+        letter-spacing: 0.06em;
+        height: 34px;
+        padding: 0 20px;
+        border-radius: 999px;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: opacity 0.2s ease;
+      }
+      .send-btn:hover {
+        opacity: 0.86;
+      }
+      .send-btn:disabled {
+        opacity: 0.3;
+        cursor: default;
+      }
+
+      .say-more {
+        display: block;
+        margin: 8px auto 0;
+        background: none;
+        border: none;
+        font: inherit;
+        font-size: 11.5px;
+        letter-spacing: 0.08em;
+        color: var(--ink-ghost);
+        padding: 6px 12px;
+        cursor: pointer;
+        transition: color 0.2s ease;
+      }
+      .say-more:hover {
+        color: var(--ink-faint);
+      }
+
+      .maintenance-menu {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 2px;
+        animation: menuIn 0.26s cubic-bezier(0.2, 0.8, 0.3, 1);
+      }
+      @keyframes menuIn {
+        from {
+          opacity: 0;
+          transform: translateY(-5px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .maintenance-menu button {
+        border: 1px solid var(--line);
+        background: var(--paper-raised);
+        color: var(--ink-soft);
+        font: inherit;
+        font-size: 12.5px;
+        letter-spacing: 0.04em;
+        padding: 8px 18px;
+        border-radius: 999px;
+        cursor: pointer;
+        transition:
+          border-color 0.2s ease,
+          color 0.2s ease,
+          background 0.2s ease;
+      }
+      .maintenance-menu button:hover {
+        border-color: var(--ink-ghost);
+        color: var(--ink);
+        background: #fdfcfa;
+      }
+      .maintenance-menu button.weak {
+        border-color: transparent;
+        background: transparent;
+        color: var(--ink-ghost);
+      }
+      .maintenance-menu button.weak:hover {
+        color: var(--ink-faint);
+        background: transparent;
+      }
+
+      /* ============ 提示条 ============ */
+      .notice {
+        margin-bottom: 2px;
+        padding: 12px 18px;
+        border-radius: 12px;
+        background: var(--line-soft);
+        color: var(--ink-soft);
+        font-size: 12.5px;
+        line-height: 1.6;
+        text-align: center;
+        letter-spacing: 0.02em;
+        flex-shrink: 0;
+      }
+
+      .closed-note {
+        flex-shrink: 0;
+        padding: 20px 0 28px;
+        text-align: center;
+        font-size: 12px;
+        letter-spacing: 0.1em;
+        color: var(--ink-ghost);
+      }
+
+      @media (max-width: 1080px) {
+        .proto {
+          grid-template-columns: 1fr;
+        }
+        .nav {
+          display: none;
+        }
+        .stage {
+          padding: 24px;
+        }
+        .window {
+          height: calc(100vh - 48px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="proto">
+      <!-- ============ 原型控制面板 ============ -->
+      <aside class="nav">
+        <div class="nav-brand">轻叩伴读</div>
+        <div class="nav-sub">TapAlong · Desktop</div>
+
+        <div class="nav-group">
+          <div class="nav-group-title">流程模拟</div>
+          <button class="nav-item active" data-mode="flow">可操作流程</button>
+          <button class="nav-item reset" id="reset-flow">↺ 重置流程</button>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-group-title">静态样张</div>
+          <button class="nav-item" data-static="failed-save">
+            收进页边 · 失败
+          </button>
+          <button class="nav-item" data-static="suggest-close">
+            老师建议合上
+          </button>
+          <button class="nav-item" data-static="closed">已合上</button>
+          <button class="nav-item" data-static="deep">页叠过深</button>
+          <button class="nav-item" data-static="teacher-no-response">
+            老师没应声
+          </button>
+        </div>
+      </aside>
+
+      <!-- ============ 舞台 ============ -->
+      <main class="stage">
+        <div class="window">
+          <!-- 窗口控制条 -->
+          <div class="window-chrome">
+            <span class="light red"></span>
+            <span class="light yellow"></span>
+            <span class="light green"></span>
+          </div>
+
+          <!-- 应用内容 -->
+          <div class="window-body">
+            <div id="screen-root"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      /* ============================================================
+     工具函数
+     ============================================================ */
+      function escapeHtml(str) {
+        if (str == null) return "";
+        return String(str).replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      }
+
+      function extractKeyword(body) {
+        const firstLine = (body || "").split("\n")[0].trim();
+        const clean = firstLine.replace(/[，。、；：""''？！\s]/g, "");
+        return clean.slice(0, 6) || "这页";
+      }
+
+      function scrollToBottom() {
+        requestAnimationFrame(() => {
+          const talk = document.querySelector(".talk");
+          if (talk) talk.scrollTop = talk.scrollHeight;
+        });
+      }
+
+      /* ============================================================
+     老师话术
+     ============================================================ */
+      function teacherQuestion(page) {
+        const kw = extractKeyword(page.body);
+        const lines = [
+          `你写的"${kw}"是指什么？能再具体说说吗？`,
+          `如果按你说的，"${kw}"由谁决定？是任务牵引，还是你主动分配？`,
+          `那分配完之后，剩下的注意力去了哪里？`,
+          `你说"${kw}"，有反例吗？`,
+        ];
+        return lines[Math.min(page.teacherTurn, lines.length - 1)];
+      }
+
+      /* ============================================================
+     状态
+     ============================================================ */
+      function createFlowState() {
+        return {
+          mode: "flow",
+          staticId: null,
+          stack: [],
+          currentIndex: -1,
+          view: "new",
+          overlay: null,
+          mockFail: false,
+          draftBody: "",
+          draftSource: "",
+          replyDraft: "",
+          typing: false,
+          sayMoreOpen: false,
+          appendMode: false,
+        };
+      }
+
+      let state = createFlowState();
+      let flowSnapshot = null;
+
+      function currentPage(s) {
+        return s.stack[s.currentIndex] || null;
+      }
+
+      /* ============================================================
+     静态样张
+     ============================================================ */
+      function demoPage(overrides = {}) {
+        return {
+          id: Math.random(),
+          title: "注意力是有限资源",
+          body: "注意力像带宽，分配决定一个人能同时处理多少事。",
+          source: "课程",
+          status: "reading",
+          messages: [
+            {
+              role: "teacher",
+              text: '你写的"有限资源"是指总量固定，还是指分配可变？',
+            },
+            { role: "user", text: "我指的是总量固定，但分配可变……" },
+            { role: "teacher", text: "那如果总量固定，为什么……？" },
+            { role: "maintenance", text: "改过批注了" },
+            {
+              role: "teacher",
+              text: '修改后更清楚了。不过"分配"的机制，你能再具体说说吗？',
+            },
+          ],
+          teacherTurn: 2,
+          editing: false,
+          editDraft: "",
+          suggestClose: false,
+          historyOpen: false,
+          ...overrides,
+        };
+      }
+
+      function buildStaticState(id) {
+        const s = createFlowState();
+        s.mode = "static";
+        s.staticId = id;
+
+        switch (id) {
+          case "failed-save":
+            s.view = "new";
+            s.overlay = "failed";
+            s.draftBody = "注意力像带宽，分配决定一个人能同时处理多少事。";
+            s.draftSource = "课程";
+            break;
+
+          case "suggest-close": {
+            const p = demoPage();
+            p.messages.push({
+              role: "teacher",
+              text: "暂时没有要再追问的了。如果你觉得可以了，合上这页就行。",
+            });
+            s.stack = [p];
+            s.currentIndex = 0;
+            s.view = "companion";
+            break;
+          }
+
+          case "closed": {
+            const p = demoPage({ status: "closed" });
+            p.messages.push({ role: "teacher", text: "好，这页先读到这儿。" });
+            s.stack = [p];
+            s.currentIndex = 0;
+            s.view = "companion";
+            break;
+          }
+
+          case "deep":
+            s.view = "new";
+            s.stack = [demoPage(), demoPage(), demoPage(), demoPage()];
+            s.currentIndex = 3;
+            s.draftBody = "";
+            s.draftSource = "";
+            break;
+
+          case "teacher-no-response": {
+            const p = demoPage();
+            s.stack = [p];
+            s.currentIndex = 0;
+            s.view = "companion";
+            s.overlay = "teacher-no-response";
+            break;
+          }
+        }
+
+        return s;
+      }
+
+      /* ============================================================
+     渲染
+     ============================================================ */
+      function statusHtml(status) {
+        switch (status) {
+          case "reading":
+            return '<i class="dot reading"></i>在读';
+          case "closed":
+            return '<span class="check">✓</span>已合上';
+          case "saving":
+            return '<i class="dot"></i>正在收进页边';
+          case "failed":
+            return '<i class="dot"></i>没送进去';
+          default:
+            return '<i class="dot"></i>在读';
+        }
+      }
+
+      function appBar(s, { back = false } = {}) {
+        return `
+      <header class="app-bar">
+        <div>${back ? '<button class="back-btn" data-act="back">← 翻回去</button>' : ""}</div>
+        <div class="app-title">轻叩伴读</div>
+        <button class="text-btn">设置</button>
+      </header>`;
+      }
+
+      function renderOverlay(s) {
+        if (s.overlay === "saving") {
+          return `<div class="overlay"><div class="overlay-inner"><div class="spinner"></div><p>正在收进页边……</p></div></div>`;
+        }
+        if (s.overlay === "failed") {
+          return `<div class="overlay"><div class="overlay-inner"><p>这一句没送进去。</p><div class="overlay-actions"><button class="btn-ghost" data-act="back-to-edit">回到页边</button><button class="btn-primary small" data-act="retry-save">再试一次</button></div></div></div>`;
+        }
+        if (s.overlay === "teacher-no-response") {
+          return `<div class="overlay"><div class="overlay-inner"><p>老师暂时没应声，要再试一次吗？</p><div class="overlay-actions"><button class="btn-primary small" data-act="retry-teacher">再试一次</button></div></div></div>`;
+        }
+        return "";
+      }
+
+      function renderNew(s) {
+        const canBack = s.stack.length > 0;
+        const showDeep = s.stack.length >= 4;
+        return `
+      <div class="screen active">
+        ${appBar(s, { back: canBack })}
+        <div class="column">
+          <div class="new-page">
+            ${showDeep ? '<div class="notice">页叠得有点深了，先合上一页再继续？</div>' : ""}
+            <textarea class="note-field" data-field="draftBody" placeholder="读到哪里，记一句……">${escapeHtml(s.draftBody)}</textarea>
+            <div class="source-field">
+              <span class="label">出处</span>
+              <input type="text" data-field="draftSource" placeholder="书名 / 网页 / 电影 / 课程" value="${escapeHtml(s.draftSource)}">
+            </div>
+            <div class="submit-row">
+              <button class="btn-primary" data-act="submit-new">收进页边</button>
+            </div>
+          </div>
+        </div>
+        ${renderOverlay(s)}
+      </div>`;
+      }
+
+      function renderPageCard(s, page) {
+        if (page.editing) {
+          return `
+        <div class="page-card editing">
+          <div class="page-card-title">${escapeHtml(page.title)}</div>
+          <div class="page-card-meta">
+            <span>出处：${escapeHtml(page.source || "—")}</span>
+            <span class="status">${statusHtml(page.status)}</span>
+          </div>
+          <textarea class="edit-area" data-field="editDraft">${escapeHtml(page.editDraft !== undefined ? page.editDraft : page.body)}</textarea>
+          <div class="edit-actions">
+            <button class="btn-text" data-act="cancel-edit">取消</button>
+            <button class="btn-primary small" data-act="save-edit">收好批注</button>
+          </div>
+        </div>`;
+        }
+        return `
+      <div class="page-card">
+        <div class="page-card-title">${escapeHtml(page.title)}</div>
+        <div class="page-card-meta">
+          <span>出处：${escapeHtml(page.source || "—")}</span>
+          <span class="status">${statusHtml(page.status)}</span>
+        </div>
+        <div class="page-card-summary">${escapeHtml(page.body)}</div>
+      </div>`;
+      }
+
+      function renderMessages(page) {
+        const all = page.messages;
+        const shouldFold = !page.historyOpen && all.length > 4;
+        const visible = shouldFold ? all.slice(-4) : all;
+        let html = "";
+
+        if (shouldFold) {
+          html += `<button class="history-toggle" data-act="toggle-history">前面聊过的 ▸</button>`;
+        } else if (page.historyOpen && all.length > 4) {
+          html += `<button class="history-toggle" data-act="toggle-history">收起前面聊过的 ▴</button>`;
+        }
+
+        html += visible
+          .map((m) => {
+            if (m.role === "teacher")
+              return `<div class="msg teacher">${escapeHtml(m.text)}</div>`;
+            if (m.role === "user")
+              return `<div class="msg user">${escapeHtml(m.text)}</div>`;
+            return `<div class="msg maintenance">${escapeHtml(m.text)}</div>`;
+          })
+          .join("");
+
+        return html;
+      }
+
+      function renderComposer(s) {
+        const isAppend = s.appendMode;
+        const placeholder = isAppend ? "补一句……" : "写下你的想法……";
+        const btnText = isAppend ? "补一句" : "落笔";
+        const act = isAppend ? "submit-append" : "send";
+
+        return `
+      <div class="composer">
+        <div class="composer-row">
+          <input type="text" data-field="replyDraft" placeholder="${placeholder}" value="${escapeHtml(s.replyDraft)}" ${s.typing ? "disabled" : ""}>
+          <button class="send-btn" data-act="${act}" ${s.typing ? "disabled" : ""}>${btnText}</button>
+        </div>
+        <button class="say-more" data-act="toggle-say-more">想留一句？ ${s.sayMoreOpen ? "▴" : "▾"}</button>
+        ${
+          s.sayMoreOpen
+            ? `
+          <div class="maintenance-menu">
+            <button data-act="edit-note">改批注</button>
+            <button data-act="append-note">补一句</button>
+            <button data-act="new-page">另起一页</button>
+            <button class="weak" data-act="close-page">合上这页</button>
+          </div>`
+            : ""
+        }
+      </div>`;
+      }
+
+      function renderCompanion(s) {
+        const page = currentPage(s);
+        if (!page) {
+          s.view = "new";
+          return renderNew(s);
+        }
+        const canBack = s.stack.length > 1;
+        const isClosed = page.status === "closed";
+
+        return `
+      <div class="screen active">
+        ${appBar(s, { back: canBack })}
+        <div class="column">
+          ${renderPageCard(s, page)}
+          <div class="talk">
+            ${renderMessages(page)}
+            ${s.typing ? '<div class="typing-indicator"><span></span><span></span><span></span></div>' : ""}
+          </div>
+          ${
+            isClosed
+              ? '<div class="closed-note">这页已合上</div>'
+              : renderComposer(s)
+          }
+        </div>
+        ${renderOverlay(s)}
+      </div>`;
+      }
+
+      function renderView(s) {
+        if (s.view === "new") return renderNew(s);
+        if (s.view === "companion") return renderCompanion(s);
+        return "";
+      }
+
+      function updateNav() {
+        document.querySelectorAll(".nav-item").forEach((el) => {
+          el.classList.remove("active");
+          if (el.dataset.mode === "flow" && state.mode === "flow")
+            el.classList.add("active");
+          if (
+            el.dataset.static &&
+            state.mode === "static" &&
+            el.dataset.static === state.staticId
+          )
+            el.classList.add("active");
+        });
+      }
+
+      function render() {
+        updateNav();
+        document.getElementById("screen-root").innerHTML = renderView(state);
+        scrollToBottom();
+      }
+
+      /* ============================================================
+     核心流程动作
+     ============================================================ */
+      function completeSave() {
+        const s = state;
+        const body = s.draftBody.trim();
+        const source = s.draftSource.trim();
+        const page = {
+          id: Date.now() + Math.random(),
+          title: extractKeyword(body),
+          body,
+          source,
+          status: "reading",
+          messages: [],
+          teacherTurn: 0,
+          editing: false,
+          editDraft: "",
+          suggestClose: false,
+          historyOpen: false,
+        };
+
+        page.messages.push({ role: "teacher", text: teacherQuestion(page) });
+        page.teacherTurn = 1;
+
+        s.stack.push(page);
+        s.currentIndex = s.stack.length - 1;
+        s.draftBody = "";
+        s.draftSource = "";
+        s.overlay = null;
+        s.view = "companion";
+        s.sayMoreOpen = false;
+        s.appendMode = false;
+        s.replyDraft = "";
+        render();
+      }
+
+      function submitNew() {
+        const s = state;
+        if (!s.draftBody.trim()) {
+          const ta = document.querySelector('[data-field="draftBody"]');
+          if (ta) ta.focus();
+          return;
+        }
+        s.overlay = "saving";
+        render();
+        setTimeout(() => {
+          if (s.mockFail) {
+            s.mockFail = false;
+            s.overlay = "failed";
+            render();
+            return;
+          }
+          completeSave();
+        }, 1100);
+      }
+
+      function sendReply() {
+        const s = state;
+        const page = currentPage(s);
+        if (!page || s.typing) return;
+        const text = s.replyDraft.trim();
+        if (!text) return;
+
+        page.messages.push({ role: "user", text });
+        s.replyDraft = "";
+        s.typing = true;
+        render();
+
+        setTimeout(() => {
+          s.typing = false;
+          if (page.teacherTurn >= 4) {
+            page.messages.push({
+              role: "teacher",
+              text: "暂时没有要再追问的了。如果你觉得可以了，合上这页就行。",
+            });
+          } else {
+            page.messages.push({
+              role: "teacher",
+              text: teacherQuestion(page),
+            });
+            page.teacherTurn++;
+          }
+          render();
+        }, 850);
+      }
+
+      function submitAppend() {
+        const s = state;
+        const page = currentPage(s);
+        if (!page) return;
+        const text = s.replyDraft.trim();
+        if (!text) return;
+
+        page.body = page.body + "\n\n" + text;
+        const brief = text.length > 16 ? text.slice(0, 16) + "…" : text;
+        page.messages.push({ role: "maintenance", text: `补了一句：${brief}` });
+        s.replyDraft = "";
+        s.appendMode = false;
+        s.typing = true;
+        render();
+
+        setTimeout(() => {
+          s.typing = false;
+          page.messages.push({
+            role: "teacher",
+            text: "你把刚才的想法补进来了。那么分配是主动的，还是被任务牵引的？",
+          });
+          render();
+        }, 850);
+      }
+
+      function editNote() {
+        const s = state;
+        const page = currentPage(s);
+        if (!page) return;
+        page.editing = true;
+        page.editDraft = page.body;
+        s.sayMoreOpen = false;
+        render();
+      }
+
+      function cancelEdit() {
+        const page = currentPage(state);
+        if (page) page.editing = false;
+        render();
+      }
+
+      function saveEdit() {
+        const s = state;
+        const page = currentPage(s);
+        if (!page) return;
+
+        page.body = (page.editDraft || "").trim() || page.body;
+        page.title = extractKeyword(page.body);
+        page.editing = false;
+        page.messages.push({ role: "maintenance", text: "改过批注了" });
+        s.typing = true;
+        render();
+
+        setTimeout(() => {
+          s.typing = false;
+          page.messages.push({
+            role: "teacher",
+            text: '修改后更清楚了。不过"分配"的机制，你能再具体说说吗？',
+          });
+          render();
+        }, 850);
+      }
+
+      function startAppend() {
+        const s = state;
+        s.appendMode = true;
+        s.replyDraft = "";
+        s.sayMoreOpen = false;
+        render();
+      }
+
+      function startNewPage() {
+        const s = state;
+        s.view = "new";
+        s.draftBody = "";
+        s.draftSource = "";
+        s.sayMoreOpen = false;
+        s.appendMode = false;
+        s.replyDraft = "";
+        render();
+      }
+
+      function closePage() {
+        const s = state;
+        const page = currentPage(s);
+        if (!page) return;
+
+        page.status = "closed";
+        page.messages.push({ role: "teacher", text: "好，这页先读到这儿。" });
+        s.sayMoreOpen = false;
+        s.appendMode = false;
+        render();
+
+        setTimeout(() => {
+          s.stack.pop();
+          while (
+            s.stack.length > 0 &&
+            s.stack[s.stack.length - 1].status === "closed"
+          ) {
+            s.stack.pop();
+          }
+          if (s.stack.length > 0) {
+            s.currentIndex = s.stack.length - 1;
+            s.view = "companion";
+          } else {
+            s.currentIndex = -1;
+            s.view = "new";
+            s.draftBody = "";
+            s.draftSource = "";
+          }
+          render();
+        }, 1000);
+      }
+
+      function handleAction(act) {
+        const s = state;
+        switch (act) {
+          case "back":
+            if (s.view === "new") {
+              if (s.stack.length > 0) {
+                s.view = "companion";
+                s.currentIndex = s.stack.length - 1;
+              }
+            } else if (s.view === "companion") {
+              if (s.currentIndex > 0) s.currentIndex--;
+            }
+            render();
+            break;
+
+          case "submit-new":
+            submitNew();
+            break;
+
+          case "back-to-edit":
+            s.overlay = null;
+            render();
+            break;
+
+          case "retry-save":
+            s.overlay = "saving";
+            render();
+            setTimeout(completeSave, 1100);
+            break;
+
+          case "retry-teacher":
+            s.overlay = null;
+            render();
+            break;
+
+          case "send":
+            sendReply();
+            break;
+
+          case "submit-append":
+            submitAppend();
+            break;
+
+          case "toggle-say-more":
+            s.sayMoreOpen = !s.sayMoreOpen;
+            render();
+            break;
+
+          case "edit-note":
+            editNote();
+            break;
+
+          case "append-note":
+            startAppend();
+            break;
+
+          case "new-page":
+            startNewPage();
+            break;
+
+          case "close-page":
+            closePage();
+            break;
+
+          case "cancel-edit":
+            cancelEdit();
+            break;
+
+          case "save-edit":
+            saveEdit();
+            break;
+
+          case "toggle-history": {
+            const page = currentPage(s);
+            if (page) {
+              page.historyOpen = !page.historyOpen;
+              render();
+            }
+            break;
+          }
+        }
+      }
+
+      /* ============================================================
+     事件绑定
+     ============================================================ */
+      document.getElementById("screen-root").addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-act]");
+        if (!btn) return;
+        e.preventDefault();
+        handleAction(btn.dataset.act);
+      });
+
+      document.getElementById("screen-root").addEventListener("input", (e) => {
+        const field = e.target.dataset.field;
+        if (!field) return;
+        const value = e.target.value;
+        if (field === "editDraft") {
+          const page = currentPage(state);
+          if (page) page.editDraft = value;
+        } else {
+          state[field] = value;
+        }
+      });
+
+      document.querySelectorAll('.nav-item[data-mode="flow"]').forEach((el) => {
+        el.addEventListener("click", () => {
+          if (state.mode === "static" && flowSnapshot) {
+            state = flowSnapshot;
+            flowSnapshot = null;
+          }
+          state.mode = "flow";
+          render();
+        });
+      });
+
+      document.querySelectorAll(".nav-item[data-static]").forEach((el) => {
+        el.addEventListener("click", () => {
+          if (state.mode === "flow") flowSnapshot = state;
+          state = buildStaticState(el.dataset.static);
+          render();
+        });
+      });
+
+      document.getElementById("reset-flow").addEventListener("click", () => {
+        flowSnapshot = null;
+        state = createFlowState();
+        render();
+      });
+
+      /* 启动 */
+      render();
+    </script>
+  </body>
+</html>
