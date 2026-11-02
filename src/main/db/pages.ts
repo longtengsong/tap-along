@@ -19,6 +19,11 @@ interface PageRow {
   teaching_round_count: number;
 }
 
+interface OpeningMessage {
+  text: string;
+  requestId: string;
+}
+
 const MESSAGE_ROLES = new Set<PageMessageRole>([
   'teacher',
   'user',
@@ -196,15 +201,35 @@ export class PagesRepository {
     `);
   }
 
-  create(body: string, source: string): PageSnapshot {
-    const result = this.insertStatement.run(body, source || null);
-    const page = this.findById(Number(result.lastInsertRowid));
+  create(
+    body: string,
+    source: string,
+    openingMessage?: OpeningMessage,
+  ): PageSnapshot {
+    return this.withTransaction(() => {
+      const result = this.insertStatement.run(body, source || null);
+      const pageId = Number(result.lastInsertRowid);
 
-    if (!page) {
-      throw new Error('新页边写入后无法读取');
-    }
+      if (openingMessage?.text) {
+        const messages: PageMessageSnapshot[] = [
+          {
+            role: 'teacher',
+            text: openingMessage.text,
+            requestId: openingMessage.requestId,
+            createdAt: Date.now(),
+          },
+        ];
+        this.updateLogStatement.run(JSON.stringify(messages), pageId);
+      }
 
-    return page;
+      const page = this.findById(pageId);
+
+      if (!page) {
+        throw new Error('新页边写入后无法读取');
+      }
+
+      return page;
+    });
   }
 
   findById(pageId: number): PageSnapshot | null {

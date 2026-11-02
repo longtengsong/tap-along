@@ -39,6 +39,24 @@ test('页边仓储应创建并读回完整数据', async (t) => {
   assert.deepEqual(savedPage, page, '按编号读取的内容应与创建结果一致');
 });
 
+test('页边仓储应在创建事务中写入首条老师叩问', async (t) => {
+  const { repository } = await createRepository(t);
+  const page = repository.create('注意力像带宽。', '课程', {
+    text: '你写的“注意力像带宽”是指什么？能再具体说说吗？',
+    requestId: 'opening',
+  });
+
+  assert.equal(page.title, '注意力像带宽。');
+  assert.equal(page.teachingRoundCount, 0);
+  assert.equal(page.messages.length, 1);
+  assert.equal(page.messages[0].role, 'teacher');
+  assert.equal(page.messages[0].requestId, 'opening');
+  assert.equal(
+    page.messages[0].text,
+    '你写的“注意力像带宽”是指什么？能再具体说说吗？',
+  );
+});
+
 test('页边仓储应处理空出处和无效编号', async (t) => {
   const { repository } = await createRepository(t);
   const page = repository.create('一行笔记', '');

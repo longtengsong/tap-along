@@ -10,6 +10,7 @@ import type {
 } from '../../shared/pages.ts';
 import { PAGE_CHANNELS } from '../../shared/pages.ts';
 import type { PagesRepository } from '../db/pages.ts';
+import { createOpeningTeacherMessage } from '../services/teacher.ts';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -134,7 +135,10 @@ export const savePage = (
   try {
     return {
       ok: true,
-      page: repository.create(input.body, input.source),
+      page: repository.create(input.body, input.source, {
+        text: createOpeningTeacherMessage(input.body),
+        requestId: 'opening',
+      }),
     };
   } catch (error) {
     console.error('保存页边失败：', error);

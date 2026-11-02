@@ -276,8 +276,10 @@ const respondAfterMaintenance = async (
 };
 
 const completeSave = (page: PageRecord) => {
-  page.messages.push(message('teacher', teacherQuestion(page)));
-  page.teacherTurn = 1;
+  if (page.messages.length === 0) {
+    page.messages.push(message('teacher', teacherQuestion(page)));
+  }
+  page.teacherTurn = Math.max(page.teacherTurn, 1);
   state.pages.push(page);
   state.currentIndex = state.pages.length - 1;
   state.draft.body = '';

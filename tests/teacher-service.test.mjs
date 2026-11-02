@@ -11,6 +11,7 @@ import {
 import { PagesRepository } from '../src/main/db/pages.ts';
 import {
   TeacherService,
+  createOpeningTeacherMessage,
   createMockTeacherStream,
 } from '../src/main/services/teacher.ts';
 
@@ -374,4 +375,19 @@ test('中英文混合问题应优先使用中文老师回复', async (t) => {
 
   assert.match(done.reply, /如果按你说的/);
   assert.doesNotMatch(done.reply, /If that's what you mean/);
+});
+
+test('首条老师叩问应跟随笔记正文语言', () => {
+  assert.match(
+    createOpeningTeacherMessage('注意力像带宽。'),
+    /你写的“注意力像带宽”/,
+  );
+  assert.match(
+    createOpeningTeacherMessage('Attention is a limited resource.'),
+    /When you wrote "Attention is a limited resource"/,
+  );
+  assert.match(
+    createOpeningTeacherMessage('注意 attention 是有限的。'),
+    /你写的“注意atte”/,
+  );
 });

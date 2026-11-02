@@ -59,8 +59,33 @@ const parseTeacherPayload = (payload: unknown): TeacherAskPayload | null => {
   };
 };
 
+const extractQuestionKeyword = (body: string, language: ReplyLanguage) => {
+  const firstLine = body.split(/\r?\n/, 1)[0]?.trim() ?? '';
+
+  if (language === 'en') {
+    return (
+      firstLine
+        .replace(/[.,!?;:"']/g, '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 5)
+        .join(' ') || 'this'
+    );
+  }
+
+  return firstLine.replace(/[，。、；：“”‘’？！\s]/g, '').slice(0, 6) || '这页';
+};
+
+export const createOpeningTeacherMessage = (body: string) => {
+  const replyLanguage = resolveMockReplyLanguage(body);
+
+  return translateFixedMessage(replyLanguage, 'teacherFallback.firstQuestion', {
+    keyword: extractQuestionKeyword(body, replyLanguage),
+  });
+};
+
 const createMockReply = (page: PageSnapshot, replyLanguage: ReplyLanguage) => {
-  const keyword = page.title.replace(/[，。、；：“”‘’？！\s]/g, '').slice(0, 6);
+  const keyword = extractQuestionKeyword(page.body, replyLanguage);
 
   if (page.teachingRoundCount >= 3) {
     return {

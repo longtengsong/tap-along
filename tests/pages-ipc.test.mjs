@@ -25,8 +25,8 @@ const samplePage = {
 test('保存页边时应校验正文并清理出处', () => {
   const calls = [];
   const repository = {
-    create(body, source) {
-      calls.push({ body, source });
+    create(body, source, openingMessage) {
+      calls.push({ body, source, openingMessage });
       return samplePage;
     },
   };
@@ -37,7 +37,16 @@ test('保存页边时应校验正文并清理出处', () => {
   });
 
   assert.deepEqual(result, { ok: true, page: samplePage });
-  assert.deepEqual(calls, [{ body: '注意力像带宽。', source: '课程' }]);
+  assert.deepEqual(calls, [
+    {
+      body: '注意力像带宽。',
+      source: '课程',
+      openingMessage: {
+        text: '你写的“注意力像带宽”是指什么？能再具体说说吗？',
+        requestId: 'opening',
+      },
+    },
+  ]);
 });
 
 test('保存页边时应拒绝无效正文', () => {
