@@ -1,19 +1,29 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
 const emit = defineEmits<{
   edit: [];
   append: [];
   newPage: [];
   close: [];
 }>();
+
+const { t } = useI18n();
 </script>
 
 <template>
-  <div class="maintenance-menu" aria-label="页边维护">
-    <button type="button" @click="emit('edit')">改批注</button>
-    <button type="button" @click="emit('append')">补一句</button>
-    <button type="button" @click="emit('newPage')">另起一页</button>
+  <div class="maintenance-menu" :aria-label="t('companion.maintenanceMenu')">
+    <button type="button" @click="emit('edit')">
+      {{ t('actions.edit') }}
+    </button>
+    <button type="button" @click="emit('append')">
+      {{ t('actions.append') }}
+    </button>
+    <button type="button" @click="emit('newPage')">
+      {{ t('actions.newPage') }}
+    </button>
     <button class="maintenance-menu__weak" type="button" @click="emit('close')">
-      合上这页
+      {{ t('actions.closePage') }}
     </button>
   </div>
 </template>

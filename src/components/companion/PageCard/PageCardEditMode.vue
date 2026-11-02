@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import AppButton from '@/components/ui/AppButton.vue';
 import AppTextArea from '@/components/ui/AppTextArea.vue';
 
@@ -11,18 +12,24 @@ const emit = defineEmits<{
   save: [];
   cancel: [];
 }>();
+
+const { t } = useI18n();
 </script>
 
 <template>
   <AppTextArea
     class="edit-area"
     :model-value="value"
-    aria-label="编辑页边正文"
+    :aria-label="t('companion.editBodyAria')"
     @update:model-value="emit('update:value', $event)"
   />
   <div class="edit-actions">
-    <AppButton variant="text" @click="emit('cancel')">取消</AppButton>
-    <AppButton size="small" @click="emit('save')">收好批注</AppButton>
+    <AppButton variant="text" @click="emit('cancel')">
+      {{ t('common.cancel') }}
+    </AppButton>
+    <AppButton size="small" @click="emit('save')">
+      {{ t('actions.saveEdit') }}
+    </AppButton>
   </div>
 </template>
 
