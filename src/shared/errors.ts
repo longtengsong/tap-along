@@ -11,6 +11,12 @@ export const APP_ERROR_CODES = [
   'TEACHER_NO_RESPONSE',
   'PAGE_CLOSED',
   'MAINTENANCE_FAILED',
+  'API_KEY_REQUIRED',
+  'SECURE_STORAGE_UNAVAILABLE',
+  'INVALID_PROVIDER',
+  'INVALID_MODEL',
+  'INVALID_BASE_URL',
+  'CONFIG_FAILED',
   'UNKNOWN_ERROR',
 ] as const;
 
@@ -29,5 +35,11 @@ export const ERROR_MESSAGE_KEYS = {
   TEACHER_NO_RESPONSE: 'errors.teacherNoResponse',
   PAGE_CLOSED: 'errors.pageClosed',
   MAINTENANCE_FAILED: 'errors.maintenanceFailed',
+  API_KEY_REQUIRED: 'errors.apiKeyRequired',
+  SECURE_STORAGE_UNAVAILABLE: 'errors.secureStorageUnavailable',
+  INVALID_PROVIDER: 'errors.invalidProvider',
+  INVALID_MODEL: 'errors.invalidModel',
+  INVALID_BASE_URL: 'errors.invalidBaseUrl',
+  CONFIG_FAILED: 'errors.configFailed',
   UNKNOWN_ERROR: 'errors.unknown',
 } as const satisfies Record<AppErrorCode, string>;

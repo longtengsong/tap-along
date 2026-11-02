@@ -14,6 +14,11 @@ import {
   type TeacherMaintenancePayload,
   type TeacherResumePayload,
 } from './shared/pages.ts';
+import {
+  PROVIDER_CHANNELS,
+  type ModelProviderId,
+  type SaveModelProviderPayload,
+} from './shared/providers.ts';
 
 const tapAlongBridge: TapAlongBridge = {
   savePage: (payload: SavePagePayload) =>
@@ -49,6 +54,15 @@ const tapAlongBridge: TapAlongBridge = {
     ipcRenderer.on(TEACHER_CHANNELS.done, listener);
     return () => ipcRenderer.removeListener(TEACHER_CHANNELS.done, listener);
   },
+  listProviders: () => ipcRenderer.invoke(PROVIDER_CHANNELS.list),
+  getProvider: (id: ModelProviderId) =>
+    ipcRenderer.invoke(PROVIDER_CHANNELS.get, id),
+  saveProvider: (payload: SaveModelProviderPayload) =>
+    ipcRenderer.invoke(PROVIDER_CHANNELS.save, payload),
+  clearProviderKey: (id: ModelProviderId) =>
+    ipcRenderer.invoke(PROVIDER_CHANNELS.clearKey, id),
+  setActiveProvider: (id: ModelProviderId) =>
+    ipcRenderer.invoke(PROVIDER_CHANNELS.setActive, id),
 };
 
 contextBridge.exposeInMainWorld('tapAlong', tapAlongBridge);

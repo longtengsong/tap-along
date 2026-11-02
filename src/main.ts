@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
+import Store from 'electron-store';
 import started from 'electron-squirrel-startup';
 import {
   allocateDatabasePath,
@@ -9,7 +10,14 @@ import {
 } from './main/db/client';
 import { PagesRepository } from './main/db/pages';
 import { registerPageHandlers } from './main/ipc/pages';
+import { registerProviderHandlers } from './main/ipc/providers';
 import { registerTeacherHandlers } from './main/ipc/teacher';
+import { ElectronSecretCipher } from './main/config/electron-secret-cipher';
+import {
+  ProviderConfigService,
+  type ProviderSettingsStore,
+  type StoredProviderSettings,
+} from './main/services/providers';
 import { TeacherService } from './main/services/teacher';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -73,7 +81,19 @@ if (!hasSingleInstanceLock) {
     try {
       database = openDatabase(allocateDatabasePath(app.getPath('userData')));
       const pagesRepository = new PagesRepository(database);
+      const settingsStore = new Store<{
+        modelProviders?: StoredProviderSettings;
+      }>({ name: 'tap-along-settings' });
+      const providerStore: ProviderSettingsStore = {
+        read: () => settingsStore.get('modelProviders'),
+        write: (settings) => settingsStore.set('modelProviders', settings),
+      };
+
       registerPageHandlers(ipcMain, pagesRepository);
+      registerProviderHandlers(
+        ipcMain,
+        new ProviderConfigService(providerStore, new ElectronSecretCipher()),
+      );
       registerTeacherHandlers(ipcMain, new TeacherService(pagesRepository));
     } catch (error) {
       console.error('Failed to initialize the TapAlong database.', error);
