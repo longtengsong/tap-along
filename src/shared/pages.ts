@@ -50,6 +50,11 @@ export interface EditPagePayload {
   requestId: string;
 }
 
+export interface ClosePagePayload {
+  pageId: number;
+  requestId: string;
+}
+
 export interface ListPagesPayload {
   limit?: number;
 }
@@ -72,6 +77,7 @@ export const PAGE_CHANNELS = {
   list: 'pages:list',
   append: 'pages:append',
   edit: 'pages:edit',
+  close: 'pages:close',
 } as const;
 
 export interface TeacherAskPayload {
@@ -113,7 +119,7 @@ export interface TapAlongBridge {
   listPages?: (payload: ListPagesPayload) => Promise<PageListResult>;
   editPage?: (payload: EditPagePayload) => Promise<PageOperationResult>;
   appendPage?: (payload: AppendPagePayload) => Promise<PageOperationResult>;
-  closePage?: (pageId: number) => Promise<{ ok: boolean }>;
+  closePage?: (payload: ClosePagePayload) => Promise<PageOperationResult>;
   askTeacher?: (payload: TeacherAskPayload) => Promise<TeacherStartResult>;
   onTeacherChunk?: (callback: (event: TeacherChunkEvent) => void) => () => void;
   onTeacherDone?: (callback: (event: TeacherDoneEvent) => void) => () => void;

@@ -286,3 +286,38 @@ test('改批注应拒绝不存在的页边和已合上页', async (t) => {
     reason: 'closed',
   });
 });
+
+test('合上页面应更新状态并写入结构化结束记录', async (t) => {
+  const { repository } = await createRepository(t);
+  const page = repository.create('准备合上的正文。', '课程');
+  const result = repository.closePage(page.id, 'close-1');
+
+  assert.equal(result.ok, true);
+  assert.equal(result.page.status, 'closed');
+  assert.equal(result.page.body, page.body);
+  assert.equal(result.page.teachingRoundCount, 0);
+  assert.equal(result.page.messages.length, 1);
+  assert.equal(result.page.messages[0].role, 'teacher');
+  assert.equal(result.page.messages[0].actionType, 'end');
+  assert.equal(result.page.messages[0].requestId, 'close-1');
+
+  const duplicate = repository.closePage(page.id, 'close-1');
+  assert.equal(duplicate.ok, true);
+  assert.equal(duplicate.page.status, 'closed');
+  assert.equal(duplicate.page.messages.length, 1);
+});
+
+test('合上页面应拒绝不存在的页边并保持幂等', async (t) => {
+  const { repository } = await createRepository(t);
+
+  assert.deepEqual(repository.closePage(999_999, 'close-missing'), {
+    ok: false,
+    reason: 'not_found',
+  });
+
+  const page = repository.create('已合上页。', '');
+  repository.closePage(page.id, 'close-first');
+  const repeated = repository.closePage(page.id, 'close-second');
+  assert.equal(repeated.ok, true);
+  assert.equal(repeated.page.messages.length, 1);
+});

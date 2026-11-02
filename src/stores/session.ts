@@ -9,6 +9,7 @@ import {
 } from '@/shared/conversation-language';
 import type {
   AppendPagePayload,
+  ClosePagePayload,
   EditPagePayload,
   TeacherAskPayload,
   TeacherChunkEvent,
@@ -50,7 +51,9 @@ interface PendingTeacherRequest extends TeacherAskPayload {
 let pendingTeacherRequest: PendingTeacherRequest | null = null;
 let pendingAppendRequest: AppendPagePayload | null = null;
 let pendingEditRequest: EditPagePayload | null = null;
+let pendingCloseRequest: ClosePagePayload | null = null;
 let editRequestInFlight = false;
+let closeRequestInFlight = false;
 let teacherEventsReady = false;
 let restoreStarted = false;
 
@@ -575,11 +578,39 @@ const startNewPage = () => {
 
 const closeCurrentPage = async () => {
   const page = currentPage.value;
-  if (!page) {
+  if (!page || closeRequestInFlight) {
     return;
   }
 
-  page.status = 'closed';
+  const requestId =
+    pendingCloseRequest?.pageId === page.id
+      ? pendingCloseRequest.requestId
+      : createId();
+  pendingCloseRequest = { pageId: page.id, requestId };
+  closeRequestInFlight = true;
+  state.overlay = null;
+  state.errorCode = null;
+  state.sayMoreOpen = false;
+
+  try {
+    const response = await tapAlongApi.closePage(page.id, requestId);
+
+    if (!response.ok) {
+      state.overlay = 'failed';
+      state.errorCode = response.errorCode ?? 'MAINTENANCE_FAILED';
+      return;
+    }
+
+    pendingCloseRequest = null;
+    page.status = 'closed';
+  } catch {
+    state.overlay = 'failed';
+    state.errorCode = 'MAINTENANCE_FAILED';
+    return;
+  } finally {
+    closeRequestInFlight = false;
+  }
+
   const latestUserText =
     [...page.messages].reverse().find((item) => item.role === 'user')?.text ??
     page.body;
@@ -603,7 +634,6 @@ const closeCurrentPage = async () => {
     pendingTeacherRequest = null;
   }
 
-  await tapAlongApi.closePage(page.id);
   await wait(1000);
 
   state.pages.splice(state.currentIndex, 1);

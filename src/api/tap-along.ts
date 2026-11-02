@@ -9,6 +9,8 @@ import type {
 } from '@/shared/pages';
 import type { AppErrorCode } from '@/shared/errors';
 import { i18n } from '@/i18n';
+import { translateFixedMessage } from '@/i18n/fixed-messages';
+import { resolveMockReplyLanguage } from '@/shared/conversation-language';
 import type { PageRecord } from '@/types/session';
 
 interface PageUiResult {
@@ -31,31 +33,46 @@ export const extractKeyword = (body: string) => {
   return clean.slice(0, 6) || '这页';
 };
 
-const toPageRecord = (page: PageSnapshot): PageRecord => ({
-  id: page.id,
-  title: page.title,
-  body: page.body,
-  source: page.source,
-  status: page.status,
-  messages: page.messages.map((message, index) => ({
-    id: `saved-${page.id}-${index}`,
-    role: message.role,
-    text:
-      message.actionType === 'appended_note'
-        ? i18n.global.t('messages.appended', {
-            content: message.content ?? '',
-          })
-        : message.actionType === 'edited_note'
-          ? i18n.global.t('messages.edited')
-          : message.text,
-    suggestClose: message.suggestClose,
-  })),
-  teacherTurn: page.teachingRoundCount,
-  editing: false,
-  editDraft: page.body,
-  historyOpen: false,
-  suggestClose: Boolean(page.messages.at(-1)?.suggestClose),
-});
+const toPageRecord = (page: PageSnapshot): PageRecord => {
+  const userTexts = page.messages
+    .filter((message) => message.role === 'user')
+    .map((message) => message.text);
+  const closeLanguage = resolveMockReplyLanguage(
+    userTexts.at(-1) ?? page.body,
+    [page.body, ...userTexts.slice(0, -1)],
+  );
+
+  return {
+    id: page.id,
+    title: page.title,
+    body: page.body,
+    source: page.source,
+    status: page.status,
+    messages: page.messages.map((message, index) => ({
+      id: `saved-${page.id}-${index}`,
+      role: message.role,
+      text:
+        message.actionType === 'appended_note'
+          ? i18n.global.t('messages.appended', {
+              content: message.content ?? '',
+            })
+          : message.actionType === 'edited_note'
+            ? i18n.global.t('messages.edited')
+            : message.actionType === 'end'
+              ? translateFixedMessage(
+                  closeLanguage,
+                  'teacherFallback.userClosed',
+                )
+              : message.text,
+      suggestClose: message.suggestClose,
+    })),
+    teacherTurn: page.teachingRoundCount,
+    editing: false,
+    editDraft: page.body,
+    historyOpen: false,
+    suggestClose: Boolean(page.messages.at(-1)?.suggestClose),
+  };
+};
 
 const createMockPage = ({ body, source }: SavePagePayload): PageRecord => ({
   id: (mockPageId += 1),
@@ -164,7 +181,16 @@ export const tapAlongApi = {
     return { ok: true };
   },
 
-  async closePage(pageId: number): Promise<void> {
-    await bridge?.closePage?.(pageId);
+  async closePage(pageId: number, requestId: string): Promise<PageUiResult> {
+    if (bridge?.closePage) {
+      const response = await bridge.closePage({ pageId, requestId });
+      return {
+        ...response,
+        page: response.page ? toPageRecord(response.page) : undefined,
+      };
+    }
+
+    await wait(320);
+    return { ok: true };
   },
 };

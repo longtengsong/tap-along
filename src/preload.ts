@@ -3,6 +3,7 @@ import {
   PAGE_CHANNELS,
   TEACHER_CHANNELS,
   type AppendPagePayload,
+  type ClosePagePayload,
   type EditPagePayload,
   type ListPagesPayload,
   type SavePagePayload,
@@ -22,6 +23,8 @@ const tapAlongBridge: TapAlongBridge = {
     ipcRenderer.invoke(PAGE_CHANNELS.append, payload),
   editPage: (payload: EditPagePayload) =>
     ipcRenderer.invoke(PAGE_CHANNELS.edit, payload),
+  closePage: (payload: ClosePagePayload) =>
+    ipcRenderer.invoke(PAGE_CHANNELS.close, payload),
   askTeacher: (payload: TeacherAskPayload) =>
     ipcRenderer.invoke(TEACHER_CHANNELS.ask, payload),
   onTeacherChunk: (callback: (event: TeacherChunkEvent) => void) => {

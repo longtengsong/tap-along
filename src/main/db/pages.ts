@@ -126,6 +126,7 @@ export class PagesRepository {
   private readonly updateLogAndRoundStatement;
   private readonly updateBodyAndLogStatement;
   private readonly updateEditedBodyStatement;
+  private readonly closeWithLogStatement;
   private readonly db: DatabaseSync;
 
   constructor(db: DatabaseSync) {
@@ -182,6 +183,13 @@ export class PagesRepository {
       SET body = ?,
           edge_title = NULL,
           parse_status = 'pending',
+          companion_log = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    this.closeWithLogStatement = this.db.prepare(`
+      UPDATE pages
+      SET page_status = 'closed',
           companion_log = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
@@ -383,6 +391,46 @@ export class PagesRepository {
       const updatedPage = this.findById(pageId);
       if (!updatedPage) {
         throw new Error('改批注后无法读取页边');
+      }
+
+      return { ok: true, page: updatedPage };
+    });
+  }
+
+  closePage(
+    pageId: number,
+    requestId: string,
+  ): { ok: true; page: PageSnapshot } | { ok: false; reason: 'not_found' } {
+    return this.withTransaction(() => {
+      const page = this.findById(pageId);
+
+      if (!page) {
+        return { ok: false, reason: 'not_found' };
+      }
+
+      if (
+        page.status === 'closed' ||
+        page.messages.some((message) => message.requestId === requestId)
+      ) {
+        return { ok: true, page };
+      }
+
+      const messages: PageMessageSnapshot[] = [
+        ...page.messages,
+        {
+          role: 'teacher',
+          text: '',
+          actionType: 'end',
+          requestId,
+          createdAt: Date.now(),
+        },
+      ];
+
+      this.closeWithLogStatement.run(JSON.stringify(messages), pageId);
+
+      const updatedPage = this.findById(pageId);
+      if (!updatedPage) {
+        throw new Error('合上页面后无法读取页边');
       }
 
       return { ok: true, page: updatedPage };

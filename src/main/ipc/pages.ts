@@ -1,6 +1,7 @@
 import type { IpcMain } from 'electron';
 import type {
   AppendPagePayload,
+  ClosePagePayload,
   EditPagePayload,
   ListPagesPayload,
   PageListResult,
@@ -94,6 +95,29 @@ const parseEditPayload = (payload: unknown) => {
       body: payload.body.trim(),
       requestId: payload.requestId.trim(),
     } satisfies EditPagePayload,
+  };
+};
+
+const parseClosePayload = (payload: unknown) => {
+  if (
+    !isRecord(payload) ||
+    typeof payload.pageId !== 'number' ||
+    !Number.isInteger(payload.pageId) ||
+    payload.pageId <= 0
+  ) {
+    return { ok: false as const, errorCode: 'INVALID_PAGE_ID' as const };
+  }
+
+  if (typeof payload.requestId !== 'string' || !payload.requestId.trim()) {
+    return { ok: false as const, errorCode: 'MAINTENANCE_FAILED' as const };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      pageId: payload.pageId,
+      requestId: payload.requestId.trim(),
+    } satisfies ClosePagePayload,
   };
 };
 
@@ -225,6 +249,33 @@ export const editPage = (
   }
 };
 
+export const closePage = (
+  repository: Pick<PagesRepository, 'closePage'>,
+  payload: unknown,
+): PageOperationResult => {
+  const input = parseClosePayload(payload);
+
+  if (!input.ok) {
+    return { ok: false, errorCode: input.errorCode };
+  }
+
+  try {
+    const result = repository.closePage(
+      input.value.pageId,
+      input.value.requestId,
+    );
+
+    if (!result.ok) {
+      return { ok: false, errorCode: 'PAGE_NOT_FOUND' };
+    }
+
+    return { ok: true, page: result.page };
+  } catch (error) {
+    console.error('合上页面失败：', error);
+    return { ok: false, errorCode: 'MAINTENANCE_FAILED' };
+  }
+};
+
 export const registerPageHandlers = (
   ipcMain: Pick<IpcMain, 'handle'>,
   repository: PagesRepository,
@@ -243,5 +294,8 @@ export const registerPageHandlers = (
   );
   ipcMain.handle(PAGE_CHANNELS.edit, (_event, payload: unknown) =>
     editPage(repository, payload),
+  );
+  ipcMain.handle(PAGE_CHANNELS.close, (_event, payload: unknown) =>
+    closePage(repository, payload),
   );
 };

@@ -3,6 +3,7 @@ import test from 'node:test';
 import { PAGE_CHANNELS } from '../src/shared/pages.ts';
 import {
   appendPage,
+  closePage,
   editPage,
   getPage,
   listPages,
@@ -285,6 +286,53 @@ test('改批注 IPC 应返回统一错误码', (t) => {
   );
 });
 
+test('合上页面 IPC 应校验参数并返回关闭页面', () => {
+  const calls = [];
+  const repository = {
+    closePage(pageId, requestId) {
+      calls.push({ pageId, requestId });
+      return { ok: true, page: { ...samplePage, status: 'closed' } };
+    },
+  };
+
+  assert.deepEqual(
+    closePage(repository, { pageId: 1, requestId: ' close-1 ' }),
+    { ok: true, page: { ...samplePage, status: 'closed' } },
+  );
+  assert.deepEqual(calls, [{ pageId: 1, requestId: 'close-1' }]);
+});
+
+test('合上页面 IPC 应返回统一错误码', (t) => {
+  t.mock.method(console, 'error', () => {});
+
+  assert.deepEqual(closePage({ closePage: () => null }, null), {
+    ok: false,
+    errorCode: 'INVALID_PAGE_ID',
+  });
+  assert.deepEqual(
+    closePage({ closePage: () => null }, { pageId: 1, requestId: '' }),
+    { ok: false, errorCode: 'MAINTENANCE_FAILED' },
+  );
+  assert.deepEqual(
+    closePage(
+      { closePage: () => ({ ok: false, reason: 'not_found' }) },
+      { pageId: 1, requestId: 'close-missing' },
+    ),
+    { ok: false, errorCode: 'PAGE_NOT_FOUND' },
+  );
+  assert.deepEqual(
+    closePage(
+      {
+        closePage() {
+          throw new Error('写入失败');
+        },
+      },
+      { pageId: 1, requestId: 'close-failed' },
+    ),
+    { ok: false, errorCode: 'MAINTENANCE_FAILED' },
+  );
+});
+
 test('IPC 注册应暴露保存和读取通道', () => {
   const handlers = new Map();
   const ipcMain = {
@@ -298,6 +346,7 @@ test('IPC 注册应暴露保存和读取通道', () => {
     listRecentReading: () => [samplePage],
     appendText: () => ({ ok: true, page: samplePage }),
     editText: () => ({ ok: true, page: samplePage }),
+    closePage: () => ({ ok: true, page: { ...samplePage, status: 'closed' } }),
   };
 
   registerPageHandlers(ipcMain, repository);
@@ -333,5 +382,12 @@ test('IPC 注册应暴露保存和读取通道', () => {
       requestId: 'edit-1',
     }),
     { ok: true, page: samplePage },
+  );
+  assert.deepEqual(
+    handlers.get(PAGE_CHANNELS.close)(null, {
+      pageId: 1,
+      requestId: 'close-1',
+    }),
+    { ok: true, page: { ...samplePage, status: 'closed' } },
   );
 });
