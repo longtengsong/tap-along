@@ -50,6 +50,11 @@ export interface ModelProviderListResult {
   errorCode?: AppErrorCode;
 }
 
+export interface ProviderConnectionResult {
+  ok: boolean;
+  errorCode?: AppErrorCode;
+}
+
 export interface SaveModelProviderPayload {
   id: ModelProviderId;
   name?: string;
@@ -64,6 +69,7 @@ export const PROVIDER_CHANNELS = {
   save: 'providers:save',
   clearKey: 'providers:clear-key',
   setActive: 'providers:set-active',
+  test: 'providers:test',
 } as const;
 
 export interface ProviderBridge {
@@ -74,4 +80,5 @@ export interface ProviderBridge {
   ) => Promise<ModelProviderListResult>;
   clearProviderKey?: (id: ModelProviderId) => Promise<ModelProviderListResult>;
   setActiveProvider?: (id: ModelProviderId) => Promise<ModelProviderListResult>;
+  testProvider?: (id: ModelProviderId) => Promise<ProviderConnectionResult>;
 }

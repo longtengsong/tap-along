@@ -18,6 +18,10 @@ import {
   type ProviderSettingsStore,
   type StoredProviderSettings,
 } from './main/services/providers';
+import {
+  ProviderConnectionService,
+  ProviderConnectionTester,
+} from './main/services/provider-connection';
 import { TeacherService } from './main/services/teacher';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -90,9 +94,17 @@ if (!hasSingleInstanceLock) {
       };
 
       registerPageHandlers(ipcMain, pagesRepository);
+      const providerService = new ProviderConfigService(
+        providerStore,
+        new ElectronSecretCipher(),
+      );
       registerProviderHandlers(
         ipcMain,
-        new ProviderConfigService(providerStore, new ElectronSecretCipher()),
+        providerService,
+        new ProviderConnectionService(
+          providerService,
+          new ProviderConnectionTester(),
+        ),
       );
       registerTeacherHandlers(ipcMain, new TeacherService(pagesRepository));
     } catch (error) {

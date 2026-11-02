@@ -25,6 +25,9 @@ const createFixture = (available = true) => {
     async encrypt(value) {
       return `encrypted:${Buffer.from(value).toString('base64')}`;
     },
+    async decrypt(value) {
+      return Buffer.from(value.replace('encrypted:', ''), 'base64').toString();
+    },
   };
 
   return {
@@ -210,6 +213,60 @@ test('更新非敏感配置时应保留已有加密 Key', async () => {
   assert.equal(updated.state.providers[0].configured, true);
 });
 
+test('运行时配置应解密 Key，并拒绝缺省或无法解密的配置', async () => {
+  const { cipher, service, store } = createFixture();
+
+  assert.deepEqual(await service.resolve('deepseek'), {
+    ok: false,
+    errorCode: 'PROVIDER_NOT_CONFIGURED',
+  });
+  assert.deepEqual(await service.resolve('unknown'), {
+    ok: false,
+    errorCode: 'INVALID_PROVIDER',
+  });
+
+  await service.save({
+    id: 'deepseek',
+    model: 'deepseek-chat',
+    apiKey: 'runtime-secret',
+  });
+  assert.deepEqual(await service.resolve('deepseek'), {
+    ok: true,
+    config: {
+      id: 'deepseek',
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-chat',
+      apiKey: 'runtime-secret',
+    },
+  });
+  assert.equal(
+    JSON.stringify(await service.resolve('deepseek')).includes(
+      'runtime-secret',
+    ),
+    true,
+  );
+
+  store.value.providers.custom = {
+    name: 'Custom',
+    model: '   ',
+    baseUrl: 'https://example.com/v1',
+    encryptedApiKey: 'encrypted:u2VjcmV0',
+  };
+  assert.deepEqual(await service.resolve('custom'), {
+    ok: false,
+    errorCode: 'INVALID_MODEL',
+  });
+
+  cipher.decrypt = async () => {
+    throw new Error('解密失败');
+  };
+  store.value.providers.custom.model = 'custom-model';
+  assert.deepEqual(await service.resolve('custom'), {
+    ok: false,
+    errorCode: 'CONFIG_FAILED',
+  });
+});
+
 test('供应商服务应处理非法输入和存储异常', async () => {
   const { service, store } = createFixture();
 
@@ -307,8 +364,11 @@ test('供应商 IPC 应只暴露窄接口', () => {
     clearKey: (id) => ({ ok: true, id }),
     setActive: (id) => ({ ok: true, id }),
   };
+  const connectionService = {
+    test: (id) => ({ ok: true, id }),
+  };
 
-  registerProviderHandlers(ipcMain, service);
+  registerProviderHandlers(ipcMain, service, connectionService);
 
   assert.deepEqual(
     new Set(handlers.keys()),
@@ -336,5 +396,9 @@ test('供应商 IPC 应只暴露窄接口', () => {
   assert.deepEqual(handlers.get(PROVIDER_CHANNELS.setActive)(null, 'custom'), {
     ok: true,
     id: 'custom',
+  });
+  assert.deepEqual(handlers.get(PROVIDER_CHANNELS.test)(null, 'deepseek'), {
+    ok: true,
+    id: 'deepseek',
   });
 });

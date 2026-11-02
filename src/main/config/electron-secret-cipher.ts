@@ -16,4 +16,15 @@ export class ElectronSecretCipher implements SecretCipher {
   async encrypt(value: string): Promise<string> {
     return (await safeStorage.encryptStringAsync(value)).toString('base64');
   }
+
+  async decrypt(value: string): Promise<string> {
+    const encrypted = Buffer.from(value, 'base64');
+    const decrypted = await safeStorage.decryptStringAsync(encrypted);
+
+    if (!decrypted.shouldReEncrypt) {
+      return decrypted.result;
+    }
+
+    return (await safeStorage.decryptStringAsync(encrypted)).result;
+  }
 }

@@ -5,6 +5,7 @@ import {
   type ModelProviderListResult,
   type ModelProviderResult,
   type ModelProviderState,
+  type ProviderConnectionResult,
   type SaveModelProviderPayload,
 } from '@/shared/providers';
 
@@ -138,5 +139,16 @@ export const providerApi = {
       })),
     };
     return { ok: true, state: cloneState() };
+  },
+
+  async test(id: ModelProviderId): Promise<ProviderConnectionResult> {
+    if (bridge?.testProvider) {
+      return bridge.testProvider(id);
+    }
+
+    return mockState.providers.find((provider) => provider.id === id)
+      ?.configured
+      ? { ok: true }
+      : { ok: false, errorCode: 'PROVIDER_NOT_CONFIGURED' };
   },
 };

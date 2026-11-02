@@ -17,6 +17,13 @@ export const APP_ERROR_CODES = [
   'INVALID_MODEL',
   'INVALID_BASE_URL',
   'CONFIG_FAILED',
+  'PROVIDER_NOT_CONFIGURED',
+  'PROVIDER_UNAUTHORIZED',
+  'MODEL_UNAVAILABLE',
+  'PROVIDER_RATE_LIMITED',
+  'PROVIDER_NETWORK_ERROR',
+  'PROVIDER_TIMEOUT',
+  'PROVIDER_TEST_FAILED',
   'UNKNOWN_ERROR',
 ] as const;
 
@@ -41,5 +48,12 @@ export const ERROR_MESSAGE_KEYS = {
   INVALID_MODEL: 'errors.invalidModel',
   INVALID_BASE_URL: 'errors.invalidBaseUrl',
   CONFIG_FAILED: 'errors.configFailed',
+  PROVIDER_NOT_CONFIGURED: 'errors.providerNotConfigured',
+  PROVIDER_UNAUTHORIZED: 'errors.providerUnauthorized',
+  MODEL_UNAVAILABLE: 'errors.modelUnavailable',
+  PROVIDER_RATE_LIMITED: 'errors.providerRateLimited',
+  PROVIDER_NETWORK_ERROR: 'errors.providerNetworkError',
+  PROVIDER_TIMEOUT: 'errors.providerTimeout',
+  PROVIDER_TEST_FAILED: 'errors.providerTestFailed',
   UNKNOWN_ERROR: 'errors.unknown',
 } as const satisfies Record<AppErrorCode, string>;

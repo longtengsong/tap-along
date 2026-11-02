@@ -28,6 +28,7 @@ const providerState = ref<ModelProviderState | null>(null);
 const selectedProviderId = ref<ModelProviderId>('deepseek');
 const providerLoading = ref(false);
 const providerSaving = ref(false);
+const providerTesting = ref(false);
 const providerMessage = ref('');
 const providerError = ref('');
 let providerSelectionInitialized = false;
@@ -111,7 +112,7 @@ const providerPayload = (): SaveModelProviderPayload => ({
 });
 
 const saveProvider = async () => {
-  if (providerSaving.value) {
+  if (providerSaving.value || providerTesting.value) {
     return;
   }
 
@@ -137,7 +138,7 @@ const saveProvider = async () => {
 };
 
 const clearProviderKey = async () => {
-  if (providerSaving.value) {
+  if (providerSaving.value || providerTesting.value) {
     return;
   }
 
@@ -162,7 +163,7 @@ const clearProviderKey = async () => {
 };
 
 const setActiveProvider = async () => {
-  if (providerSaving.value) {
+  if (providerSaving.value || providerTesting.value) {
     return;
   }
 
@@ -183,6 +184,34 @@ const setActiveProvider = async () => {
     showProviderError('CONFIG_FAILED');
   } finally {
     providerSaving.value = false;
+  }
+};
+
+const testProvider = async () => {
+  if (providerTesting.value || providerSaving.value) {
+    return;
+  }
+
+  if (!selectedProvider.value?.configured) {
+    showProviderError('PROVIDER_NOT_CONFIGURED');
+    return;
+  }
+
+  providerTesting.value = true;
+  providerMessage.value = '';
+  providerError.value = '';
+
+  try {
+    const result = await providerApi.test(selectedProviderId.value);
+    if (result.ok) {
+      providerMessage.value = t('settings.connectionSuccess');
+    } else {
+      showProviderError(result.errorCode);
+    }
+  } catch {
+    showProviderError('PROVIDER_TEST_FAILED');
+  } finally {
+    providerTesting.value = false;
   }
 };
 
@@ -364,11 +393,28 @@ onBeforeUnmount(() => {
               </label>
 
               <label class="settings-field settings-field--wide">
-                <span>{{ t('settings.apiKey') }}</span>
+                <span class="settings-field__heading">
+                  <span>{{ t('settings.apiKey') }}</span>
+                  <span
+                    v-if="selectedProvider?.configured"
+                    class="settings-field__saved"
+                  >
+                    <span aria-hidden="true">✓</span>
+                    {{ t('settings.keySavedBadge') }}
+                  </span>
+                </span>
                 <input
                   v-model="providerForm.apiKey"
                   type="password"
-                  :placeholder="t('settings.apiKeyPlaceholder')"
+                  :class="{
+                    'settings-field__input--saved':
+                      selectedProvider?.configured && !providerForm.apiKey,
+                  }"
+                  :placeholder="
+                    selectedProvider?.configured
+                      ? t('settings.apiKeySavedPlaceholder')
+                      : t('settings.apiKeyPlaceholder')
+                  "
                   autocomplete="new-password"
                   spellcheck="false"
                 />
@@ -395,7 +441,7 @@ onBeforeUnmount(() => {
             <div class="provider-actions">
               <AppButton
                 size="small"
-                :disabled="providerSaving"
+                :disabled="providerSaving || providerTesting"
                 @click="saveProvider"
               >
                 {{ t('settings.saveConfig') }}
@@ -403,15 +449,23 @@ onBeforeUnmount(() => {
               <AppButton
                 v-if="selectedProvider?.configured && !selectedProvider.active"
                 variant="ghost"
-                :disabled="providerSaving"
+                :disabled="providerSaving || providerTesting"
                 @click="setActiveProvider"
               >
                 {{ t('settings.setActive') }}
               </AppButton>
               <AppButton
                 v-if="selectedProvider?.configured"
+                variant="ghost"
+                :disabled="providerTesting || providerSaving"
+                @click="testProvider"
+              >
+                {{ t('settings.testConnection') }}
+              </AppButton>
+              <AppButton
+                v-if="selectedProvider?.configured"
                 variant="text"
-                :disabled="providerSaving"
+                :disabled="providerSaving || providerTesting"
                 @click="clearProviderKey"
               >
                 {{ t('settings.clearKey') }}
@@ -560,6 +614,22 @@ onBeforeUnmount(() => {
   letter-spacing: 0.03em;
 }
 
+.settings-field__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-field__saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--moss);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+
 .settings-field input {
   width: 100%;
   height: 38px;
@@ -574,6 +644,11 @@ onBeforeUnmount(() => {
 
 .settings-field input::placeholder {
   color: var(--ink-ghost);
+}
+
+.settings-field input.settings-field__input--saved::placeholder {
+  color: var(--moss);
+  letter-spacing: 0.12em;
 }
 
 .settings-field small {

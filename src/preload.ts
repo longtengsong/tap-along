@@ -63,6 +63,8 @@ const tapAlongBridge: TapAlongBridge = {
     ipcRenderer.invoke(PROVIDER_CHANNELS.clearKey, id),
   setActiveProvider: (id: ModelProviderId) =>
     ipcRenderer.invoke(PROVIDER_CHANNELS.setActive, id),
+  testProvider: (id: ModelProviderId) =>
+    ipcRenderer.invoke(PROVIDER_CHANNELS.test, id),
 };
 
 contextBridge.exposeInMainWorld('tapAlong', tapAlongBridge);

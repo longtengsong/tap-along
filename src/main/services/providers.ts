@@ -30,6 +30,14 @@ export interface ProviderSettingsStore {
 export interface SecretCipher {
   isAvailable(): Promise<boolean>;
   encrypt(value: string): Promise<string>;
+  decrypt(value: string): Promise<string>;
+}
+
+export interface ProviderRuntimeConfig {
+  id: ModelProviderId;
+  baseUrl: string;
+  model: string;
+  apiKey: string;
 }
 
 const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
@@ -114,6 +122,43 @@ export class ProviderConfigService {
   async list(): Promise<ModelProviderListResult> {
     try {
       return { ok: true, state: await this.buildState(this.readSettings()) };
+    } catch {
+      return { ok: false, errorCode: 'CONFIG_FAILED' };
+    }
+  }
+
+  async resolve(id: unknown): Promise<
+    | {
+        ok: true;
+        config: ProviderRuntimeConfig;
+      }
+    | { ok: false; errorCode: AppErrorCode }
+  > {
+    if (!isProviderId(id)) {
+      return { ok: false, errorCode: 'INVALID_PROVIDER' };
+    }
+
+    try {
+      const settings = this.readSettings();
+      const provider = settings.providers[id];
+
+      if (!provider?.encryptedApiKey) {
+        return { ok: false, errorCode: 'PROVIDER_NOT_CONFIGURED' };
+      }
+
+      if (!provider.model.trim()) {
+        return { ok: false, errorCode: 'INVALID_MODEL' };
+      }
+
+      return {
+        ok: true,
+        config: {
+          id,
+          baseUrl: id === 'deepseek' ? DEEPSEEK_BASE_URL : provider.baseUrl,
+          model: provider.model,
+          apiKey: await this.cipher.decrypt(provider.encryptedApiKey),
+        },
+      };
     } catch {
       return { ok: false, errorCode: 'CONFIG_FAILED' };
     }
