@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import AppButton from '@/components/ui/AppButton.vue';
 import BaseOverlay from '@/components/ui/BaseOverlay.vue';
+
+const { t } = useI18n();
 
 const emit = defineEmits<{
   back: [];
@@ -10,10 +13,14 @@ const emit = defineEmits<{
 
 <template>
   <BaseOverlay>
-    <p class="overlay-copy">这一句没送进去。</p>
+    <p class="overlay-copy">{{ t('overlay.failed') }}</p>
     <div class="overlay-actions">
-      <AppButton variant="ghost" @click="emit('back')">回到页边</AppButton>
-      <AppButton size="small" @click="emit('retry')">再试一次</AppButton>
+      <AppButton variant="ghost" @click="emit('back')">
+        {{ t('overlay.backToEdit') }}
+      </AppButton>
+      <AppButton size="small" @click="emit('retry')">
+        {{ t('overlay.tryAgain') }}
+      </AppButton>
     </div>
   </BaseOverlay>
 </template>

@@ -1,0 +1,97 @@
+{
+  "app": {
+    "name": "轻叩伴读",
+    "tagline": "读到哪里，轻轻叩一下",
+    "settings": "设置",
+    "privacy": "笔记会发送到云端老师那里，用于生成回应。",
+    "settingsComingSoon": "设置还在路上，先专心读这一页。"
+  },
+  "common": {
+    "cancel": "取消",
+    "back": "翻回去",
+    "retry": "再试一次",
+    "close": "合上",
+    "loading": "正在收进页边……",
+    "restoring": "正在翻开上一页……"
+  },
+  "newPage": {
+    "title": "新页边",
+    "bodyAria": "页边正文",
+    "placeholder": "读到哪里，记一句……",
+    "sourceLabel": "出处",
+    "sourceAria": "出处",
+    "sourcePlaceholder": "书名 / 网页 / 电影 / 课程",
+    "submit": "收进页边",
+    "back": "翻回去",
+    "emptyError": "先落下一句，再收进页边。"
+  },
+  "overlay": {
+    "saving": "正在收进页边……",
+    "failed": "这一句没送进去。",
+    "backToEdit": "回到页边",
+    "tryAgain": "再试一次"
+  },
+  "companion": {
+    "title": "伴读",
+    "historyCollapsed": "前面聊过的",
+    "historyExpanded": "收起前面聊过的",
+    "inputPlaceholder": "写下你的想法……",
+    "inputAria": "落笔处",
+    "send": "落笔",
+    "sayMoreCollapsed": "想留一句？",
+    "sayMoreExpanded": "想留一句？",
+    "sourcePrefix": "出处：",
+    "statusPrefix": "状态：",
+    "typing": "老师正在回应",
+    "maintenanceMenu": "页边维护",
+    "editBodyAria": "编辑页边正文",
+    "closedNote": "这页已合上"
+  },
+  "status": {
+    "reading": "在读",
+    "closed": "已合上",
+    "saving": "正在收进页边",
+    "failed": "没送进去",
+    "active": "进行中",
+    "concluded": "已收束"
+  },
+  "actions": {
+    "edit": "改批注",
+    "append": "补一句",
+    "newPage": "另起一页",
+    "closePage": "合上这页",
+    "appendPlaceholder": "补一句……",
+    "appendSubmit": "补一句",
+    "saveEdit": "收好批注"
+  },
+  "messages": {
+    "edited": "改过批注了",
+    "appended": "补了一句：{content}",
+    "newPage": "另起了一页",
+    "reopened": "重新翻开了这页"
+  },
+  "teacherFallback": {
+    "suggestCloseAfterSave": "这页我看过了，和之前的内容放在一起，暂时没有需要聊的。你先继续读，或者合上这页。",
+    "suggestCloseInTalk": "暂时没有要再追问的了。如果你觉得可以了，合上这页就行。",
+    "suggestCloseAfterMaintain": "批注更新了。我看了一下，这轮没有需要再聊的。你决定要不要合上。",
+    "userClosed": "好，这页先读到这儿。",
+    "firstQuestion": "你写的“{keyword}”是指什么？能再具体说说吗？",
+    "followUp": "如果按你说的，“{keyword}”由谁决定？是{optionA}，还是{optionB}？",
+    "afterAppend": "你把刚才的想法补进来了。那么{question}？",
+    "afterEdit": "修改后更清楚了。不过“{keyword}”的机制，你能再具体说说吗？"
+  },
+  "errors": {
+    "teacherNoResponse": "老师暂时没应声，要再试一次吗？",
+    "stackTooDeep": "页叠得有点深了，先合上一页再继续？",
+    "saveFailed": "没送进去。",
+    "retry": "再试一次"
+  },
+  "a11y": {
+    "appWindow": "轻叩伴读应用窗口",
+    "teacherMessage": "老师的消息",
+    "userMessage": "你的消息",
+    "maintenanceMessage": "维护动作",
+    "back": "翻回去",
+    "settings": "设置"
+  }
+}

@@ -1,12 +1,15 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import BaseOverlay from '@/components/ui/BaseOverlay.vue';
 import Spinner from '@/components/ui/Spinner.vue';
+
+const { t } = useI18n();
 </script>
 
 <template>
   <BaseOverlay>
     <Spinner />
-    <p class="overlay-copy">正在收进页边……</p>
+    <p class="overlay-copy">{{ t('overlay.saving') }}</p>
   </BaseOverlay>
 </template>
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import AppButton from '@/components/ui/AppButton.vue';
 import AppInput from '@/components/ui/AppInput.vue';
 import AppTextArea from '@/components/ui/AppTextArea.vue';
@@ -16,6 +17,7 @@ const emit = defineEmits<{
   submit: [];
 }>();
 
+const { t } = useI18n();
 const noteField = ref<InstanceType<typeof AppTextArea> | null>(null);
 
 const focus = () => noteField.value?.focus();
@@ -31,9 +33,9 @@ defineExpose({ focus });
         class="note-field"
         :model-value="body"
         :invalid="Boolean(error)"
-        aria-label="页边正文"
+        :aria-label="t('newPage.bodyAria')"
         autofocus
-        placeholder="读到哪里，记一句……"
+        :placeholder="t('newPage.placeholder')"
         @update:model-value="emit('update:body', $event)"
       />
       <Transition name="error">
@@ -42,17 +44,17 @@ defineExpose({ focus });
     </div>
 
     <label class="source-field">
-      <span class="source-field__label">出处</span>
+      <span class="source-field__label">{{ t('newPage.sourceLabel') }}</span>
       <AppInput
         :model-value="source"
-        aria-label="出处"
-        placeholder="书名 / 网页 / 电影 / 课程"
+        :aria-label="t('newPage.sourceAria')"
+        :placeholder="t('newPage.sourcePlaceholder')"
         @update:model-value="emit('update:source', $event)"
       />
     </label>
 
     <div class="form__submit">
-      <AppButton type="submit">收进页边</AppButton>
+      <AppButton type="submit">{{ t('newPage.submit') }}</AppButton>
     </div>
   </form>
 </template>

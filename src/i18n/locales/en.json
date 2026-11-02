@@ -1,0 +1,97 @@
+{
+  "app": {
+    "name": "TapAlong",
+    "tagline": "a gentle tap alongside your reading",
+    "settings": "Settings",
+    "privacy": "Your notes are sent to a cloud-based teacher to generate responses.",
+    "settingsComingSoon": "Settings are coming soon. Settle into this page for now."
+  },
+  "common": {
+    "cancel": "Cancel",
+    "back": "Back",
+    "retry": "Try again",
+    "close": "Close",
+    "loading": "Saving to the margin…",
+    "restoring": "Opening your last page…"
+  },
+  "newPage": {
+    "title": "New page",
+    "bodyAria": "Page note",
+    "placeholder": "Jot a line as you read…",
+    "sourceLabel": "Source",
+    "sourceAria": "Source",
+    "sourcePlaceholder": "Book / Web / Film / Course",
+    "submit": "Keep",
+    "back": "Back",
+    "emptyError": "Write a line before keeping this page."
+  },
+  "overlay": {
+    "saving": "Saving to the margin…",
+    "failed": "That line didn't make it in.",
+    "backToEdit": "Back to editing",
+    "tryAgain": "Try again"
+  },
+  "companion": {
+    "title": "Companion",
+    "historyCollapsed": "Earlier",
+    "historyExpanded": "Hide earlier",
+    "inputPlaceholder": "Write your thought…",
+    "inputAria": "Thought input",
+    "send": "Send",
+    "sayMoreCollapsed": "Say more?",
+    "sayMoreExpanded": "Say more?",
+    "sourcePrefix": "Source: ",
+    "statusPrefix": "Status: ",
+    "typing": "The teacher is responding",
+    "maintenanceMenu": "Page actions",
+    "editBodyAria": "Edit page note",
+    "closedNote": "This page is closed"
+  },
+  "status": {
+    "reading": "Reading",
+    "closed": "Closed",
+    "saving": "Saving",
+    "failed": "Not saved",
+    "active": "Active",
+    "concluded": "Concluded"
+  },
+  "actions": {
+    "edit": "Edit",
+    "append": "Add",
+    "newPage": "New page",
+    "closePage": "Close this page",
+    "appendPlaceholder": "Add a thought…",
+    "appendSubmit": "Add",
+    "saveEdit": "Save changes"
+  },
+  "messages": {
+    "edited": "Note edited",
+    "appended": "Added: {content}",
+    "newPage": "Started a new page",
+    "reopened": "Reopened this page"
+  },
+  "teacherFallback": {
+    "suggestCloseAfterSave": "I've read this page. Alongside what you've written before, there's nothing to talk about right now. Keep reading, or close this page.",
+    "suggestCloseInTalk": "Nothing more to ask for now. If you're ready, close this page.",
+    "suggestCloseAfterMaintain": "Your note is updated. I looked — nothing to discuss this round. You decide whether to close.",
+    "userClosed": "Alright, we'll stop here for this page.",
+    "firstQuestion": "When you wrote \"{keyword}\", what did you mean? Could you say a bit more?",
+    "followUp": "If that's what you mean, who decides \"{keyword}\"? Is it {optionA}, or {optionB}?",
+    "afterAppend": "You've added that thought. So then, {question}?",
+    "afterEdit": "Clearer now. But the mechanism of \"{keyword}\" — could you say more?"
+  },
+  "errors": {
+    "teacherNoResponse": "The teacher didn't respond. Try again?",
+    "stackTooDeep": "The stack is getting deep. Close one page before continuing?",
+    "saveFailed": "Couldn't save.",
+    "retry": "Try again"
+  },
+  "a11y": {
+    "appWindow": "TapAlong application window",
+    "teacherMessage": "Teacher's message",
+    "userMessage": "Your message",
+    "maintenanceMessage": "Note action",
+    "back": "Go back",
+    "settings": "Settings"
+  }
+}

@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
 defineProps<{
   backVisible?: boolean;
 }>();
+
+const { t } = useI18n();
 
 const emit = defineEmits<{
   back: [];
@@ -16,26 +20,26 @@ const emit = defineEmits<{
         v-if="backVisible"
         class="app-bar__action app-bar__back"
         type="button"
-        aria-label="翻回上一页"
+        :aria-label="t('a11y.back')"
         @click="emit('back')"
       >
         <svg viewBox="0 0 16 16" aria-hidden="true">
           <path d="M13 8H3m4-4L3 8l4 4" />
         </svg>
-        翻回去
+        {{ t('common.back') }}
       </button>
     </div>
 
-    <h1 class="app-bar__title">轻叩伴读</h1>
+    <h1 class="app-bar__title">{{ t('app.name') }}</h1>
 
     <div class="app-bar__side app-bar__side--end">
       <button
         class="app-bar__action"
         type="button"
-        aria-label="打开设置"
+        :aria-label="t('a11y.settings')"
         @click="emit('settings')"
       >
-        设置
+        {{ t('app.settings') }}
       </button>
     </div>
   </header>

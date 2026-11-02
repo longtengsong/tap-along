@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import AppWindow from '@/components/layout/AppWindow.vue';
 import CompanionScreen from '@/components/companion/CompanionScreen.vue';
 import NewPageScreen from '@/components/newpage/NewPageScreen.vue';
 import OverlayHost from '@/components/overlay/OverlayHost.vue';
 import { useSessionStore } from '@/stores/session';
+
+const { t } = useI18n();
 
 const {
   state,
@@ -46,7 +49,7 @@ const submitComposer = () => {
       aria-live="polite"
     >
       <span class="restoring__mark" aria-hidden="true"></span>
-      <p>正在翻开上一页……</p>
+      <p>{{ t('common.restoring') }}</p>
     </div>
 
     <Transition v-else name="screen-switch" mode="out-in">
@@ -56,7 +59,7 @@ const submitComposer = () => {
         :source="state.draft.source"
         :can-back="canGoBack"
         :deep="stackIsDeep"
-        :error="state.draftError"
+        :error="state.draftError ? t(state.draftError) : ''"
         @update:body="state.draft.body = $event"
         @update:source="state.draft.source = $event"
         @submit="submitNewPage"
@@ -96,7 +99,7 @@ const submitComposer = () => {
 
     <Transition name="toast">
       <p v-if="state.settingsNotice" class="settings-toast" role="status">
-        设置还在路上，先专心读这一页。
+        {{ t('app.settingsComingSoon') }}
       </p>
     </Transition>
   </AppWindow>

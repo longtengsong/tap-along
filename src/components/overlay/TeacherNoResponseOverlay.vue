@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import AppButton from '@/components/ui/AppButton.vue';
 import BaseOverlay from '@/components/ui/BaseOverlay.vue';
+
+const { t } = useI18n();
 
 const emit = defineEmits<{
   retry: [];
@@ -9,8 +12,10 @@ const emit = defineEmits<{
 
 <template>
   <BaseOverlay>
-    <p class="overlay-copy">老师暂时没应声，要再试一次吗？</p>
-    <AppButton size="small" @click="emit('retry')">再试一次</AppButton>
+    <p class="overlay-copy">{{ t('errors.teacherNoResponse') }}</p>
+    <AppButton size="small" @click="emit('retry')">
+      {{ t('errors.retry') }}
+    </AppButton>
   </BaseOverlay>
 </template>
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import AppBar from '@/components/layout/AppBar.vue';
 import ContentColumn from '@/components/layout/ContentColumn.vue';
 import NewPageForm from '@/components/newpage/NewPageForm.vue';
@@ -21,6 +22,7 @@ const emit = defineEmits<{
   settings: [];
 }>();
 
+const { t } = useI18n();
 const form = ref<InstanceType<typeof NewPageForm> | null>(null);
 
 watch(
@@ -44,9 +46,9 @@ watch(
       @settings="emit('settings')"
     />
     <ContentColumn>
-      <h2 id="new-page-title" class="sr-only">新页边</h2>
+      <h2 id="new-page-title" class="sr-only">{{ t('newPage.title') }}</h2>
       <div class="new-page">
-        <NoticeBar v-if="deep" text="页叠得有点深了，先合上一页再继续？" />
+        <NoticeBar v-if="deep" :text="t('errors.stackTooDeep')" />
         <NewPageForm
           ref="form"
           :body="body"

@@ -234,7 +234,7 @@ const submitNewPage = async () => {
   const source = state.draft.source.trim();
 
   if (!body) {
-    state.draftError = '先落下一句，再收进页边。';
+    state.draftError = 'newPage.emptyError';
     return;
   }
 

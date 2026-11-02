@@ -1,6 +1,12 @@
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
+</script>
+
 <template>
   <div class="desk">
-    <section class="window" aria-label="轻叩伴读应用窗口">
+    <section class="window" :aria-label="t('a11y.appWindow')">
       <div class="window-body">
         <slot />
       </div>
