@@ -462,6 +462,49 @@ export class PagesRepository {
     });
   }
 
+  appendTeacherPrompt(
+    pageId: number,
+    text: string,
+    requestId: string,
+  ):
+    | { ok: true; page: PageSnapshot }
+    | { ok: false; reason: 'not_found' | 'closed' } {
+    return this.withTransaction(() => {
+      const page = this.findById(pageId);
+
+      if (!page) {
+        return { ok: false, reason: 'not_found' };
+      }
+
+      if (page.status !== 'reading') {
+        return { ok: false, reason: 'closed' };
+      }
+
+      if (page.messages.some((message) => message.requestId === requestId)) {
+        return { ok: true, page };
+      }
+
+      const messages: PageMessageSnapshot[] = [
+        ...page.messages,
+        {
+          role: 'teacher',
+          text,
+          requestId,
+          createdAt: Date.now(),
+        },
+      ];
+
+      this.updateLogStatement.run(JSON.stringify(messages), pageId);
+
+      const updatedPage = this.findById(pageId);
+      if (!updatedPage) {
+        throw new Error('写入跨页叩问后无法读取页边');
+      }
+
+      return { ok: true, page: updatedPage };
+    });
+  }
+
   private withTransaction<T>(operation: () => T): T {
     this.db.exec('BEGIN');
 

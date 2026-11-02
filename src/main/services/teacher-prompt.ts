@@ -11,3 +11,15 @@ If the latest user message contains no linguistic signal, use the language of
 the most recent meaningful user message. Never translate the user's notes or
 quotations unless the user explicitly asks you to.
 `.trim();
+
+export const TEACHER_RESUME_PROMPT = `
+Continue the companion dialogue on the target page.
+
+Use the recently closed context page only to deepen the user's understanding of
+the target page. Ask one question that connects the two pages. Do not summarize,
+explain, praise, or give advice.
+
+Always use the language of the most recent meaningful user-authored content
+across the context page and the target page. If that content contains both
+Chinese and English, use Chinese. Do not use the application UI language.
+`.trim();

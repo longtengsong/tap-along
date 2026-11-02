@@ -54,3 +54,23 @@ export const resolveMockReplyLanguage = (
 
   return detected === 'en' ? 'en' : 'zh-CN';
 };
+
+export const extractContentKeyword = (
+  text: string,
+  language: ReplyLanguage = resolveMockReplyLanguage(text),
+) => {
+  const firstLine = text.split(/\r?\n/, 1)[0]?.trim() ?? '';
+
+  if (language === 'en') {
+    return (
+      firstLine
+        .replace(/[.,!?;:"']/g, '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 5)
+        .join(' ') || 'this'
+    );
+  }
+
+  return firstLine.replace(/[，。、；：“”‘’？！\s]/g, '').slice(0, 6) || '这页';
+};

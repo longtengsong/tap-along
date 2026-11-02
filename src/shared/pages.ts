@@ -86,6 +86,12 @@ export interface TeacherAskPayload {
   requestId: string;
 }
 
+export interface TeacherResumePayload {
+  targetPageId: number;
+  contextPageId: number;
+  requestId: string;
+}
+
 export interface TeacherStartResult {
   ok: boolean;
   requestId?: string;
@@ -109,6 +115,7 @@ export interface TeacherDoneEvent {
 
 export const TEACHER_CHANNELS = {
   ask: 'teacher:ask',
+  resume: 'teacher:resume',
   chunk: 'teacher:chunk',
   done: 'teacher:done',
 } as const;
@@ -121,6 +128,9 @@ export interface TapAlongBridge {
   appendPage?: (payload: AppendPagePayload) => Promise<PageOperationResult>;
   closePage?: (payload: ClosePagePayload) => Promise<PageOperationResult>;
   askTeacher?: (payload: TeacherAskPayload) => Promise<TeacherStartResult>;
+  resumeTeacher?: (
+    payload: TeacherResumePayload,
+  ) => Promise<TeacherStartResult>;
   onTeacherChunk?: (callback: (event: TeacherChunkEvent) => void) => () => void;
   onTeacherDone?: (callback: (event: TeacherDoneEvent) => void) => () => void;
 }

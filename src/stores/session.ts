@@ -4,6 +4,7 @@ import { i18n } from '@/i18n';
 import { translateFixedMessage } from '@/i18n/fixed-messages';
 import type { AppErrorCode } from '@/shared/errors';
 import {
+  extractContentKeyword,
   resolveMockReplyLanguage,
   type ReplyLanguage,
 } from '@/shared/conversation-language';
@@ -11,7 +12,6 @@ import type {
   AppendPagePayload,
   ClosePagePayload,
   EditPagePayload,
-  TeacherAskPayload,
   TeacherChunkEvent,
   TeacherDoneEvent,
 } from '@/shared/pages';
@@ -44,8 +44,13 @@ const message = (
   suggestClose,
 });
 
-interface PendingTeacherRequest extends TeacherAskPayload {
+interface PendingTeacherRequest {
+  kind: 'ask' | 'resume';
+  pageId: number;
+  requestId: string;
   tempMessageId: string;
+  userText?: string;
+  contextPageId?: number;
 }
 
 let pendingTeacherRequest: PendingTeacherRequest | null = null;
@@ -54,6 +59,7 @@ let pendingEditRequest: EditPagePayload | null = null;
 let pendingCloseRequest: ClosePagePayload | null = null;
 let editRequestInFlight = false;
 let closeRequestInFlight = false;
+let closingPageId: number | null = null;
 let teacherEventsReady = false;
 let restoreStarted = false;
 
@@ -153,7 +159,9 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
     );
   }
 
-  page.teacherTurn += 1;
+  if (pending.kind === 'ask') {
+    page.teacherTurn += 1;
+  }
   page.suggestClose = Boolean(event.suggestClose);
   state.typing = false;
   state.overlay = null;
@@ -205,7 +213,10 @@ const teacherQuestion = (
   page: PageRecord,
   replyLanguage: ReplyLanguage = resolveMockReplyLanguage(page.body),
 ) => {
-  const keyword = extractKeyword(page.body);
+  const keyword = extractContentKeyword(
+    page.body,
+    replyLanguage === 'en' ? 'en' : 'zh-CN',
+  );
   const questionKeys = [
     'teacherFallback.firstQuestion',
     'teacherFallback.followUp',
@@ -331,11 +342,18 @@ const markTeacherFailure = (
 
 const startTeacherRequest = async (pending: PendingTeacherRequest) => {
   try {
-    const response = await tapAlongApi.askTeacher({
-      pageId: pending.pageId,
-      userText: pending.userText,
-      requestId: pending.requestId,
-    });
+    const response =
+      pending.kind === 'resume' && pending.contextPageId
+        ? await tapAlongApi.resumeTeacher({
+            targetPageId: pending.pageId,
+            contextPageId: pending.contextPageId,
+            requestId: pending.requestId,
+          })
+        : await tapAlongApi.askTeacher({
+            pageId: pending.pageId,
+            userText: pending.userText ?? '',
+            requestId: pending.requestId,
+          });
 
     if (!response.ok) {
       markTeacherFailure(response.errorCode);
@@ -407,6 +425,7 @@ const sendReply = async () => {
   }
 
   pendingTeacherRequest = {
+    kind: 'ask',
     pageId: page.id,
     userText: text,
     requestId,
@@ -578,18 +597,89 @@ const startNewPage = () => {
   state.view = 'new';
 };
 
+const resumeFromContext = async (
+  targetPage: PageRecord,
+  contextPage: PageRecord,
+) => {
+  const requestId = createId();
+  const tempMessageId = `teacher-${requestId}`;
+  pendingTeacherRequest = {
+    kind: 'resume',
+    pageId: targetPage.id,
+    contextPageId: contextPage.id,
+    requestId,
+    tempMessageId,
+  };
+  state.typing = true;
+  state.overlay = null;
+  state.errorCode = null;
+
+  if (tapAlongApi.supportsTeacherResume()) {
+    await startTeacherRequest(pendingTeacherRequest);
+    return;
+  }
+
+  await wait(650);
+  const contextUserTexts = contextPage.messages
+    .filter((messageItem) => messageItem.role === 'user')
+    .map((messageItem) => messageItem.text);
+  const targetUserTexts = targetPage.messages
+    .filter((messageItem) => messageItem.role === 'user')
+    .map((messageItem) => messageItem.text);
+  const latestUserText = contextUserTexts.at(-1) ?? contextPage.body;
+  const replyLanguage = resolveMockReplyLanguage(latestUserText, [
+    targetPage.body,
+    ...targetUserTexts,
+    ...contextUserTexts.slice(0, -1),
+  ]);
+
+  targetPage.messages.push(
+    message(
+      'teacher',
+      translateFixedMessage(
+        replyLanguage,
+        'teacherFallback.resumeWithContext',
+        {
+          contextTitle: contextPage.title,
+          contextKeyword: extractContentKeyword(
+            contextPage.body,
+            resolveMockReplyLanguage(contextPage.body),
+          ),
+          targetKeyword: extractContentKeyword(
+            targetPage.body,
+            resolveMockReplyLanguage(targetPage.body),
+          ),
+        },
+      ),
+      false,
+      tempMessageId,
+    ),
+  );
+  state.typing = false;
+  pendingTeacherRequest = null;
+};
+
 const closeCurrentPage = async () => {
   const page = currentPage.value;
   if (!page || closeRequestInFlight) {
     return;
   }
 
+  const closingIndex = state.pages.findIndex((item) => item.id === page.id);
+  const previousReadingPage =
+    closingIndex > 0
+      ? (state.pages
+          .slice(0, closingIndex)
+          .reverse()
+          .find((item) => item.status === 'reading') ?? null)
+      : null;
   const requestId =
     pendingCloseRequest?.pageId === page.id
       ? pendingCloseRequest.requestId
       : createId();
   pendingCloseRequest = { pageId: page.id, requestId };
   closeRequestInFlight = true;
+  closingPageId = page.id;
   state.overlay = null;
   state.errorCode = null;
   state.sayMoreOpen = false;
@@ -600,6 +690,7 @@ const closeCurrentPage = async () => {
     if (!response.ok) {
       state.overlay = 'failed';
       state.errorCode = response.errorCode ?? 'MAINTENANCE_FAILED';
+      closingPageId = null;
       return;
     }
 
@@ -608,6 +699,7 @@ const closeCurrentPage = async () => {
   } catch {
     state.overlay = 'failed';
     state.errorCode = 'MAINTENANCE_FAILED';
+    closingPageId = null;
     return;
   } finally {
     closeRequestInFlight = false;
@@ -638,7 +730,11 @@ const closeCurrentPage = async () => {
 
   await wait(1000);
 
-  state.pages.splice(state.currentIndex, 1);
+  const closedPageIndex = state.pages.findIndex((item) => item.id === page.id);
+  if (closedPageIndex >= 0) {
+    state.pages.splice(closedPageIndex, 1);
+  }
+  closingPageId = null;
 
   if (state.pages.length === 0) {
     state.currentIndex = -1;
@@ -648,14 +744,29 @@ const closeCurrentPage = async () => {
     return;
   }
 
-  state.currentIndex = Math.min(
-    Math.max(state.currentIndex - 1, 0),
-    state.pages.length - 1,
-  );
-  state.view = 'companion';
+  if (
+    previousReadingPage &&
+    state.pages.some((item) => item.id === previousReadingPage.id)
+  ) {
+    state.currentIndex = state.pages.findIndex(
+      (item) => item.id === previousReadingPage.id,
+    );
+    state.view = 'companion';
+    void resumeFromContext(previousReadingPage, page);
+    return;
+  }
+
+  state.currentIndex = -1;
+  state.view = 'new';
+  state.draft.body = '';
+  state.draft.source = '';
 };
 
 const goBack = () => {
+  if (closingPageId !== null) {
+    return;
+  }
+
   if (state.view === 'new' && state.pages.length > 0) {
     state.currentIndex = state.pages.length - 1;
     state.view = 'companion';

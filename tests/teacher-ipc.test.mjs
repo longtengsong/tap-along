@@ -22,6 +22,21 @@ test('老师 IPC 应启动请求并转发 chunk 与 done 事件', () => {
       });
       return { result: { ok: true, requestId: payload.requestId } };
     },
+    startResume(payload, emit) {
+      emit({
+        pageId: payload.targetPageId,
+        requestId: payload.requestId,
+        chunk: '跨页',
+      });
+      emit({
+        ok: true,
+        pageId: payload.targetPageId,
+        requestId: payload.requestId,
+        reply: '跨页问题',
+        suggestClose: false,
+      });
+      return { result: { ok: true, requestId: payload.requestId } };
+    },
   };
   const ipcMain = {
     handle(channel, handler) {
@@ -38,7 +53,10 @@ test('老师 IPC 应启动请求并转发 chunk 与 done 事件', () => {
 
   registerTeacherHandlers(ipcMain, service);
 
-  assert.deepEqual(new Set(handlers.keys()), new Set([TEACHER_CHANNELS.ask]));
+  assert.deepEqual(
+    new Set(handlers.keys()),
+    new Set([TEACHER_CHANNELS.ask, TEACHER_CHANNELS.resume]),
+  );
   assert.deepEqual(
     handlers.get(TEACHER_CHANNELS.ask)(event, {
       pageId: 1,
@@ -46,6 +64,14 @@ test('老师 IPC 应启动请求并转发 chunk 与 done 事件', () => {
       requestId: 'request-1',
     }),
     { ok: true, requestId: 'request-1' },
+  );
+  assert.deepEqual(
+    handlers.get(TEACHER_CHANNELS.resume)(event, {
+      targetPageId: 2,
+      contextPageId: 1,
+      requestId: 'resume-1',
+    }),
+    { ok: true, requestId: 'resume-1' },
   );
   assert.deepEqual(sent, [
     {
@@ -63,6 +89,24 @@ test('老师 IPC 应启动请求并转发 chunk 与 done 事件', () => {
         pageId: 1,
         requestId: 'request-1',
         reply: '一半回应',
+        suggestClose: false,
+      },
+    },
+    {
+      channel: TEACHER_CHANNELS.chunk,
+      payload: {
+        pageId: 2,
+        requestId: 'resume-1',
+        chunk: '跨页',
+      },
+    },
+    {
+      channel: TEACHER_CHANNELS.done,
+      payload: {
+        ok: true,
+        pageId: 2,
+        requestId: 'resume-1',
+        reply: '跨页问题',
         suggestClose: false,
       },
     },

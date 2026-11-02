@@ -391,3 +391,280 @@ test('首条老师叩问应跟随笔记正文语言', () => {
     /你写的“注意atte”/,
   );
 });
+
+test('跨页回问应使用已合上页上下文并写入目标页', async (t) => {
+  const { page, repository, service } = await createTeacherFixture(
+    t,
+    undefined,
+  );
+  const contextPage = repository.create(
+    'Attention is a limited resource.',
+    'Course',
+  );
+  repository.closePage(contextPage.id, 'close-context');
+
+  const outcome = service.startResume(
+    {
+      targetPageId: page.id,
+      contextPageId: contextPage.id,
+      requestId: 'resume-1',
+    },
+    () => {},
+  );
+  const done = await outcome.completion;
+
+  assert.equal(done.ok, true);
+  assert.match(
+    done.reply,
+    /In "Attention is", you wrote about "Attention is a limited resource"/,
+  );
+  assert.doesNotMatch(done.reply, /你刚才在/);
+
+  const target = repository.findById(page.id);
+  assert.equal(target.teachingRoundCount, 0);
+  assert.equal(target.messages.length, 1);
+  assert.equal(target.messages[0].role, 'teacher');
+  assert.equal(target.messages[0].text, done.reply);
+  assert.equal(target.messages[0].requestId, 'resume-1');
+});
+
+test('跨页回问应拒绝非法上下文和重复请求', async (t) => {
+  const { page, repository, service } = await createTeacherFixture(
+    t,
+    undefined,
+  );
+  const openContext = repository.create('尚未合上的页边。', '');
+
+  assert.equal(
+    service.startResume(
+      {
+        targetPageId: page.id,
+        contextPageId: page.id,
+        requestId: 'same-page',
+      },
+      () => {},
+    ).result.ok,
+    false,
+  );
+  assert.deepEqual(
+    service.startResume(
+      {
+        targetPageId: page.id,
+        contextPageId: openContext.id,
+        requestId: 'open-context',
+      },
+      () => {},
+    ).result,
+    {
+      ok: false,
+      requestId: 'open-context',
+      errorCode: 'TEACHER_INVALID_REQUEST',
+    },
+  );
+
+  repository.closePage(openContext.id, 'close-open-context');
+  const first = service.startResume(
+    {
+      targetPageId: page.id,
+      contextPageId: openContext.id,
+      requestId: 'resume-duplicate',
+    },
+    () => {},
+  );
+  await first.completion;
+  const second = service.startResume(
+    {
+      targetPageId: page.id,
+      contextPageId: openContext.id,
+      requestId: 'resume-duplicate',
+    },
+    () => {},
+  );
+  assert.equal(second.completion, undefined);
+  assert.equal(repository.findById(page.id).messages.length, 1);
+});
+
+test('跨页回问应拒绝不存在的页面', async (t) => {
+  const { service } = await createTeacherFixture(t, undefined);
+
+  assert.deepEqual(
+    service.startResume(
+      {
+        targetPageId: 999_999,
+        contextPageId: 888_888,
+        requestId: 'resume-missing',
+      },
+      () => {},
+    ).result,
+    {
+      ok: false,
+      requestId: 'resume-missing',
+      errorCode: 'TEACHER_PAGE_NOT_FOUND',
+    },
+  );
+});
+
+test('跨页回问应处理目标已关闭和上下文缺失', async (t) => {
+  const { page, repository, service } = await createTeacherFixture(
+    t,
+    undefined,
+  );
+  const closedContext = repository.create('已关闭上下文。', '');
+  repository.closePage(closedContext.id, 'close-context');
+
+  assert.deepEqual(
+    service.startResume(
+      {
+        targetPageId: 999_999,
+        contextPageId: closedContext.id,
+        requestId: 'resume-no-target',
+      },
+      () => {},
+    ).result,
+    {
+      ok: false,
+      requestId: 'resume-no-target',
+      errorCode: 'TEACHER_PAGE_NOT_FOUND',
+    },
+  );
+
+  repository.closePage(page.id, 'close-target');
+  assert.deepEqual(
+    service.startResume(
+      {
+        targetPageId: page.id,
+        contextPageId: closedContext.id,
+        requestId: 'resume-closed-target',
+      },
+      () => {},
+    ).result,
+    {
+      ok: false,
+      requestId: 'resume-closed-target',
+      errorCode: 'PAGE_CLOSED',
+    },
+  );
+});
+
+test('跨页回问应处理数据库读取和写入异常', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  const readFailure = new TeacherService(
+    {
+      beginTeacherTurn() {
+        return null;
+      },
+      completeTeacherTurn() {
+        return null;
+      },
+      findById() {
+        throw new Error('读取失败');
+      },
+      appendTeacherPrompt() {
+        return null;
+      },
+    },
+    async function* () {
+      yield '不应执行';
+    },
+  );
+  assert.deepEqual(
+    readFailure.startResume(
+      {
+        targetPageId: 1,
+        contextPageId: 2,
+        requestId: 'resume-read-failed',
+      },
+      () => {},
+    ).result,
+    {
+      ok: false,
+      requestId: 'resume-read-failed',
+      errorCode: 'TEACHER_NO_RESPONSE',
+    },
+  );
+
+  const targetPage = {
+    id: 1,
+    title: '目标页',
+    body: '目标内容',
+    source: '',
+    status: 'reading',
+    parseStatus: 'pending',
+    teachingRoundCount: 0,
+    messages: [],
+  };
+  const contextPage = {
+    ...targetPage,
+    id: 2,
+    title: '上下文页',
+    status: 'closed',
+  };
+  const writeFailure = new TeacherService(
+    {
+      beginTeacherTurn() {
+        return null;
+      },
+      completeTeacherTurn() {
+        return null;
+      },
+      findById(pageId) {
+        return pageId === 1 ? targetPage : contextPage;
+      },
+      appendTeacherPrompt() {
+        return { ok: false, reason: 'closed' };
+      },
+    },
+    async function* () {
+      yield '跨页问题';
+    },
+  );
+  const outcome = writeFailure.startResume(
+    {
+      targetPageId: 1,
+      contextPageId: 2,
+      requestId: 'resume-write-failed',
+    },
+    () => {},
+  );
+  const done = await outcome.completion;
+  assert.equal(done.ok, false);
+  assert.equal(done.errorCode, 'TEACHER_NO_RESPONSE');
+});
+
+test('跨页回问应把两页最近用户内容传给生成器', async (t) => {
+  let receivedInput;
+  const { page, repository, service } = await createTeacherFixture(
+    t,
+    async function* (input) {
+      receivedInput = input;
+      yield '关联两页的问题';
+    },
+  );
+  repository.beginTeacherTurn(page.id, '目标页的中文补充。', 'target-user');
+  const contextPage = repository.create('另一个页边。', '');
+  repository.beginTeacherTurn(
+    contextPage.id,
+    'Latest English context thought.',
+    'context-user',
+  );
+  repository.closePage(contextPage.id, 'close-context');
+
+  const outcome = service.startResume(
+    {
+      targetPageId: page.id,
+      contextPageId: contextPage.id,
+      requestId: 'resume-user-context',
+    },
+    () => {},
+  );
+  await outcome.completion;
+
+  assert.equal(receivedInput.contextPage.id, contextPage.id);
+  assert.equal(receivedInput.userText, 'Latest English context thought.');
+  assert.equal(receivedInput.replyLanguage, 'en');
+  assert.ok(
+    receivedInput.page.messages.some(
+      (message) => message.text === '目标页的中文补充。',
+    ),
+  );
+});

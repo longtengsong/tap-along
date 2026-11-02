@@ -81,7 +81,8 @@
     "counterExample": "You said \"{keyword}\" — can you think of a counterexample?",
     "afterAppend": "You've added that thought. So then, {question}?",
     "afterEdit": "Clearer now. But the mechanism of \"{keyword}\" — could you say more?",
-    "activeOrDriven": "is the allocation active, or driven by the task"
+    "activeOrDriven": "is the allocation active, or driven by the task",
+    "resumeWithContext": "In \"{contextTitle}\", you wrote about \"{contextKeyword}\". How does that connect with \"{targetKeyword}\" on this page?"
   },
   "errors": {
     "invalidBody": "The note cannot be empty.",

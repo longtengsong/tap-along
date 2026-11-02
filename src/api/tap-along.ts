@@ -5,12 +5,16 @@ import type {
   TeacherAskPayload,
   TeacherChunkEvent,
   TeacherDoneEvent,
+  TeacherResumePayload,
   TeacherStartResult,
 } from '@/shared/pages';
 import type { AppErrorCode } from '@/shared/errors';
 import { i18n } from '@/i18n';
 import { translateFixedMessage } from '@/i18n/fixed-messages';
-import { resolveMockReplyLanguage } from '@/shared/conversation-language';
+import {
+  extractContentKeyword,
+  resolveMockReplyLanguage,
+} from '@/shared/conversation-language';
 import type { PageRecord } from '@/types/session';
 
 interface PageUiResult {
@@ -26,12 +30,7 @@ const bridge = (window as Window & { tapAlong?: TapAlongBridge }).tapAlong;
 
 let mockPageId = Date.now();
 
-export const extractKeyword = (body: string) => {
-  const firstLine = body.split('\n')[0]?.trim() ?? '';
-  const clean = firstLine.replace(/[，。、；：“”‘’？！\s]/g, '');
-
-  return clean.slice(0, 6) || '这页';
-};
+export const extractKeyword = (body: string) => extractContentKeyword(body);
 
 const toPageRecord = (page: PageSnapshot): PageRecord => {
   const userTexts = page.messages
@@ -94,12 +93,27 @@ export const tapAlongApi = {
       bridge?.askTeacher && bridge?.onTeacherChunk && bridge?.onTeacherDone,
     ),
 
+  supportsTeacherResume: () =>
+    Boolean(
+      bridge?.resumeTeacher && bridge?.onTeacherChunk && bridge?.onTeacherDone,
+    ),
+
   async askTeacher(payload: TeacherAskPayload): Promise<TeacherStartResult> {
     if (!bridge?.askTeacher) {
       return { ok: false, errorCode: 'TEACHER_NO_RESPONSE' };
     }
 
     return bridge.askTeacher(payload);
+  },
+
+  async resumeTeacher(
+    payload: TeacherResumePayload,
+  ): Promise<TeacherStartResult> {
+    if (!bridge?.resumeTeacher) {
+      return { ok: false, errorCode: 'TEACHER_NO_RESPONSE' };
+    }
+
+    return bridge.resumeTeacher(payload);
   },
 
   onTeacherChunk(callback: (event: TeacherChunkEvent) => void) {

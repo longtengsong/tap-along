@@ -3,9 +3,11 @@ import type {
   TeacherAskPayload,
   TeacherChunkEvent,
   TeacherDoneEvent,
+  TeacherResumePayload,
   TeacherStartResult,
 } from '../../shared/pages.ts';
 import {
+  extractContentKeyword,
   resolveMockReplyLanguage,
   type ReplyLanguage,
 } from '../../shared/conversation-language.ts';
@@ -16,6 +18,7 @@ interface TeacherGeneratorInput {
   page: PageSnapshot;
   userText: string;
   replyLanguage: ReplyLanguage;
+  contextPage?: PageSnapshot;
 }
 
 export type TeacherGenerator = (
@@ -59,33 +62,70 @@ const parseTeacherPayload = (payload: unknown): TeacherAskPayload | null => {
   };
 };
 
-const extractQuestionKeyword = (body: string, language: ReplyLanguage) => {
-  const firstLine = body.split(/\r?\n/, 1)[0]?.trim() ?? '';
-
-  if (language === 'en') {
-    return (
-      firstLine
-        .replace(/[.,!?;:"']/g, '')
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 5)
-        .join(' ') || 'this'
-    );
+const parseResumePayload = (payload: unknown): TeacherResumePayload | null => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return null;
   }
 
-  return firstLine.replace(/[，。、；：“”‘’？！\s]/g, '').slice(0, 6) || '这页';
+  const input = payload as Partial<TeacherResumePayload>;
+
+  if (
+    !Number.isInteger(input.targetPageId) ||
+    (input.targetPageId ?? 0) <= 0 ||
+    !Number.isInteger(input.contextPageId) ||
+    (input.contextPageId ?? 0) <= 0 ||
+    input.targetPageId === input.contextPageId ||
+    typeof input.requestId !== 'string' ||
+    !input.requestId.trim()
+  ) {
+    return null;
+  }
+
+  return {
+    targetPageId: input.targetPageId as number,
+    contextPageId: input.contextPageId as number,
+    requestId: input.requestId.trim(),
+  };
 };
 
 export const createOpeningTeacherMessage = (body: string) => {
   const replyLanguage = resolveMockReplyLanguage(body);
 
   return translateFixedMessage(replyLanguage, 'teacherFallback.firstQuestion', {
-    keyword: extractQuestionKeyword(body, replyLanguage),
+    keyword: extractContentKeyword(body, replyLanguage),
   });
 };
 
-const createMockReply = (page: PageSnapshot, replyLanguage: ReplyLanguage) => {
-  const keyword = extractQuestionKeyword(page.body, replyLanguage);
+const createMockReply = (
+  page: PageSnapshot,
+  replyLanguage: ReplyLanguage,
+  contextPage?: PageSnapshot,
+) => {
+  const keyword = extractContentKeyword(page.body, replyLanguage);
+
+  if (contextPage) {
+    const contextKeywordLanguage = resolveMockReplyLanguage(contextPage.body);
+    const targetKeywordLanguage = resolveMockReplyLanguage(page.body);
+
+    return {
+      text: translateFixedMessage(
+        replyLanguage,
+        'teacherFallback.resumeWithContext',
+        {
+          contextTitle: contextPage.title,
+          contextKeyword: extractContentKeyword(
+            contextPage.body,
+            contextKeywordLanguage,
+          ),
+          targetKeyword: extractContentKeyword(
+            page.body,
+            targetKeywordLanguage,
+          ),
+        },
+      ),
+      suggestClose: false,
+    };
+  }
 
   if (page.teachingRoundCount >= 3) {
     return {
@@ -118,8 +158,9 @@ const createMockReply = (page: PageSnapshot, replyLanguage: ReplyLanguage) => {
 export const createMockTeacherStream: TeacherGenerator = async function* ({
   page,
   replyLanguage,
+  contextPage,
 }) {
-  const reply = createMockReply(page, replyLanguage);
+  const reply = createMockReply(page, replyLanguage, contextPage);
   const characters = Array.from(reply.text);
 
   for (let index = 0; index < characters.length; index += 3) {
@@ -132,14 +173,20 @@ export class TeacherService {
   private readonly activeRequests = new Set<string>();
   private readonly repository: Pick<
     PagesRepository,
-    'beginTeacherTurn' | 'completeTeacherTurn'
+    | 'beginTeacherTurn'
+    | 'completeTeacherTurn'
+    | 'findById'
+    | 'appendTeacherPrompt'
   >;
   private readonly generate: TeacherGenerator;
 
   constructor(
     repository: Pick<
       PagesRepository,
-      'beginTeacherTurn' | 'completeTeacherTurn'
+      | 'beginTeacherTurn'
+      | 'completeTeacherTurn'
+      | 'findById'
+      | 'appendTeacherPrompt'
     >,
     generate: TeacherGenerator = createMockTeacherStream,
   ) {
@@ -214,6 +261,176 @@ export class TeacherService {
       result: { ok: true, requestId: input.requestId },
       completion,
     };
+  }
+
+  startResume(
+    payload: unknown,
+    emit: TeacherEventEmitter,
+  ): TeacherStartOutcome {
+    const input = parseResumePayload(payload);
+
+    if (!input) {
+      return {
+        result: {
+          ok: false,
+          errorCode: 'TEACHER_INVALID_REQUEST',
+        },
+      };
+    }
+
+    if (this.activeRequests.has(input.requestId)) {
+      return {
+        result: { ok: true, requestId: input.requestId },
+      };
+    }
+
+    let targetPage: PageSnapshot | null;
+    let contextPage: PageSnapshot | null;
+
+    try {
+      targetPage = this.repository.findById(input.targetPageId);
+      contextPage = this.repository.findById(input.contextPageId);
+    } catch (error) {
+      console.error('读取跨页上下文失败：', error);
+      return {
+        result: {
+          ok: false,
+          requestId: input.requestId,
+          errorCode: 'TEACHER_NO_RESPONSE',
+        },
+      };
+    }
+
+    if (!targetPage || !contextPage) {
+      return {
+        result: {
+          ok: false,
+          requestId: input.requestId,
+          errorCode: 'TEACHER_PAGE_NOT_FOUND',
+        },
+      };
+    }
+
+    if (targetPage.status !== 'reading') {
+      return {
+        result: {
+          ok: false,
+          requestId: input.requestId,
+          errorCode: 'PAGE_CLOSED',
+        },
+      };
+    }
+
+    if (contextPage.status !== 'closed') {
+      return {
+        result: {
+          ok: false,
+          requestId: input.requestId,
+          errorCode: 'TEACHER_INVALID_REQUEST',
+        },
+      };
+    }
+
+    if (
+      targetPage.messages.some(
+        (message) =>
+          message.role === 'teacher' && message.requestId === input.requestId,
+      )
+    ) {
+      return {
+        result: { ok: true, requestId: input.requestId },
+      };
+    }
+
+    this.activeRequests.add(input.requestId);
+    const completion = this.streamResume(
+      targetPage,
+      contextPage,
+      input,
+      emit,
+    ).finally(() => {
+      this.activeRequests.delete(input.requestId);
+    });
+
+    return {
+      result: { ok: true, requestId: input.requestId },
+      completion,
+    };
+  }
+
+  private async streamResume(
+    targetPage: PageSnapshot,
+    contextPage: PageSnapshot,
+    input: TeacherResumePayload,
+    emit: TeacherEventEmitter,
+  ): Promise<TeacherDoneEvent> {
+    let reply = '';
+    const contextUserTexts = contextPage.messages
+      .filter((message) => message.role === 'user')
+      .map((message) => message.text);
+    const targetUserTexts = targetPage.messages
+      .filter((message) => message.role === 'user')
+      .map((message) => message.text);
+    const latestUserText = contextUserTexts.at(-1) ?? contextPage.body;
+    const replyLanguage = resolveMockReplyLanguage(latestUserText, [
+      targetPage.body,
+      ...targetUserTexts,
+      ...contextUserTexts.slice(0, -1),
+    ]);
+
+    try {
+      for await (const chunk of this.generate({
+        page: targetPage,
+        contextPage,
+        userText: latestUserText,
+        replyLanguage,
+      })) {
+        if (!chunk) {
+          continue;
+        }
+
+        reply += chunk;
+        emit({
+          pageId: targetPage.id,
+          requestId: input.requestId,
+          chunk,
+        });
+      }
+
+      if (!reply) {
+        throw new Error('老师没有返回跨页问题');
+      }
+
+      const result = this.repository.appendTeacherPrompt(
+        targetPage.id,
+        reply,
+        input.requestId,
+      );
+
+      if (!result.ok) {
+        throw new Error('保存跨页问题失败');
+      }
+
+      const doneEvent: TeacherDoneEvent = {
+        ok: true,
+        pageId: targetPage.id,
+        requestId: input.requestId,
+        reply,
+        suggestClose: false,
+      };
+      emit(doneEvent);
+      return doneEvent;
+    } catch (error) {
+      console.error('生成跨页老师问题失败：', error);
+      const failedEvent: TeacherDoneEvent = {
+        ok: false,
+        pageId: targetPage.id,
+        requestId: input.requestId,
+        errorCode: 'TEACHER_NO_RESPONSE',
+      };
+      emit(failedEvent);
+      return failedEvent;
+    }
   }
 
   private async streamResponse(

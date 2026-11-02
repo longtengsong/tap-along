@@ -81,7 +81,8 @@
     "counterExample": "你说“{keyword}”，有反例吗？",
     "afterAppend": "你把刚才的想法补进来了。那么{question}？",
     "afterEdit": "修改后更清楚了。不过“{keyword}”的机制，你能再具体说说吗？",
-    "activeOrDriven": "分配是主动的，还是被任务牵引的"
+    "activeOrDriven": "分配是主动的，还是被任务牵引的",
+    "resumeWithContext": "你刚才在“{contextTitle}”里写到“{contextKeyword}”。这和你在这页写下的“{targetKeyword}”有什么关系？"
   },
   "errors": {
     "invalidBody": "正文不能为空。",

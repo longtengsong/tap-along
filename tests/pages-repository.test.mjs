@@ -339,3 +339,48 @@ test('合上页面应拒绝不存在的页边并保持幂等', async (t) => {
   assert.equal(repeated.ok, true);
   assert.equal(repeated.page.messages.length, 1);
 });
+
+test('跨页回问应写入目标页且不增加教学轮次', async (t) => {
+  const { repository } = await createRepository(t);
+  const page = repository.create('目标页正文。', '课程');
+  const result = repository.appendTeacherPrompt(
+    page.id,
+    '你刚才在读另一页时，有什么新的联系？',
+    'resume-1',
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.page.teachingRoundCount, 0);
+  assert.equal(result.page.messages.length, 1);
+  assert.equal(result.page.messages[0].role, 'teacher');
+  assert.equal(result.page.messages[0].requestId, 'resume-1');
+
+  const duplicate = repository.appendTeacherPrompt(
+    page.id,
+    '不应重复写入。',
+    'resume-1',
+  );
+  assert.equal(duplicate.ok, true);
+  assert.equal(duplicate.page.messages.length, 1);
+});
+
+test('跨页回问应拒绝不存在或已合上的目标页', async (t) => {
+  const { db, repository } = await createRepository(t);
+  const page = repository.create('目标页正文。', '');
+
+  assert.deepEqual(
+    repository.appendTeacherPrompt(999_999, '问题', 'resume-missing'),
+    { ok: false, reason: 'not_found' },
+  );
+
+  db.prepare("UPDATE pages SET page_status = 'closed' WHERE id = ?").run(
+    page.id,
+  );
+  assert.deepEqual(
+    repository.appendTeacherPrompt(page.id, '问题', 'resume-closed'),
+    {
+      ok: false,
+      reason: 'closed',
+    },
+  );
+});
