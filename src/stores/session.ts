@@ -1,5 +1,6 @@
 import { computed, reactive } from 'vue';
 import { extractKeyword, tapAlongApi } from '@/api/tap-along';
+import { i18n } from '@/i18n';
 import { translateFixedMessage } from '@/i18n/fixed-messages';
 import {
   resolveMockReplyLanguage,
@@ -210,21 +211,52 @@ const teacherQuestion = (
   );
 };
 
-const respondAfterMaintenance = async (page: PageRecord, text: string) => {
+type MaintenanceKind = 'append' | 'edit';
+
+const previousUserContents = (page: PageRecord) => [
+  ...(page.body ? [page.body] : []),
+  ...page.messages
+    .filter((item) => item.role === 'user')
+    .map((item) => item.text),
+];
+
+const respondAfterMaintenance = async (
+  page: PageRecord,
+  kind: MaintenanceKind,
+  triggerText: string,
+) => {
   state.typing = true;
   await wait(760);
+  const replyLanguage = resolveMockReplyLanguage(
+    triggerText,
+    previousUserContents(page),
+  );
 
   if (page.teacherTurn >= 4) {
     page.suggestClose = true;
     page.messages.push(
       message(
         'teacher',
-        '批注更新了。我看了一下，这轮没有需要再聊的。你决定要不要合上。',
+        translateFixedMessage(
+          replyLanguage,
+          'teacherFallback.suggestCloseAfterMaintain',
+        ),
         true,
       ),
     );
   } else {
-    page.messages.push(message('teacher', text));
+    const reply =
+      kind === 'append'
+        ? translateFixedMessage(replyLanguage, 'teacherFallback.afterAppend', {
+            question: translateFixedMessage(
+              replyLanguage,
+              'teacherFallback.activeOrDriven',
+            ),
+          })
+        : translateFixedMessage(replyLanguage, 'teacherFallback.afterEdit', {
+            keyword: extractKeyword(page.body),
+          });
+    page.messages.push(message('teacher', reply));
   }
 
   state.typing = false;
@@ -392,15 +424,17 @@ const submitAppend = async () => {
   page.body = `${page.body}\n\n${text}`;
   page.editDraft = page.body;
   const brief = text.length > 16 ? `${text.slice(0, 16)}…` : text;
-  page.messages.push(message('maintenance', `补了一句：${brief}`));
+  page.messages.push(
+    message(
+      'maintenance',
+      i18n.global.t('messages.appended', { content: brief }),
+    ),
+  );
   state.replyDraft = '';
   state.composerMode = 'normal';
 
   await tapAlongApi.appendPage(page.id, text);
-  await respondAfterMaintenance(
-    page,
-    '你把刚才的想法补进来了。那么分配是主动的，还是被任务牵引的？',
-  );
+  await respondAfterMaintenance(page, 'append', text);
 };
 
 const startEditing = () => {
@@ -432,13 +466,10 @@ const saveEditing = async () => {
   page.body = body;
   page.title = extractKeyword(body);
   page.editing = false;
-  page.messages.push(message('maintenance', '改过批注了'));
+  page.messages.push(message('maintenance', i18n.global.t('messages.edited')));
 
   await tapAlongApi.editPage(page.id, body);
-  await respondAfterMaintenance(
-    page,
-    '修改后更清楚了。不过“分配”的机制，你能再具体说说吗？',
-  );
+  await respondAfterMaintenance(page, 'edit', body);
 };
 
 const startAppending = () => {
@@ -464,7 +495,19 @@ const closeCurrentPage = async () => {
   }
 
   page.status = 'closed';
-  page.messages.push(message('teacher', '好，这页先读到这儿。'));
+  const latestUserText =
+    [...page.messages].reverse().find((item) => item.role === 'user')?.text ??
+    page.body;
+  const replyLanguage = resolveMockReplyLanguage(
+    latestUserText,
+    previousUserContents(page),
+  );
+  page.messages.push(
+    message(
+      'teacher',
+      translateFixedMessage(replyLanguage, 'teacherFallback.userClosed'),
+    ),
+  );
   page.editing = false;
   state.sayMoreOpen = false;
   state.composerMode = 'normal';

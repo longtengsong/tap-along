@@ -80,7 +80,8 @@
     "attentionAllocation": "那分配完之后，剩下的注意力去了哪里？",
     "counterExample": "你说“{keyword}”，有反例吗？",
     "afterAppend": "你把刚才的想法补进来了。那么{question}？",
-    "afterEdit": "修改后更清楚了。不过“{keyword}”的机制，你能再具体说说吗？"
+    "afterEdit": "修改后更清楚了。不过“{keyword}”的机制，你能再具体说说吗？",
+    "activeOrDriven": "分配是主动的，还是被任务牵引的"
   },
   "errors": {
     "teacherNoResponse": "老师暂时没应声，要再试一次吗？",

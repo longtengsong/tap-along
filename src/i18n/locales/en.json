@@ -80,7 +80,8 @@
     "attentionAllocation": "After that allocation, where does the remaining attention go?",
     "counterExample": "You said \"{keyword}\" — can you think of a counterexample?",
     "afterAppend": "You've added that thought. So then, {question}?",
-    "afterEdit": "Clearer now. But the mechanism of \"{keyword}\" — could you say more?"
+    "afterEdit": "Clearer now. But the mechanism of \"{keyword}\" — could you say more?",
+    "activeOrDriven": "is the allocation active, or driven by the task"
   },
   "errors": {
     "teacherNoResponse": "The teacher didn't respond. Try again?",
