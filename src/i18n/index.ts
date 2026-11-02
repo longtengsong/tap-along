@@ -2,7 +2,8 @@ import { createI18n } from 'vue-i18n';
 import en from './locales/en.json';
 import zhCN from './locales/zh-CN.json';
 import {
-  LOCALE_STORAGE_KEY,
+  LEGACY_LOCALE_STORAGE_KEY,
+  UI_LOCALE_STORAGE_KEY,
   readPreferredLocale,
   type SupportedLocale,
 } from './locale';
@@ -27,7 +28,8 @@ export const setLocale = (locale: SupportedLocale) => {
   document.documentElement.lang = locale;
 
   try {
-    window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+    window.localStorage.setItem(UI_LOCALE_STORAGE_KEY, locale);
+    window.localStorage.removeItem(LEGACY_LOCALE_STORAGE_KEY);
   } catch {
     // Locale persistence is optional; the active locale still updates.
   }

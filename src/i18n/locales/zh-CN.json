@@ -4,7 +4,7 @@
     "tagline": "读到哪里，轻轻叩一下",
     "settings": "设置",
     "privacy": "笔记会发送到云端老师那里，用于生成回应。",
-    "settingsComingSoon": "设置还在路上，先专心读这一页。"
+    "settingsPanel": "设置只影响界面语言，老师始终跟随你的提问语言。"
   },
   "common": {
     "cancel": "取消",
@@ -89,12 +89,21 @@
     "saveFailed": "没送进去。",
     "retry": "再试一次"
   },
+  "settings": {
+    "title": "设置",
+    "uiLanguage": "界面语言",
+    "chinese": "简体中文",
+    "english": "English",
+    "privacy": "隐私说明",
+    "privacyText": "笔记会发送到云端老师那里，用于生成回应。"
+  },
   "a11y": {
     "appWindow": "轻叩伴读应用窗口",
     "teacherMessage": "老师的消息",
     "userMessage": "你的消息",
     "maintenanceMessage": "维护动作",
     "back": "翻回去",
-    "settings": "设置"
+    "settings": "设置",
+    "settingsMenu": "界面语言设置"
   }
 }

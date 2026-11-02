@@ -1,12 +1,15 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppWindow from '@/components/layout/AppWindow.vue';
 import CompanionScreen from '@/components/companion/CompanionScreen.vue';
 import NewPageScreen from '@/components/newpage/NewPageScreen.vue';
 import OverlayHost from '@/components/overlay/OverlayHost.vue';
+import SettingsDialog from '@/components/layout/SettingsDialog.vue';
 import { useSessionStore } from '@/stores/session';
 
 const { t } = useI18n();
+const settingsOpen = ref(false);
 
 const {
   state,
@@ -27,7 +30,6 @@ const {
   retrySave,
   retryTeacher,
   dismissOverlay,
-  showSettingsNotice,
 } = useSessionStore();
 
 const submitComposer = () => {
@@ -64,7 +66,7 @@ const submitComposer = () => {
         @update:source="state.draft.source = $event"
         @submit="submitNewPage"
         @back="goBack"
-        @settings="showSettingsNotice"
+        @settings="settingsOpen = true"
       />
       <CompanionScreen
         v-else-if="currentPage"
@@ -75,7 +77,7 @@ const submitComposer = () => {
         :reply-draft="state.replyDraft"
         :say-more-open="state.sayMoreOpen"
         @back="goBack"
-        @settings="showSettingsNotice"
+        @settings="settingsOpen = true"
         @update-edit-draft="currentPage.editDraft = $event"
         @save-edit="saveEditing"
         @cancel-edit="cancelEditing"
@@ -97,11 +99,7 @@ const submitComposer = () => {
       @retry-teacher="retryTeacher"
     />
 
-    <Transition name="toast">
-      <p v-if="state.settingsNotice" class="settings-toast" role="status">
-        {{ t('app.settingsComingSoon') }}
-      </p>
-    </Transition>
+    <SettingsDialog :open="settingsOpen" @close="settingsOpen = false" />
   </AppWindow>
 </template>
 
@@ -156,36 +154,5 @@ const submitComposer = () => {
 .screen-switch-leave-to {
   opacity: 0;
   transform: translateY(-3px);
-}
-
-.settings-toast {
-  position: absolute;
-  bottom: 22px;
-  left: 50%;
-  z-index: 90;
-  margin: 0;
-  padding: 9px 17px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgb(255 254 250 / 92%);
-  box-shadow: 0 8px 28px -18px rgb(54 43 27 / 48%);
-  color: var(--ink-soft);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  transform: translateX(-50%);
-  backdrop-filter: blur(8px);
-}
-
-.toast-enter-active,
-.toast-leave-active {
-  transition:
-    opacity 180ms ease,
-    transform 200ms var(--ease-out);
-}
-
-.toast-enter-from,
-.toast-leave-to {
-  opacity: 0;
-  transform: translate(-50%, 5px);
 }
 </style>

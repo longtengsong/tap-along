@@ -2,7 +2,8 @@ export const SUPPORTED_LOCALES = ['zh-CN', 'en'] as const;
 
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
-export const LOCALE_STORAGE_KEY = 'tap-along.locale';
+export const UI_LOCALE_STORAGE_KEY = 'tap-along.ui-locale';
+export const LEGACY_LOCALE_STORAGE_KEY = 'tap-along.locale';
 
 export const normalizeLocale = (
   locale: string | null | undefined,
@@ -36,7 +37,10 @@ export const getStoredLocale = (): string | null => {
   }
 
   try {
-    return window.localStorage.getItem(LOCALE_STORAGE_KEY);
+    return (
+      window.localStorage.getItem(UI_LOCALE_STORAGE_KEY) ??
+      window.localStorage.getItem(LEGACY_LOCALE_STORAGE_KEY)
+    );
   } catch {
     return null;
   }

@@ -63,7 +63,6 @@ const state = reactive({
   typing: false,
   sayMoreOpen: false,
   composerMode: 'normal' as ComposerMode,
-  settingsNotice: false,
 });
 
 const findPage = (pageId: number) =>
@@ -570,13 +569,6 @@ const dismissOverlay = () => {
   state.overlay = null;
 };
 
-const showSettingsNotice = () => {
-  state.settingsNotice = true;
-  window.setTimeout(() => {
-    state.settingsNotice = false;
-  }, 2200);
-};
-
 export const useSessionStore = () => {
   ensureTeacherEvents();
   void restoreLatestPage();
@@ -600,6 +592,5 @@ export const useSessionStore = () => {
     retrySave,
     retryTeacher,
     dismissOverlay,
-    showSettingsNotice,
   };
 };

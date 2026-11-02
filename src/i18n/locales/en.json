@@ -4,7 +4,7 @@
     "tagline": "a gentle tap alongside your reading",
     "settings": "Settings",
     "privacy": "Your notes are sent to a cloud-based teacher to generate responses.",
-    "settingsComingSoon": "Settings are coming soon. Settle into this page for now."
+    "settingsPanel": "Settings only change the interface language. The teacher always follows the language of your message."
   },
   "common": {
     "cancel": "Cancel",
@@ -89,12 +89,21 @@
     "saveFailed": "Couldn't save.",
     "retry": "Try again"
   },
+  "settings": {
+    "title": "Settings",
+    "uiLanguage": "Interface language",
+    "chinese": "简体中文",
+    "english": "English",
+    "privacy": "Privacy",
+    "privacyText": "Your notes are sent to a cloud-based teacher to generate responses."
+  },
   "a11y": {
     "appWindow": "TapAlong application window",
     "teacherMessage": "Teacher's message",
     "userMessage": "Your message",
     "maintenanceMessage": "Note action",
     "back": "Go back",
-    "settings": "Settings"
+    "settings": "Settings",
+    "settingsMenu": "Interface language settings"
   }
 }
