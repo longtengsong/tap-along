@@ -22,9 +22,14 @@ export default async function* chineseReporter(source) {
       yield `  ✓ ${data.name}（${formatDuration(data.details.duration_ms)}）\n`;
     }
 
-    if (event.type === 'test:fail' && isRunnableTest(data)) {
-      yield `  ✗ ${data.name}（${formatDuration(data.details.duration_ms)}）\n`;
-      yield `    ${formatErrorMessage(data.details.error)}\n`;
+    if (event.type === 'test:fail') {
+      if (isRunnableTest(data)) {
+        yield `  ✗ ${data.name}（${formatDuration(data.details.duration_ms)}）\n`;
+        yield `    ${formatErrorMessage(data.details.error)}\n`;
+      } else if (data.name.endsWith('.mjs')) {
+        yield `  ✗ ${path.basename(data.name)}（测试文件执行失败）\n`;
+        yield `    ${formatErrorMessage(data.details.error)}\n`;
+      }
     }
 
     if (event.type === 'test:summary') {

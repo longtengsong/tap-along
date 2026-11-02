@@ -1,5 +1,5 @@
 import { computed, reactive } from 'vue';
-import { extractKeyword, tapAlongApi } from '@/api/tapalong';
+import { extractKeyword, tapAlongApi } from '@/api/tap-along';
 import type {
   ComposerMode,
   OverlayState,

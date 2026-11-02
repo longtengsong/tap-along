@@ -4,16 +4,21 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {
+  DATABASE_FILENAME,
   allocateDatabasePath,
   closeDatabase,
   openDatabase,
 } from '../src/main/db/client.ts';
 
 const createDatabasePath = async (t) => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'tapalong-test-'));
+  const directory = await mkdtemp(path.join(tmpdir(), 'tap-along-test-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   return allocateDatabasePath(directory);
 };
+
+test('数据库文件名应使用 tap-along 连字符格式', () => {
+  assert.equal(DATABASE_FILENAME, 'tap-along.db');
+});
 
 test('初始化数据库时应启用 WAL、页边表及索引', async (t) => {
   const db = openDatabase(await createDatabasePath(t));

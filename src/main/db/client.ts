@@ -3,7 +3,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { initializeSchema } from './schema.ts';
 
-export const DATABASE_FILENAME = 'tapalong.db';
+export const DATABASE_FILENAME = 'tap-along.db';
 
 export const allocateDatabasePath = (userDataPath: string) =>
   path.join(userDataPath, DATABASE_FILENAME);

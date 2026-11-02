@@ -1,0 +1,144 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { PAGE_CHANNELS } from '../src/shared/pages.ts';
+import {
+  getPage,
+  registerPageHandlers,
+  savePage,
+} from '../src/main/ipc/pages.ts';
+
+const samplePage = {
+  id: 1,
+  title: '注意力像带宽',
+  body: '注意力像带宽。',
+  source: '课程',
+  status: 'reading',
+  parseStatus: 'pending',
+  teachingRoundCount: 0,
+  messages: [],
+};
+
+test('保存页边时应校验正文并清理出处', () => {
+  const calls = [];
+  const repository = {
+    create(body, source) {
+      calls.push({ body, source });
+      return samplePage;
+    },
+  };
+
+  const result = savePage(repository, {
+    body: '  注意力像带宽。  ',
+    source: ' 课程 ',
+  });
+
+  assert.deepEqual(result, { ok: true, page: samplePage });
+  assert.deepEqual(calls, [{ body: '注意力像带宽。', source: '课程' }]);
+});
+
+test('保存页边时应拒绝无效正文', () => {
+  const repository = {
+    create() {
+      throw new Error('不应调用仓储');
+    },
+  };
+
+  for (const payload of [null, {}, { body: '' }, { body: '  ' }, { body: 1 }]) {
+    assert.deepEqual(savePage(repository, payload), {
+      ok: false,
+      error: '正文不能为空。',
+    });
+  }
+});
+
+test('出处不是字符串时应按空出处保存', () => {
+  let receivedSource;
+  const repository = {
+    create(_body, source) {
+      receivedSource = source;
+      return samplePage;
+    },
+  };
+
+  const result = savePage(repository, { body: '笔记', source: 42 });
+
+  assert.equal(result.ok, true);
+  assert.equal(receivedSource, '');
+});
+
+test('仓储保存失败时应返回统一错误', (t) => {
+  t.mock.method(console, 'error', () => {});
+  const repository = {
+    create() {
+      throw new Error('磁盘不可用');
+    },
+  };
+
+  assert.deepEqual(savePage(repository, { body: '笔记' }), {
+    ok: false,
+    error: '这一句没送进去。',
+  });
+});
+
+test('读取页边时应返回仓储结果', () => {
+  const result = getPage({ findById: () => samplePage }, 1);
+  assert.deepEqual(result, { ok: true, page: samplePage });
+});
+
+test('读取页边时应处理无效编号和不存在页边', () => {
+  const repository = { findById: () => null };
+
+  for (const pageId of [0, -1, 1.5, '1', null]) {
+    assert.deepEqual(getPage(repository, pageId), {
+      ok: false,
+      error: '页边编号无效。',
+    });
+  }
+
+  assert.deepEqual(getPage(repository, 1), {
+    ok: false,
+    error: '这一页没有找到。',
+  });
+});
+
+test('仓储读取失败时应返回统一错误', (t) => {
+  t.mock.method(console, 'error', () => {});
+  const repository = {
+    findById() {
+      throw new Error('数据库不可用');
+    },
+  };
+
+  assert.deepEqual(getPage(repository, 1), {
+    ok: false,
+    error: '这一页暂时打不开。',
+  });
+});
+
+test('IPC 注册应暴露保存和读取通道', () => {
+  const handlers = new Map();
+  const ipcMain = {
+    handle(channel, handler) {
+      handlers.set(channel, handler);
+    },
+  };
+  const repository = {
+    create: () => samplePage,
+    findById: () => samplePage,
+  };
+
+  registerPageHandlers(ipcMain, repository);
+
+  assert.deepEqual(
+    new Set(handlers.keys()),
+    new Set(Object.values(PAGE_CHANNELS)),
+  );
+  assert.deepEqual(handlers.get(PAGE_CHANNELS.save)(null, { body: '笔记' }), {
+    ok: true,
+    page: samplePage,
+  });
+  assert.deepEqual(handlers.get(PAGE_CHANNELS.get)(null, 1), {
+    ok: true,
+    page: samplePage,
+  });
+});

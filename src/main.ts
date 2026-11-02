@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import started from 'electron-squirrel-startup';
@@ -7,6 +7,8 @@ import {
   closeDatabase,
   openDatabase,
 } from './main/db/client';
+import { PagesRepository } from './main/db/pages';
+import { registerPageHandlers } from './main/ipc/pages';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -68,6 +70,7 @@ if (!hasSingleInstanceLock) {
   app.whenReady().then(() => {
     try {
       database = openDatabase(allocateDatabasePath(app.getPath('userData')));
+      registerPageHandlers(ipcMain, new PagesRepository(database));
     } catch (error) {
       console.error('Failed to initialize the TapAlong database.', error);
       app.quit();

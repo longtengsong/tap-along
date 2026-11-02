@@ -14,7 +14,7 @@ export interface TalkMessage {
 }
 
 export interface PageRecord {
-  id: string;
+  id: number;
   title: string;
   body: string;
   source: string;
