@@ -77,6 +77,8 @@
     "userClosed": "Alright, we'll stop here for this page.",
     "firstQuestion": "When you wrote \"{keyword}\", what did you mean? Could you say a bit more?",
     "followUp": "If that's what you mean, who decides \"{keyword}\"? Is it {optionA}, or {optionB}?",
+    "attentionAllocation": "After that allocation, where does the remaining attention go?",
+    "counterExample": "You said \"{keyword}\" — can you think of a counterexample?",
     "afterAppend": "You've added that thought. So then, {question}?",
     "afterEdit": "Clearer now. But the mechanism of \"{keyword}\" — could you say more?"
   },

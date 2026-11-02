@@ -5,11 +5,17 @@ import type {
   TeacherDoneEvent,
   TeacherStartResult,
 } from '../../shared/pages.ts';
+import {
+  resolveMockReplyLanguage,
+  type ReplyLanguage,
+} from '../../shared/conversation-language.ts';
+import { translateFixedMessage } from '../../i18n/fixed-messages.ts';
 import type { PagesRepository } from '../db/pages.ts';
 
 interface TeacherGeneratorInput {
   page: PageSnapshot;
   userText: string;
+  replyLanguage: ReplyLanguage;
 }
 
 export type TeacherGenerator = (
@@ -53,34 +59,42 @@ const parseTeacherPayload = (payload: unknown): TeacherAskPayload | null => {
   };
 };
 
-const createMockReply = (page: PageSnapshot) => {
+const createMockReply = (page: PageSnapshot, replyLanguage: ReplyLanguage) => {
   const keyword = page.title.replace(/[，。、；：“”‘’？！\s]/g, '').slice(0, 6);
-  const questions = [
-    `你写的“${keyword}”是指什么？能再具体说说吗？`,
-    `如果按你说的，“${keyword}”由谁决定？是任务牵引，还是你主动分配？`,
-    '那分配完之后，剩下的注意力去了哪里？',
-    `你说“${keyword}”，有反例吗？`,
-  ];
 
   if (page.teachingRoundCount >= 3) {
     return {
-      text: '暂时没有要再追问的了。如果你觉得可以了，合上这页就行。',
+      text: translateFixedMessage(
+        replyLanguage,
+        'teacherFallback.suggestCloseInTalk',
+      ),
       suggestClose: true,
     };
   }
 
+  const questionKeys = [
+    'teacherFallback.firstQuestion',
+    'teacherFallback.followUp',
+    'teacherFallback.attentionAllocation',
+    'teacherFallback.counterExample',
+  ];
+  const key = questionKeys[Math.min(page.teachingRoundCount + 1, 3)];
+
   return {
-    text: questions[
-      Math.min(page.teachingRoundCount + 1, questions.length - 1)
-    ],
+    text: translateFixedMessage(replyLanguage, key, {
+      keyword,
+      optionA: replyLanguage === 'en' ? 'task-driven' : '任务牵引',
+      optionB: replyLanguage === 'en' ? 'your own choice' : '你主动分配',
+    }),
     suggestClose: false,
   };
 };
 
 export const createMockTeacherStream: TeacherGenerator = async function* ({
   page,
+  replyLanguage,
 }) {
-  const reply = createMockReply(page);
+  const reply = createMockReply(page, replyLanguage);
   const characters = Array.from(reply.text);
 
   for (let index = 0; index < characters.length; index += 3) {
@@ -183,11 +197,22 @@ export class TeacherService {
     emit: TeacherEventEmitter,
   ): Promise<TeacherDoneEvent> {
     let reply = '';
+    const previousUserTexts = page.messages
+      .filter(
+        (message) =>
+          message.role === 'user' && message.requestId !== input.requestId,
+      )
+      .map((message) => message.text);
+    const replyLanguage = resolveMockReplyLanguage(
+      input.userText,
+      previousUserTexts,
+    );
 
     try {
       for await (const chunk of this.generate({
         page,
         userText: input.userText,
+        replyLanguage,
       })) {
         if (!chunk) {
           continue;

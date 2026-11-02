@@ -284,6 +284,7 @@ test('本地老师流应逐块输出并在聊透后建议合上', async () => {
   for await (const chunk of createMockTeacherStream({
     page,
     userText: '我的理解。',
+    replyLanguage: 'zh-CN',
   })) {
     chunks.push(chunk);
   }
@@ -308,9 +309,69 @@ test('本地老师流应针对首轮生成叩问', async () => {
   for await (const chunk of createMockTeacherStream({
     page,
     userText: '我的理解。',
+    replyLanguage: 'zh-CN',
   })) {
     chunks.push(chunk);
   }
 
   assert.match(chunks.join(''), /由谁决定/);
+});
+
+test('本地老师应按最新英文用户消息输出英文', async (t) => {
+  const { page, service } = await createTeacherFixture(t, undefined);
+  const outcome = service.start(
+    {
+      pageId: page.id,
+      userText: 'What does attention allocation mean?',
+      requestId: 'english-1',
+    },
+    () => {},
+  );
+  const done = await outcome.completion;
+
+  assert.equal(done.ok, true);
+  assert.match(done.reply, /If that's what you mean/);
+  assert.doesNotMatch(done.reply, /如果按你说的/);
+});
+
+test('同一会话中途切换语言时应跟随最新用户消息', async (t) => {
+  const { page, service } = await createTeacherFixture(t, undefined);
+  const first = service.start(
+    {
+      pageId: page.id,
+      userText: 'My first thought is in English.',
+      requestId: 'switch-1',
+    },
+    () => {},
+  );
+  const firstDone = await first.completion;
+  assert.match(firstDone.reply, /If that's what you mean/);
+
+  const second = service.start(
+    {
+      pageId: page.id,
+      userText: '现在改用中文继续提问。',
+      requestId: 'switch-2',
+    },
+    () => {},
+  );
+  const secondDone = await second.completion;
+  assert.match(secondDone.reply, /分配完之后/);
+  assert.doesNotMatch(secondDone.reply, /After that allocation/);
+});
+
+test('中英文混合问题应优先使用中文老师回复', async (t) => {
+  const { page, service } = await createTeacherFixture(t, undefined);
+  const outcome = service.start(
+    {
+      pageId: page.id,
+      userText: '请用 English 解释这个 attention 问题。',
+      requestId: 'mixed-1',
+    },
+    () => {},
+  );
+  const done = await outcome.completion;
+
+  assert.match(done.reply, /如果按你说的/);
+  assert.doesNotMatch(done.reply, /If that's what you mean/);
 });

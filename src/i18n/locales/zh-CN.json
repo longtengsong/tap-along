@@ -77,6 +77,8 @@
     "userClosed": "好，这页先读到这儿。",
     "firstQuestion": "你写的“{keyword}”是指什么？能再具体说说吗？",
     "followUp": "如果按你说的，“{keyword}”由谁决定？是{optionA}，还是{optionB}？",
+    "attentionAllocation": "那分配完之后，剩下的注意力去了哪里？",
+    "counterExample": "你说“{keyword}”，有反例吗？",
     "afterAppend": "你把刚才的想法补进来了。那么{question}？",
     "afterEdit": "修改后更清楚了。不过“{keyword}”的机制，你能再具体说说吗？"
   },

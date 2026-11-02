@@ -1,5 +1,10 @@
 import { computed, reactive } from 'vue';
 import { extractKeyword, tapAlongApi } from '@/api/tap-along';
+import { translateFixedMessage } from '@/i18n/fixed-messages';
+import {
+  resolveMockReplyLanguage,
+  type ReplyLanguage,
+} from '@/shared/conversation-language';
 import type {
   TeacherAskPayload,
   TeacherChunkEvent,
@@ -182,16 +187,27 @@ const canGoBack = computed(() =>
 
 const stackIsDeep = computed(() => state.pages.length >= 4);
 
-const teacherQuestion = (page: PageRecord) => {
+const teacherQuestion = (
+  page: PageRecord,
+  replyLanguage: ReplyLanguage = resolveMockReplyLanguage(page.body),
+) => {
   const keyword = extractKeyword(page.body);
-  const questions = [
-    `你写的“${keyword}”是指什么？能再具体说说吗？`,
-    `如果按你说的，“${keyword}”由谁决定？是任务牵引，还是你主动分配？`,
-    '那分配完之后，剩下的注意力去了哪里？',
-    `你说“${keyword}”，有反例吗？`,
+  const questionKeys = [
+    'teacherFallback.firstQuestion',
+    'teacherFallback.followUp',
+    'teacherFallback.attentionAllocation',
+    'teacherFallback.counterExample',
   ];
 
-  return questions[Math.min(page.teacherTurn, questions.length - 1)];
+  return translateFixedMessage(
+    replyLanguage,
+    questionKeys[Math.min(page.teacherTurn, 3)],
+    {
+      keyword,
+      optionA: replyLanguage === 'en' ? 'task-driven' : '任务牵引',
+      optionB: replyLanguage === 'en' ? 'your own choice' : '你主动分配',
+    },
+  );
 };
 
 const respondAfterMaintenance = async (page: PageRecord, text: string) => {
@@ -275,21 +291,36 @@ const startTeacherRequest = async (pending: PendingTeacherRequest) => {
   }
 };
 
-const sendMockReply = async (page: PageRecord) => {
+const sendMockReply = async (
+  page: PageRecord,
+  userText: string,
+  userMessageId: string,
+) => {
   try {
     await wait(820);
+    const replyLanguage = resolveMockReplyLanguage(
+      userText,
+      page.messages
+        .filter((item) => item.role === 'user' && item.id !== userMessageId)
+        .map((item) => item.text),
+    );
 
     if (page.teacherTurn >= 4) {
       page.suggestClose = true;
       page.messages.push(
         message(
           'teacher',
-          '暂时没有要再追问的了。如果你觉得可以了，合上这页就行。',
+          translateFixedMessage(
+            replyLanguage,
+            'teacherFallback.suggestCloseInTalk',
+          ),
           true,
         ),
       );
     } else {
-      page.messages.push(message('teacher', teacherQuestion(page)));
+      page.messages.push(
+        message('teacher', teacherQuestion(page, replyLanguage)),
+      );
       page.teacherTurn += 1;
     }
   } catch {
@@ -308,13 +339,14 @@ const sendReply = async () => {
   }
 
   const requestId = createId();
-  page.messages.push(message('user', text, false, `user-${requestId}`));
+  const userMessageId = `user-${requestId}`;
+  page.messages.push(message('user', text, false, userMessageId));
   state.replyDraft = '';
   state.typing = true;
   state.overlay = null;
 
   if (!tapAlongApi.supportsTeacherStreaming()) {
-    await sendMockReply(page);
+    await sendMockReply(page, text, userMessageId);
     return;
   }
 
