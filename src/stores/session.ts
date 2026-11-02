@@ -9,6 +9,7 @@ import {
 } from '@/shared/conversation-language';
 import type {
   AppendPagePayload,
+  EditPagePayload,
   TeacherAskPayload,
   TeacherChunkEvent,
   TeacherDoneEvent,
@@ -48,6 +49,8 @@ interface PendingTeacherRequest extends TeacherAskPayload {
 
 let pendingTeacherRequest: PendingTeacherRequest | null = null;
 let pendingAppendRequest: AppendPagePayload | null = null;
+let pendingEditRequest: EditPagePayload | null = null;
+let editRequestInFlight = false;
 let teacherEventsReady = false;
 let restoreStarted = false;
 
@@ -504,18 +507,54 @@ const cancelEditing = () => {
 
 const saveEditing = async () => {
   const page = currentPage.value;
-  if (!page) {
+  if (!page || editRequestInFlight) {
     return;
   }
 
-  const body = page.editDraft.trim() || page.body;
-  page.body = body;
-  page.title = extractKeyword(body);
-  page.editing = false;
-  page.messages.push(message('maintenance', i18n.global.t('messages.edited')));
+  const body = page.editDraft.trim();
 
-  await tapAlongApi.editPage(page.id, body);
-  await respondAfterMaintenance(page, 'edit', body);
+  if (!body) {
+    state.overlay = 'failed';
+    state.errorCode = 'INVALID_BODY';
+    return;
+  }
+
+  const requestId =
+    pendingEditRequest?.pageId === page.id && pendingEditRequest.body === body
+      ? pendingEditRequest.requestId
+      : createId();
+  pendingEditRequest = {
+    pageId: page.id,
+    body,
+    requestId,
+  };
+  state.overlay = null;
+  state.errorCode = null;
+  editRequestInFlight = true;
+
+  try {
+    const response = await tapAlongApi.editPage(page.id, body, requestId);
+
+    if (!response.ok) {
+      state.overlay = 'failed';
+      state.errorCode = response.errorCode ?? 'MAINTENANCE_FAILED';
+      return;
+    }
+
+    pendingEditRequest = null;
+    page.body = body;
+    page.title = extractKeyword(body);
+    page.editing = false;
+    page.messages.push(
+      message('maintenance', i18n.global.t('messages.edited')),
+    );
+    await respondAfterMaintenance(page, 'edit', body);
+  } catch {
+    state.overlay = 'failed';
+    state.errorCode = 'MAINTENANCE_FAILED';
+  } finally {
+    editRequestInFlight = false;
+  }
 };
 
 const startAppending = () => {

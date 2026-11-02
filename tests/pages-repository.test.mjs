@@ -238,3 +238,51 @@ test('补一句应拒绝不存在的页边和已合上页', async (t) => {
     reason: 'closed',
   });
 });
+
+test('改批注应更新正文、重置题眼并写入结构化维护记录', async (t) => {
+  const { db, repository } = await createRepository(t);
+  const page = repository.create('原始笔记。', '课程');
+  db.prepare(
+    `UPDATE pages
+     SET edge_title = '原题眼', parse_status = 'done'
+     WHERE id = ?`,
+  ).run(page.id);
+
+  const result = repository.editText(page.id, '修改后的正文。', 'edit-1');
+  assert.equal(result.ok, true);
+  assert.equal(result.page.body, '修改后的正文。');
+  assert.equal(result.page.title, '修改后的正文。');
+  assert.equal(result.page.parseStatus, 'pending');
+  assert.equal(result.page.messages.length, 1);
+  assert.equal(result.page.messages[0].actionType, 'edited_note');
+  assert.equal(result.page.messages[0].requestId, 'edit-1');
+
+  const stored = db
+    .prepare('SELECT edge_title, parse_status FROM pages WHERE id = ?')
+    .get(page.id);
+  assert.equal(stored.edge_title, null);
+  assert.equal(stored.parse_status, 'pending');
+
+  const duplicate = repository.editText(page.id, '不应覆盖正文。', 'edit-1');
+  assert.equal(duplicate.ok, true);
+  assert.equal(duplicate.page.body, '修改后的正文。');
+  assert.equal(duplicate.page.messages.length, 1);
+});
+
+test('改批注应拒绝不存在的页边和已合上页', async (t) => {
+  const { db, repository } = await createRepository(t);
+  const page = repository.create('准备合上的页边。', '');
+
+  assert.deepEqual(repository.editText(999_999, '内容', 'edit-missing'), {
+    ok: false,
+    reason: 'not_found',
+  });
+
+  db.prepare("UPDATE pages SET page_status = 'closed' WHERE id = ?").run(
+    page.id,
+  );
+  assert.deepEqual(repository.editText(page.id, '内容', 'edit-closed'), {
+    ok: false,
+    reason: 'closed',
+  });
+});

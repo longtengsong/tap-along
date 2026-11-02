@@ -3,6 +3,7 @@ import test from 'node:test';
 import { PAGE_CHANNELS } from '../src/shared/pages.ts';
 import {
   appendPage,
+  editPage,
   getPage,
   listPages,
   registerPageHandlers,
@@ -214,6 +215,76 @@ test('补一句 IPC 应返回统一错误码', (t) => {
   );
 });
 
+test('改批注 IPC 应校验参数并返回规范化页面', () => {
+  const calls = [];
+  const repository = {
+    editText(pageId, body, requestId) {
+      calls.push({ pageId, body, requestId });
+      return { ok: true, page: samplePage };
+    },
+  };
+
+  assert.deepEqual(
+    editPage(repository, {
+      pageId: 1,
+      body: '  修改后的正文  ',
+      requestId: ' edit-1 ',
+    }),
+    { ok: true, page: samplePage },
+  );
+  assert.deepEqual(calls, [
+    { pageId: 1, body: '修改后的正文', requestId: 'edit-1' },
+  ]);
+});
+
+test('改批注 IPC 应返回统一错误码', (t) => {
+  t.mock.method(console, 'error', () => {});
+
+  assert.deepEqual(editPage({ editText: () => null }, null), {
+    ok: false,
+    errorCode: 'INVALID_PAGE_ID',
+  });
+  assert.deepEqual(
+    editPage(
+      { editText: () => null },
+      { pageId: 1, body: ' ', requestId: 'edit-1' },
+    ),
+    { ok: false, errorCode: 'INVALID_BODY' },
+  );
+  assert.deepEqual(
+    editPage(
+      { editText: () => null },
+      { pageId: 1, body: '正文', requestId: '' },
+    ),
+    { ok: false, errorCode: 'MAINTENANCE_FAILED' },
+  );
+  assert.deepEqual(
+    editPage(
+      { editText: () => ({ ok: false, reason: 'not_found' }) },
+      { pageId: 1, body: '正文', requestId: 'edit-missing' },
+    ),
+    { ok: false, errorCode: 'PAGE_NOT_FOUND' },
+  );
+  assert.deepEqual(
+    editPage(
+      { editText: () => ({ ok: false, reason: 'closed' }) },
+      { pageId: 1, body: '正文', requestId: 'edit-closed' },
+    ),
+    { ok: false, errorCode: 'PAGE_CLOSED' },
+  );
+  assert.deepEqual(
+    editPage(
+      {
+        editText() {
+          throw new Error('写入失败');
+        },
+      },
+      { pageId: 1, body: '正文', requestId: 'edit-failed' },
+    ),
+    { ok: false, errorCode: 'MAINTENANCE_FAILED' },
+  );
+});
+
 test('IPC 注册应暴露保存和读取通道', () => {
   const handlers = new Map();
   const ipcMain = {
@@ -226,6 +297,7 @@ test('IPC 注册应暴露保存和读取通道', () => {
     findById: () => samplePage,
     listRecentReading: () => [samplePage],
     appendText: () => ({ ok: true, page: samplePage }),
+    editText: () => ({ ok: true, page: samplePage }),
   };
 
   registerPageHandlers(ipcMain, repository);
@@ -251,6 +323,14 @@ test('IPC 注册应暴露保存和读取通道', () => {
       pageId: 1,
       content: '补入内容',
       requestId: 'append-1',
+    }),
+    { ok: true, page: samplePage },
+  );
+  assert.deepEqual(
+    handlers.get(PAGE_CHANNELS.edit)(null, {
+      pageId: 1,
+      body: '修改后的正文',
+      requestId: 'edit-1',
     }),
     { ok: true, page: samplePage },
   );

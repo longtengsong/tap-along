@@ -45,7 +45,9 @@ const toPageRecord = (page: PageSnapshot): PageRecord => ({
         ? i18n.global.t('messages.appended', {
             content: message.content ?? '',
           })
-        : message.text,
+        : message.actionType === 'edited_note'
+          ? i18n.global.t('messages.edited')
+          : message.text,
     suggestClose: message.suggestClose,
   })),
   teacherTurn: page.teachingRoundCount,
@@ -124,14 +126,21 @@ export const tapAlongApi = {
       : [];
   },
 
-  async editPage(pageId: number, body: string): Promise<PageRecord | null> {
+  async editPage(
+    pageId: number,
+    body: string,
+    requestId: string,
+  ): Promise<PageUiResult> {
     if (bridge?.editPage) {
-      const response = await bridge.editPage(pageId, body);
-      return response.page ? toPageRecord(response.page) : null;
+      const response = await bridge.editPage({ pageId, body, requestId });
+      return {
+        ...response,
+        page: response.page ? toPageRecord(response.page) : undefined,
+      };
     }
 
     await wait(320);
-    return null;
+    return { ok: true };
   },
 
   async appendPage(

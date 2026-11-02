@@ -1,6 +1,7 @@
 import type { IpcMain } from 'electron';
 import type {
   AppendPagePayload,
+  EditPagePayload,
   ListPagesPayload,
   PageListResult,
   PageOperationResult,
@@ -65,6 +66,34 @@ const parseAppendPayload = (payload: unknown): AppendPagePayload | null => {
     pageId: payload.pageId,
     content: payload.content.trim(),
     requestId: payload.requestId.trim(),
+  };
+};
+
+const parseEditPayload = (payload: unknown) => {
+  if (
+    !isRecord(payload) ||
+    typeof payload.pageId !== 'number' ||
+    !Number.isInteger(payload.pageId) ||
+    payload.pageId <= 0
+  ) {
+    return { ok: false as const, errorCode: 'INVALID_PAGE_ID' as const };
+  }
+
+  if (typeof payload.body !== 'string' || !payload.body.trim()) {
+    return { ok: false as const, errorCode: 'INVALID_BODY' as const };
+  }
+
+  if (typeof payload.requestId !== 'string' || !payload.requestId.trim()) {
+    return { ok: false as const, errorCode: 'MAINTENANCE_FAILED' as const };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      pageId: payload.pageId,
+      body: payload.body.trim(),
+      requestId: payload.requestId.trim(),
+    } satisfies EditPagePayload,
   };
 };
 
@@ -164,6 +193,38 @@ export const appendPage = (
   }
 };
 
+export const editPage = (
+  repository: Pick<PagesRepository, 'editText'>,
+  payload: unknown,
+): PageOperationResult => {
+  const input = parseEditPayload(payload);
+
+  if (!input.ok) {
+    return { ok: false, errorCode: input.errorCode };
+  }
+
+  try {
+    const result = repository.editText(
+      input.value.pageId,
+      input.value.body,
+      input.value.requestId,
+    );
+
+    if (!result.ok) {
+      return {
+        ok: false,
+        errorCode:
+          result.reason === 'closed' ? 'PAGE_CLOSED' : 'PAGE_NOT_FOUND',
+      };
+    }
+
+    return { ok: true, page: result.page };
+  } catch (error) {
+    console.error('改批注失败：', error);
+    return { ok: false, errorCode: 'MAINTENANCE_FAILED' };
+  }
+};
+
 export const registerPageHandlers = (
   ipcMain: Pick<IpcMain, 'handle'>,
   repository: PagesRepository,
@@ -179,5 +240,8 @@ export const registerPageHandlers = (
   );
   ipcMain.handle(PAGE_CHANNELS.append, (_event, payload: unknown) =>
     appendPage(repository, payload),
+  );
+  ipcMain.handle(PAGE_CHANNELS.edit, (_event, payload: unknown) =>
+    editPage(repository, payload),
   );
 };
