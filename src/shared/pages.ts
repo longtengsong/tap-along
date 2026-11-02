@@ -8,6 +8,8 @@ export interface PageMessageSnapshot {
   role: PageMessageRole;
   text: string;
   suggestClose?: boolean;
+  requestId?: string;
+  createdAt?: number;
 }
 
 export interface PageSnapshot {
@@ -37,10 +39,46 @@ export const PAGE_CHANNELS = {
   get: 'pages:get',
 } as const;
 
+export interface TeacherAskPayload {
+  pageId: number;
+  userText: string;
+  requestId: string;
+}
+
+export interface TeacherStartResult {
+  ok: boolean;
+  requestId?: string;
+  error?: string;
+}
+
+export interface TeacherChunkEvent {
+  pageId: number;
+  requestId: string;
+  chunk: string;
+}
+
+export interface TeacherDoneEvent {
+  ok: boolean;
+  pageId: number;
+  requestId: string;
+  reply?: string;
+  suggestClose?: boolean;
+  error?: string;
+}
+
+export const TEACHER_CHANNELS = {
+  ask: 'teacher:ask',
+  chunk: 'teacher:chunk',
+  done: 'teacher:done',
+} as const;
+
 export interface TapAlongBridge {
   savePage?: (payload: SavePagePayload) => Promise<PageOperationResult>;
   getPage?: (pageId: number) => Promise<PageOperationResult>;
   editPage?: (pageId: number, body: string) => Promise<PageOperationResult>;
   appendPage?: (pageId: number, body: string) => Promise<PageOperationResult>;
   closePage?: (pageId: number) => Promise<{ ok: boolean }>;
+  askTeacher?: (payload: TeacherAskPayload) => Promise<TeacherStartResult>;
+  onTeacherChunk?: (callback: (event: TeacherChunkEvent) => void) => () => void;
+  onTeacherDone?: (callback: (event: TeacherDoneEvent) => void) => () => void;
 }

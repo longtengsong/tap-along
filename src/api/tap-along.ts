@@ -2,6 +2,10 @@ import type {
   PageSnapshot,
   SavePagePayload,
   TapAlongBridge,
+  TeacherAskPayload,
+  TeacherChunkEvent,
+  TeacherDoneEvent,
+  TeacherStartResult,
 } from '@/shared/pages';
 import type { PageRecord } from '@/types/session';
 
@@ -59,6 +63,27 @@ const createMockPage = ({ body, source }: SavePagePayload): PageRecord => ({
 });
 
 export const tapAlongApi = {
+  supportsTeacherStreaming: () =>
+    Boolean(
+      bridge?.askTeacher && bridge?.onTeacherChunk && bridge?.onTeacherDone,
+    ),
+
+  async askTeacher(payload: TeacherAskPayload): Promise<TeacherStartResult> {
+    if (!bridge?.askTeacher) {
+      return { ok: false, error: '当前环境不支持老师回应。' };
+    }
+
+    return bridge.askTeacher(payload);
+  },
+
+  onTeacherChunk(callback: (event: TeacherChunkEvent) => void) {
+    return bridge?.onTeacherChunk?.(callback) ?? (() => {});
+  },
+
+  onTeacherDone(callback: (event: TeacherDoneEvent) => void) {
+    return bridge?.onTeacherDone?.(callback) ?? (() => {});
+  },
+
   async savePage(input: SavePagePayload): Promise<PageUiResult> {
     if (bridge?.savePage) {
       const response = await bridge.savePage(input);

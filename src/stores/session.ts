@@ -1,6 +1,11 @@
 import { computed, reactive } from 'vue';
 import { extractKeyword, tapAlongApi } from '@/api/tap-along';
 import type {
+  TeacherAskPayload,
+  TeacherChunkEvent,
+  TeacherDoneEvent,
+} from '@/shared/pages';
+import type {
   ComposerMode,
   OverlayState,
   PageDraft,
@@ -21,12 +26,20 @@ const message = (
   role: TalkMessage['role'],
   text: string,
   suggestClose = false,
+  id: string = createId(),
 ): TalkMessage => ({
-  id: createId(),
+  id,
   role,
   text,
   suggestClose,
 });
+
+interface PendingTeacherRequest extends TeacherAskPayload {
+  tempMessageId: string;
+}
+
+let pendingTeacherRequest: PendingTeacherRequest | null = null;
+let teacherEventsReady = false;
 
 const state = reactive({
   view: 'new' as ViewState,
@@ -44,6 +57,98 @@ const state = reactive({
   composerMode: 'normal' as ComposerMode,
   settingsNotice: false,
 });
+
+const findPage = (pageId: number) =>
+  state.pages.find((page) => page.id === pageId) ?? null;
+
+const handleTeacherChunk = (event: TeacherChunkEvent) => {
+  const pending = pendingTeacherRequest;
+
+  if (
+    !pending ||
+    pending.requestId !== event.requestId ||
+    pending.pageId !== event.pageId
+  ) {
+    return;
+  }
+
+  const page = findPage(event.pageId);
+
+  if (!page) {
+    return;
+  }
+
+  const streamedMessage = page.messages.find(
+    (item) => item.id === pending.tempMessageId,
+  );
+
+  if (streamedMessage) {
+    streamedMessage.text += event.chunk;
+  } else {
+    page.messages.push(
+      message('teacher', event.chunk, false, pending.tempMessageId),
+    );
+  }
+};
+
+const handleTeacherDone = (event: TeacherDoneEvent) => {
+  const pending = pendingTeacherRequest;
+
+  if (
+    !pending ||
+    pending.requestId !== event.requestId ||
+    pending.pageId !== event.pageId
+  ) {
+    return;
+  }
+
+  if (!event.ok || !event.reply) {
+    state.typing = false;
+    state.overlay = 'teacher-no-response';
+    return;
+  }
+
+  const page = findPage(event.pageId);
+  if (!page) {
+    pendingTeacherRequest = null;
+    state.typing = false;
+    return;
+  }
+
+  const streamedMessage = page.messages.find(
+    (item) => item.id === pending.tempMessageId,
+  );
+
+  if (streamedMessage) {
+    streamedMessage.text = event.reply;
+    streamedMessage.suggestClose = event.suggestClose;
+  } else {
+    page.messages.push(
+      message(
+        'teacher',
+        event.reply,
+        event.suggestClose,
+        pending.tempMessageId,
+      ),
+    );
+  }
+
+  page.teacherTurn += 1;
+  page.suggestClose = Boolean(event.suggestClose);
+  state.typing = false;
+  state.overlay = null;
+  pendingTeacherRequest = null;
+};
+
+const ensureTeacherEvents = () => {
+  if (teacherEventsReady || !tapAlongApi.supportsTeacherStreaming()) {
+    return;
+  }
+
+  tapAlongApi.onTeacherChunk(handleTeacherChunk);
+  tapAlongApi.onTeacherDone(handleTeacherDone);
+  teacherEventsReady = true;
+};
 
 const currentPage = computed(() => state.pages[state.currentIndex] ?? null);
 
@@ -125,18 +230,28 @@ const submitNewPage = async () => {
   }
 };
 
-const sendReply = async () => {
-  const page = currentPage.value;
-  const text = state.replyDraft.trim();
+const markTeacherFailure = () => {
+  state.typing = false;
+  state.overlay = 'teacher-no-response';
+};
 
-  if (!page || state.typing || !text) {
-    return;
+const startTeacherRequest = async (pending: PendingTeacherRequest) => {
+  try {
+    const response = await tapAlongApi.askTeacher({
+      pageId: pending.pageId,
+      userText: pending.userText,
+      requestId: pending.requestId,
+    });
+
+    if (!response.ok) {
+      markTeacherFailure();
+    }
+  } catch {
+    markTeacherFailure();
   }
+};
 
-  page.messages.push(message('user', text));
-  state.replyDraft = '';
-  state.typing = true;
-
+const sendMockReply = async (page: PageRecord) => {
   try {
     await wait(820);
 
@@ -158,6 +273,56 @@ const sendReply = async () => {
   } finally {
     state.typing = false;
   }
+};
+
+const sendReply = async () => {
+  const page = currentPage.value;
+  const text = state.replyDraft.trim();
+
+  if (!page || state.typing || !text) {
+    return;
+  }
+
+  const requestId = createId();
+  page.messages.push(message('user', text, false, `user-${requestId}`));
+  state.replyDraft = '';
+  state.typing = true;
+  state.overlay = null;
+
+  if (!tapAlongApi.supportsTeacherStreaming()) {
+    await sendMockReply(page);
+    return;
+  }
+
+  pendingTeacherRequest = {
+    pageId: page.id,
+    userText: text,
+    requestId,
+    tempMessageId: `teacher-${requestId}`,
+  };
+  await startTeacherRequest(pendingTeacherRequest);
+};
+
+const retryTeacher = async () => {
+  const pending = pendingTeacherRequest;
+
+  if (!pending) {
+    state.overlay = null;
+    return;
+  }
+
+  const page = findPage(pending.pageId);
+  const streamedMessage = page?.messages.find(
+    (item) => item.id === pending.tempMessageId,
+  );
+
+  if (streamedMessage) {
+    streamedMessage.text = '';
+  }
+
+  state.overlay = null;
+  state.typing = true;
+  await startTeacherRequest(pending);
 };
 
 const submitAppend = async () => {
@@ -250,6 +415,10 @@ const closeCurrentPage = async () => {
   state.replyDraft = '';
   state.typing = false;
 
+  if (pendingTeacherRequest?.pageId === page.id) {
+    pendingTeacherRequest = null;
+  }
+
   await tapAlongApi.closePage(page.id);
   await wait(1000);
 
@@ -309,23 +478,28 @@ const showSettingsNotice = () => {
   }, 2200);
 };
 
-export const useSessionStore = () => ({
-  state,
-  currentPage,
-  canGoBack,
-  stackIsDeep,
-  submitNewPage,
-  sendReply,
-  submitAppend,
-  startEditing,
-  cancelEditing,
-  saveEditing,
-  startAppending,
-  startNewPage,
-  closeCurrentPage,
-  goBack,
-  toggleHistory,
-  retrySave,
-  dismissOverlay,
-  showSettingsNotice,
-});
+export const useSessionStore = () => {
+  ensureTeacherEvents();
+
+  return {
+    state,
+    currentPage,
+    canGoBack,
+    stackIsDeep,
+    submitNewPage,
+    sendReply,
+    submitAppend,
+    startEditing,
+    cancelEditing,
+    saveEditing,
+    startAppending,
+    startNewPage,
+    closeCurrentPage,
+    goBack,
+    toggleHistory,
+    retrySave,
+    retryTeacher,
+    dismissOverlay,
+    showSettingsNotice,
+  };
+};

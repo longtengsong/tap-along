@@ -9,6 +9,8 @@ import {
 } from './main/db/client';
 import { PagesRepository } from './main/db/pages';
 import { registerPageHandlers } from './main/ipc/pages';
+import { registerTeacherHandlers } from './main/ipc/teacher';
+import { TeacherService } from './main/services/teacher';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -70,7 +72,9 @@ if (!hasSingleInstanceLock) {
   app.whenReady().then(() => {
     try {
       database = openDatabase(allocateDatabasePath(app.getPath('userData')));
-      registerPageHandlers(ipcMain, new PagesRepository(database));
+      const pagesRepository = new PagesRepository(database);
+      registerPageHandlers(ipcMain, pagesRepository);
+      registerTeacherHandlers(ipcMain, new TeacherService(pagesRepository));
     } catch (error) {
       console.error('Failed to initialize the TapAlong database.', error);
       app.quit();

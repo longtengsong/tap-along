@@ -124,3 +124,48 @@ test('页边仓储应容错异常数据库内容和状态', async (t) => {
   );
   assert.deepEqual(repository.findById(page.id).messages, []);
 });
+
+test('页边仓储应持久化老师问答并按请求编号去重', async (t) => {
+  const { repository } = await createRepository(t);
+  const page = repository.create('持久化问答', '课程');
+
+  const withUser = repository.beginTeacherTurn(
+    page.id,
+    '我的回答。',
+    'request-1',
+  );
+  assert.equal(withUser.messages.length, 1);
+  assert.deepEqual(withUser.messages[0], {
+    role: 'user',
+    text: '我的回答。',
+    requestId: 'request-1',
+    createdAt: withUser.messages[0].createdAt,
+  });
+
+  const duplicateUser = repository.beginTeacherTurn(
+    page.id,
+    '我的回答。',
+    'request-1',
+  );
+  assert.equal(duplicateUser.messages.length, 1);
+
+  const completed = repository.completeTeacherTurn(
+    page.id,
+    '你怎么得出这个判断？',
+    false,
+    'request-1',
+  );
+  assert.equal(completed.messages.length, 2);
+  assert.equal(completed.messages[1].role, 'teacher');
+  assert.equal(completed.messages[1].requestId, 'request-1');
+  assert.equal(completed.teachingRoundCount, 1);
+
+  const duplicateTeacher = repository.completeTeacherTurn(
+    page.id,
+    '不该重复写入',
+    false,
+    'request-1',
+  );
+  assert.equal(duplicateTeacher.messages.length, 2);
+  assert.equal(duplicateTeacher.teachingRoundCount, 1);
+});

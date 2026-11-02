@@ -22,6 +22,7 @@ const {
   goBack,
   toggleHistory,
   retrySave,
+  retryTeacher,
   dismissOverlay,
   showSettingsNotice,
 } = useSessionStore();
@@ -80,7 +81,7 @@ const submitComposer = () => {
       :overlay="state.overlay"
       @back-to-edit="dismissOverlay"
       @retry-save="retrySave"
-      @retry-teacher="dismissOverlay"
+      @retry-teacher="retryTeacher"
     />
 
     <Transition name="toast">

@@ -66,8 +66,15 @@ const parseMessages = (rawLog: string | null): PageMessageSnapshot[] => {
         {
           role: entry.role as PageMessageRole,
           text: entry.text,
-          ...('suggest_close' in entry && entry.suggest_close === true
+          ...(('suggest_close' in entry && entry.suggest_close === true) ||
+          ('suggestClose' in entry && entry.suggestClose === true)
             ? { suggestClose: true }
+            : {}),
+          ...('requestId' in entry && typeof entry.requestId === 'string'
+            ? { requestId: entry.requestId }
+            : {}),
+          ...('createdAt' in entry && typeof entry.createdAt === 'number'
+            ? { createdAt: entry.createdAt }
             : {}),
         },
       ];
@@ -93,6 +100,8 @@ const mapPageRow = (row: PageRow): PageSnapshot => ({
 export class PagesRepository {
   private readonly insertStatement;
   private readonly findStatement;
+  private readonly updateLogStatement;
+  private readonly updateLogAndRoundStatement;
   private readonly db: DatabaseSync;
 
   constructor(db: DatabaseSync) {
@@ -112,6 +121,16 @@ export class PagesRepository {
         page_status,
         teaching_round_count
       FROM pages
+      WHERE id = ?
+    `);
+    this.updateLogStatement = this.db.prepare(`
+      UPDATE pages
+      SET companion_log = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    this.updateLogAndRoundStatement = this.db.prepare(`
+      UPDATE pages
+      SET companion_log = ?, teaching_round_count = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
   }
@@ -134,5 +153,92 @@ export class PagesRepository {
 
     const row = this.findStatement.get(pageId) as PageRow | undefined;
     return row ? mapPageRow(row) : null;
+  }
+
+  beginTeacherTurn(
+    pageId: number,
+    userText: string,
+    requestId: string,
+  ): PageSnapshot | null {
+    return this.withTransaction(() => {
+      const page = this.findById(pageId);
+
+      if (!page) {
+        return null;
+      }
+
+      if (page.messages.some((message) => message.requestId === requestId)) {
+        return page;
+      }
+
+      const messages: PageMessageSnapshot[] = [
+        ...page.messages,
+        {
+          role: 'user',
+          text: userText,
+          requestId,
+          createdAt: Date.now(),
+        },
+      ];
+
+      this.updateLogStatement.run(JSON.stringify(messages), pageId);
+      return this.findById(pageId);
+    });
+  }
+
+  completeTeacherTurn(
+    pageId: number,
+    reply: string,
+    suggestClose: boolean,
+    requestId: string,
+  ): PageSnapshot | null {
+    return this.withTransaction(() => {
+      const page = this.findById(pageId);
+
+      if (!page) {
+        return null;
+      }
+
+      if (
+        page.messages.some(
+          (message) =>
+            message.role === 'teacher' && message.requestId === requestId,
+        )
+      ) {
+        return page;
+      }
+
+      const messages: PageMessageSnapshot[] = [
+        ...page.messages,
+        {
+          role: 'teacher',
+          text: reply,
+          suggestClose,
+          requestId,
+          createdAt: Date.now(),
+        },
+      ];
+      const nextRoundCount = page.teachingRoundCount + 1;
+
+      this.updateLogAndRoundStatement.run(
+        JSON.stringify(messages),
+        nextRoundCount,
+        pageId,
+      );
+      return this.findById(pageId);
+    });
+  }
+
+  private withTransaction<T>(operation: () => T): T {
+    this.db.exec('BEGIN');
+
+    try {
+      const result = operation();
+      this.db.exec('COMMIT');
+      return result;
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
   }
 }
