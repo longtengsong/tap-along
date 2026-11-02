@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type {
+  PageActionType,
   PageLifecycleStatus,
   PageMessageRole,
   PageMessageSnapshot,
@@ -22,6 +23,13 @@ const MESSAGE_ROLES = new Set<PageMessageRole>([
   'teacher',
   'user',
   'maintenance',
+]);
+
+const ACTION_TYPES = new Set<PageActionType>([
+  'edited_note',
+  'appended_note',
+  'end',
+  'reopened',
 ]);
 
 const PAGE_STATUSES = new Set<PageLifecycleStatus>(['reading', 'closed']);
@@ -55,17 +63,30 @@ const parseMessages = (rawLog: string | null): PageMessageSnapshot[] => {
         !entry ||
         typeof entry !== 'object' ||
         !('role' in entry) ||
-        !('text' in entry) ||
-        !MESSAGE_ROLES.has(entry.role as PageMessageRole) ||
-        typeof entry.text !== 'string'
+        !MESSAGE_ROLES.has(entry.role as PageMessageRole)
       ) {
+        return [];
+      }
+
+      const hasText = 'text' in entry && typeof entry.text === 'string';
+      const actionType =
+        'actionType' in entry &&
+        ACTION_TYPES.has(entry.actionType as PageActionType)
+          ? (entry.actionType as PageActionType)
+          : undefined;
+
+      if (!hasText && !actionType) {
         return [];
       }
 
       return [
         {
           role: entry.role as PageMessageRole,
-          text: entry.text,
+          text: hasText ? entry.text : '',
+          ...(actionType ? { actionType } : {}),
+          ...('content' in entry && typeof entry.content === 'string'
+            ? { content: entry.content }
+            : {}),
           ...(('suggest_close' in entry && entry.suggest_close === true) ||
           ('suggestClose' in entry && entry.suggestClose === true)
             ? { suggestClose: true }
@@ -103,6 +124,7 @@ export class PagesRepository {
   private readonly listRecentReadingStatement;
   private readonly updateLogStatement;
   private readonly updateLogAndRoundStatement;
+  private readonly updateBodyAndLogStatement;
   private readonly db: DatabaseSync;
 
   constructor(db: DatabaseSync) {
@@ -147,6 +169,11 @@ export class PagesRepository {
     this.updateLogAndRoundStatement = this.db.prepare(`
       UPDATE pages
       SET companion_log = ?, teaching_round_count = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    this.updateBodyAndLogStatement = this.db.prepare(`
+      UPDATE pages
+      SET body = ?, companion_log = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
   }
@@ -249,6 +276,57 @@ export class PagesRepository {
         pageId,
       );
       return this.findById(pageId);
+    });
+  }
+
+  appendText(
+    pageId: number,
+    content: string,
+    requestId: string,
+  ):
+    | { ok: true; page: PageSnapshot }
+    | { ok: false; reason: 'not_found' | 'closed' } {
+    return this.withTransaction(() => {
+      const page = this.findById(pageId);
+
+      if (!page) {
+        return { ok: false, reason: 'not_found' };
+      }
+
+      if (page.status === 'closed') {
+        return { ok: false, reason: 'closed' };
+      }
+
+      if (page.messages.some((message) => message.requestId === requestId)) {
+        return { ok: true, page };
+      }
+
+      const normalizedContent = content.trim();
+      const messages: PageMessageSnapshot[] = [
+        ...page.messages,
+        {
+          role: 'maintenance',
+          text: '',
+          actionType: 'appended_note',
+          content: normalizedContent,
+          requestId,
+          createdAt: Date.now(),
+        },
+      ];
+      const nextBody = `${page.body}\n\n${normalizedContent}`;
+
+      this.updateBodyAndLogStatement.run(
+        nextBody,
+        JSON.stringify(messages),
+        pageId,
+      );
+
+      const updatedPage = this.findById(pageId);
+      if (!updatedPage) {
+        throw new Error('补一句后无法读取页边');
+      }
+
+      return { ok: true, page: updatedPage };
     });
   }
 

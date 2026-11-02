@@ -196,3 +196,45 @@ test('最近在读页应按更新时间和编号排序并排除已合上页', as
     [firstPage.id, secondPage.id],
   );
 });
+
+test('补一句应在事务中更新正文并写入结构化维护记录', async (t) => {
+  const { repository } = await createRepository(t);
+  const page = repository.create('原始笔记。', '课程');
+  const result = repository.appendText(page.id, '补入的新想法。', 'append-1');
+
+  assert.equal(result.ok, true);
+  assert.equal(result.page.title, page.title, '补一句不应修改题眼');
+  assert.equal(result.page.body, '原始笔记。\n\n补入的新想法。');
+  assert.equal(result.page.messages.length, 1);
+  assert.equal(result.page.messages[0].role, 'maintenance');
+  assert.equal(result.page.messages[0].actionType, 'appended_note');
+  assert.equal(result.page.messages[0].content, '补入的新想法。');
+  assert.equal(result.page.messages[0].requestId, 'append-1');
+
+  const duplicate = repository.appendText(
+    page.id,
+    '不应重复追加。',
+    'append-1',
+  );
+  assert.equal(duplicate.ok, true);
+  assert.equal(duplicate.page.body, '原始笔记。\n\n补入的新想法。');
+  assert.equal(duplicate.page.messages.length, 1);
+});
+
+test('补一句应拒绝不存在的页边和已合上页', async (t) => {
+  const { db, repository } = await createRepository(t);
+  const page = repository.create('准备合上的页边。', '');
+
+  assert.deepEqual(repository.appendText(999_999, '内容', 'append-missing'), {
+    ok: false,
+    reason: 'not_found',
+  });
+
+  db.prepare("UPDATE pages SET page_status = 'closed' WHERE id = ?").run(
+    page.id,
+  );
+  assert.deepEqual(repository.appendText(page.id, '内容', 'append-closed'), {
+    ok: false,
+    reason: 'closed',
+  });
+});

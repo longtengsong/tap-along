@@ -6,9 +6,17 @@ export type ParseStatus = 'pending' | 'reading' | 'done' | 'failed';
 
 export type PageMessageRole = 'teacher' | 'user' | 'maintenance';
 
+export type PageActionType =
+  | 'edited_note'
+  | 'appended_note'
+  | 'end'
+  | 'reopened';
+
 export interface PageMessageSnapshot {
   role: PageMessageRole;
   text: string;
+  actionType?: PageActionType;
+  content?: string;
   suggestClose?: boolean;
   requestId?: string;
   createdAt?: number;
@@ -28,6 +36,12 @@ export interface PageSnapshot {
 export interface SavePagePayload {
   body: string;
   source: string;
+}
+
+export interface AppendPagePayload {
+  pageId: number;
+  content: string;
+  requestId: string;
 }
 
 export interface ListPagesPayload {
@@ -50,6 +64,7 @@ export const PAGE_CHANNELS = {
   save: 'pages:save',
   get: 'pages:get',
   list: 'pages:list',
+  append: 'pages:append',
 } as const;
 
 export interface TeacherAskPayload {
@@ -90,7 +105,7 @@ export interface TapAlongBridge {
   getPage?: (pageId: number) => Promise<PageOperationResult>;
   listPages?: (payload: ListPagesPayload) => Promise<PageListResult>;
   editPage?: (pageId: number, body: string) => Promise<PageOperationResult>;
-  appendPage?: (pageId: number, body: string) => Promise<PageOperationResult>;
+  appendPage?: (payload: AppendPagePayload) => Promise<PageOperationResult>;
   closePage?: (pageId: number) => Promise<{ ok: boolean }>;
   askTeacher?: (payload: TeacherAskPayload) => Promise<TeacherStartResult>;
   onTeacherChunk?: (callback: (event: TeacherChunkEvent) => void) => () => void;

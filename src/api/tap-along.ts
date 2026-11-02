@@ -8,6 +8,7 @@ import type {
   TeacherStartResult,
 } from '@/shared/pages';
 import type { AppErrorCode } from '@/shared/errors';
+import { i18n } from '@/i18n';
 import type { PageRecord } from '@/types/session';
 
 interface PageUiResult {
@@ -39,7 +40,12 @@ const toPageRecord = (page: PageSnapshot): PageRecord => ({
   messages: page.messages.map((message, index) => ({
     id: `saved-${page.id}-${index}`,
     role: message.role,
-    text: message.text,
+    text:
+      message.actionType === 'appended_note'
+        ? i18n.global.t('messages.appended', {
+            content: message.content ?? '',
+          })
+        : message.text,
     suggestClose: message.suggestClose,
   })),
   teacherTurn: page.teachingRoundCount,
@@ -128,14 +134,25 @@ export const tapAlongApi = {
     return null;
   },
 
-  async appendPage(pageId: number, body: string): Promise<PageRecord | null> {
+  async appendPage(
+    pageId: number,
+    body: string,
+    requestId: string,
+  ): Promise<PageUiResult> {
     if (bridge?.appendPage) {
-      const response = await bridge.appendPage(pageId, body);
-      return response.page ? toPageRecord(response.page) : null;
+      const response = await bridge.appendPage({
+        pageId,
+        content: body,
+        requestId,
+      });
+      return {
+        ...response,
+        page: response.page ? toPageRecord(response.page) : undefined,
+      };
     }
 
     await wait(320);
-    return null;
+    return { ok: true };
   },
 
   async closePage(pageId: number): Promise<void> {

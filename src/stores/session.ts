@@ -8,6 +8,7 @@ import {
   type ReplyLanguage,
 } from '@/shared/conversation-language';
 import type {
+  AppendPagePayload,
   TeacherAskPayload,
   TeacherChunkEvent,
   TeacherDoneEvent,
@@ -46,6 +47,7 @@ interface PendingTeacherRequest extends TeacherAskPayload {
 }
 
 let pendingTeacherRequest: PendingTeacherRequest | null = null;
+let pendingAppendRequest: AppendPagePayload | null = null;
 let teacherEventsReady = false;
 let restoreStarted = false;
 
@@ -437,20 +439,48 @@ const submitAppend = async () => {
     return;
   }
 
-  page.body = `${page.body}\n\n${text}`;
-  page.editDraft = page.body;
-  const brief = text.length > 16 ? `${text.slice(0, 16)}…` : text;
-  page.messages.push(
-    message(
-      'maintenance',
-      i18n.global.t('messages.appended', { content: brief }),
-    ),
-  );
-  state.replyDraft = '';
-  state.composerMode = 'normal';
+  const requestId =
+    pendingAppendRequest?.pageId === page.id &&
+    pendingAppendRequest.content === text
+      ? pendingAppendRequest.requestId
+      : createId();
+  pendingAppendRequest = {
+    pageId: page.id,
+    content: text,
+    requestId,
+  };
+  state.overlay = null;
+  state.errorCode = null;
+  state.typing = true;
 
-  await tapAlongApi.appendPage(page.id, text);
-  await respondAfterMaintenance(page, 'append', text);
+  try {
+    const response = await tapAlongApi.appendPage(page.id, text, requestId);
+
+    if (!response.ok) {
+      state.typing = false;
+      state.overlay = 'failed';
+      state.errorCode = response.errorCode ?? 'MAINTENANCE_FAILED';
+      return;
+    }
+
+    pendingAppendRequest = null;
+    page.body = `${page.body}\n\n${text}`;
+    page.editDraft = page.body;
+    const brief = text.length > 16 ? `${text.slice(0, 16)}…` : text;
+    page.messages.push(
+      message(
+        'maintenance',
+        i18n.global.t('messages.appended', { content: brief }),
+      ),
+    );
+    state.replyDraft = '';
+    state.composerMode = 'normal';
+    await respondAfterMaintenance(page, 'append', text);
+  } catch {
+    state.typing = false;
+    state.overlay = 'failed';
+    state.errorCode = 'MAINTENANCE_FAILED';
+  }
 };
 
 const startEditing = () => {

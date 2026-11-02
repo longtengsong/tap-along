@@ -92,6 +92,8 @@
     "readFailed": "This page is temporarily unavailable.",
     "teacherInvalidRequest": "That question is invalid. Please try writing it again.",
     "teacherPageNotFound": "The page being discussed could not be found.",
+    "pageClosed": "This page is closed and can no longer be updated.",
+    "maintenanceFailed": "That thought couldn't be added.",
     "teacherNoResponse": "The teacher didn't respond. Try again?",
     "stackTooDeep": "The stack is getting deep. Close one page before continuing?",
     "saveFailed": "Couldn't save.",

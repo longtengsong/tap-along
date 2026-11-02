@@ -92,6 +92,8 @@
     "readFailed": "这一页暂时打不开。",
     "teacherInvalidRequest": "这一轮提问无效，请重新落笔。",
     "teacherPageNotFound": "正在讨论的页边没有找到。",
+    "pageClosed": "这页已合上，不能再补一句。",
+    "maintenanceFailed": "这一句没有补进去。",
     "teacherNoResponse": "老师暂时没应声，要再试一次吗？",
     "stackTooDeep": "页叠得有点深了，先合上一页再继续？",
     "saveFailed": "没送进去。",

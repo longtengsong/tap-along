@@ -9,6 +9,8 @@ export const APP_ERROR_CODES = [
   'TEACHER_INVALID_REQUEST',
   'TEACHER_PAGE_NOT_FOUND',
   'TEACHER_NO_RESPONSE',
+  'PAGE_CLOSED',
+  'MAINTENANCE_FAILED',
   'UNKNOWN_ERROR',
 ] as const;
 
@@ -25,5 +27,7 @@ export const ERROR_MESSAGE_KEYS = {
   TEACHER_INVALID_REQUEST: 'errors.teacherInvalidRequest',
   TEACHER_PAGE_NOT_FOUND: 'errors.teacherPageNotFound',
   TEACHER_NO_RESPONSE: 'errors.teacherNoResponse',
+  PAGE_CLOSED: 'errors.pageClosed',
+  MAINTENANCE_FAILED: 'errors.maintenanceFailed',
   UNKNOWN_ERROR: 'errors.unknown',
 } as const satisfies Record<AppErrorCode, string>;

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PAGE_CHANNELS } from '../src/shared/pages.ts';
 import {
+  appendPage,
   getPage,
   listPages,
   registerPageHandlers,
@@ -157,6 +158,62 @@ test('列出最近页边时应拒绝无效参数并处理仓储异常', (t) => {
   });
 });
 
+test('补一句 IPC 应校验参数并返回规范化页面', () => {
+  const calls = [];
+  const repository = {
+    appendText(pageId, content, requestId) {
+      calls.push({ pageId, content, requestId });
+      return { ok: true, page: samplePage };
+    },
+  };
+
+  assert.deepEqual(
+    appendPage(repository, {
+      pageId: 1,
+      content: '  补入内容  ',
+      requestId: ' append-1 ',
+    }),
+    { ok: true, page: samplePage },
+  );
+  assert.deepEqual(calls, [
+    { pageId: 1, content: '补入内容', requestId: 'append-1' },
+  ]);
+});
+
+test('补一句 IPC 应返回统一错误码', (t) => {
+  t.mock.method(console, 'error', () => {});
+
+  assert.deepEqual(appendPage({ appendText: () => null }, null), {
+    ok: false,
+    errorCode: 'MAINTENANCE_FAILED',
+  });
+  assert.deepEqual(
+    appendPage(
+      { appendText: () => ({ ok: false, reason: 'not_found' }) },
+      { pageId: 1, content: '内容', requestId: 'append-missing' },
+    ),
+    { ok: false, errorCode: 'PAGE_NOT_FOUND' },
+  );
+  assert.deepEqual(
+    appendPage(
+      { appendText: () => ({ ok: false, reason: 'closed' }) },
+      { pageId: 1, content: '内容', requestId: 'append-closed' },
+    ),
+    { ok: false, errorCode: 'PAGE_CLOSED' },
+  );
+  assert.deepEqual(
+    appendPage(
+      {
+        appendText() {
+          throw new Error('写入失败');
+        },
+      },
+      { pageId: 1, content: '内容', requestId: 'append-failed' },
+    ),
+    { ok: false, errorCode: 'MAINTENANCE_FAILED' },
+  );
+});
+
 test('IPC 注册应暴露保存和读取通道', () => {
   const handlers = new Map();
   const ipcMain = {
@@ -168,6 +225,7 @@ test('IPC 注册应暴露保存和读取通道', () => {
     create: () => samplePage,
     findById: () => samplePage,
     listRecentReading: () => [samplePage],
+    appendText: () => ({ ok: true, page: samplePage }),
   };
 
   registerPageHandlers(ipcMain, repository);
@@ -188,4 +246,12 @@ test('IPC 注册应暴露保存和读取通道', () => {
     ok: true,
     pages: [samplePage],
   });
+  assert.deepEqual(
+    handlers.get(PAGE_CHANNELS.append)(null, {
+      pageId: 1,
+      content: '补入内容',
+      requestId: 'append-1',
+    }),
+    { ok: true, page: samplePage },
+  );
 });

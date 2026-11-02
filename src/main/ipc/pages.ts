@@ -1,5 +1,6 @@
 import type { IpcMain } from 'electron';
 import type {
+  AppendPagePayload,
   ListPagesPayload,
   PageListResult,
   PageOperationResult,
@@ -44,6 +45,27 @@ const parseListPayload = (payload: unknown): ListPagesPayload | null => {
   }
 
   return { limit: Math.min(limit, 20) };
+};
+
+const parseAppendPayload = (payload: unknown): AppendPagePayload | null => {
+  if (
+    !isRecord(payload) ||
+    typeof payload.pageId !== 'number' ||
+    !Number.isInteger(payload.pageId) ||
+    payload.pageId <= 0 ||
+    typeof payload.content !== 'string' ||
+    !payload.content.trim() ||
+    typeof payload.requestId !== 'string' ||
+    !payload.requestId.trim()
+  ) {
+    return null;
+  }
+
+  return {
+    pageId: payload.pageId,
+    content: payload.content.trim(),
+    requestId: payload.requestId.trim(),
+  };
 };
 
 export const savePage = (
@@ -110,6 +132,38 @@ export const listPages = (
   }
 };
 
+export const appendPage = (
+  repository: Pick<PagesRepository, 'appendText'>,
+  payload: unknown,
+): PageOperationResult => {
+  const input = parseAppendPayload(payload);
+
+  if (!input) {
+    return { ok: false, errorCode: 'MAINTENANCE_FAILED' };
+  }
+
+  try {
+    const result = repository.appendText(
+      input.pageId,
+      input.content,
+      input.requestId,
+    );
+
+    if (!result.ok) {
+      return {
+        ok: false,
+        errorCode:
+          result.reason === 'closed' ? 'PAGE_CLOSED' : 'PAGE_NOT_FOUND',
+      };
+    }
+
+    return { ok: true, page: result.page };
+  } catch (error) {
+    console.error('补一句失败：', error);
+    return { ok: false, errorCode: 'MAINTENANCE_FAILED' };
+  }
+};
+
 export const registerPageHandlers = (
   ipcMain: Pick<IpcMain, 'handle'>,
   repository: PagesRepository,
@@ -122,5 +176,8 @@ export const registerPageHandlers = (
   );
   ipcMain.handle(PAGE_CHANNELS.list, (_event, payload: unknown) =>
     listPages(repository, payload),
+  );
+  ipcMain.handle(PAGE_CHANNELS.append, (_event, payload: unknown) =>
+    appendPage(repository, payload),
   );
 };

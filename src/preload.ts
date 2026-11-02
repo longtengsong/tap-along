@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
   PAGE_CHANNELS,
   TEACHER_CHANNELS,
+  type AppendPagePayload,
   type ListPagesPayload,
   type SavePagePayload,
   type TapAlongBridge,
@@ -16,6 +17,8 @@ const tapAlongBridge: TapAlongBridge = {
   getPage: (pageId: number) => ipcRenderer.invoke(PAGE_CHANNELS.get, pageId),
   listPages: (payload: ListPagesPayload) =>
     ipcRenderer.invoke(PAGE_CHANNELS.list, payload),
+  appendPage: (payload: AppendPagePayload) =>
+    ipcRenderer.invoke(PAGE_CHANNELS.append, payload),
   askTeacher: (payload: TeacherAskPayload) =>
     ipcRenderer.invoke(TEACHER_CHANNELS.ask, payload),
   onTeacherChunk: (callback: (event: TeacherChunkEvent) => void) => {
