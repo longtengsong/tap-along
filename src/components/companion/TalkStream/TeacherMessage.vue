@@ -1,14 +1,19 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
 defineProps<{
   text: string;
   suggestClose?: boolean;
 }>();
+
+const { t } = useI18n();
 </script>
 
 <template>
   <div
     class="message message--teacher"
     :class="{ 'message--suggestion': suggestClose }"
+    :aria-label="t('a11y.teacherMessage')"
   >
     {{ text }}
   </div>

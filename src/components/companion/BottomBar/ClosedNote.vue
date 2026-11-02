@@ -1,5 +1,11 @@
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
+</script>
+
 <template>
-  <p class="closed-note">这页已合上</p>
+  <p class="closed-note">{{ t('companion.closedNote') }}</p>
 </template>
 
 <style scoped>

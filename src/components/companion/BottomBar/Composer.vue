@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import AppButton from '@/components/ui/AppButton.vue';
 import AppInput from '@/components/ui/AppInput.vue';
 import MaintenanceMenu from '@/components/companion/BottomBar/MaintenanceMenu.vue';
 import type { ComposerMode } from '@/types/session';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   mode: ComposerMode;
@@ -22,9 +25,12 @@ const emit = defineEmits<{
 }>();
 
 const placeholder = () =>
-  props.mode === 'append' ? '补一句……' : '写下你的想法……';
+  props.mode === 'append'
+    ? t('actions.appendPlaceholder')
+    : t('companion.inputPlaceholder');
 
-const buttonText = () => (props.mode === 'append' ? '补一句' : '落笔');
+const buttonText = () =>
+  props.mode === 'append' ? t('actions.appendSubmit') : t('companion.send');
 
 const handleEnter = (event: KeyboardEvent) => {
   if (event.isComposing) {
@@ -53,7 +59,7 @@ const handleEnter = (event: KeyboardEvent) => {
           <AppInput
             :model-value="modelValue"
             :placeholder="placeholder()"
-            aria-label="落笔处"
+            :aria-label="t('companion.inputAria')"
             @update:model-value="emit('update:modelValue', $event)"
             @keydown.enter="handleEnter"
           />
@@ -74,7 +80,12 @@ const handleEnter = (event: KeyboardEvent) => {
       :aria-expanded="sayMoreOpen"
       @click="emit('toggleSayMore')"
     >
-      想留一句？ <span aria-hidden>{{ sayMoreOpen ? '▴' : '▾' }}</span>
+      {{
+        sayMoreOpen
+          ? t('companion.sayMoreExpanded')
+          : t('companion.sayMoreCollapsed')
+      }}
+      <span aria-hidden>{{ sayMoreOpen ? '▴' : '▾' }}</span>
     </button>
   </div>
 </template>

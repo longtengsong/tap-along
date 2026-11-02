@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import AppBar from '@/components/layout/AppBar.vue';
 import BottomBar from '@/components/companion/BottomBar/BottomBar.vue';
 import ContentColumn from '@/components/layout/ContentColumn.vue';
 import PageCard from '@/components/companion/PageCard/PageCard.vue';
 import TalkStream from '@/components/companion/TalkStream/TalkStream.vue';
 import type { ComposerMode, PageRecord } from '@/types/session';
+
+const { t } = useI18n();
 
 defineProps<{
   page: PageRecord;
@@ -43,7 +46,9 @@ const emit = defineEmits<{
       @settings="emit('settings')"
     />
     <ContentColumn>
-      <h1 id="companion-page-title" class="sr-only">伴读</h1>
+      <h1 id="companion-page-title" class="sr-only">
+        {{ t('companion.title') }}
+      </h1>
       <PageCard
         :page="page"
         @update-edit-draft="emit('updateEditDraft', $event)"

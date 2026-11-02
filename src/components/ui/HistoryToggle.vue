@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
 defineProps<{
   expanded: boolean;
 }>();
+
+const { t } = useI18n();
 
 const emit = defineEmits<{
   toggle: [];
@@ -10,7 +14,11 @@ const emit = defineEmits<{
 
 <template>
   <button class="history-toggle" type="button" @click="emit('toggle')">
-    {{ expanded ? '收起前面聊过的' : '前面聊过的' }}
+    {{
+      expanded
+        ? t('companion.historyExpanded')
+        : t('companion.historyCollapsed')
+    }}
     <span aria-hidden>{{ expanded ? '▴' : '▸' }}</span>
   </button>
 </template>

@@ -1,5 +1,11 @@
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
+</script>
+
 <template>
-  <div class="typing" aria-label="老师正在回应">
+  <div class="typing" :aria-label="t('companion.typing')">
     <span></span>
     <span></span>
     <span></span>

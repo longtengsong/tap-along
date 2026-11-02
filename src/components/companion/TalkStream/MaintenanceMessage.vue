@@ -1,11 +1,20 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
 defineProps<{
   text: string;
 }>();
+
+const { t } = useI18n();
 </script>
 
 <template>
-  <div class="message message--maintenance">{{ text }}</div>
+  <div
+    class="message message--maintenance"
+    :aria-label="t('a11y.maintenanceMessage')"
+  >
+    {{ text }}
+  </div>
 </template>
 
 <style scoped>

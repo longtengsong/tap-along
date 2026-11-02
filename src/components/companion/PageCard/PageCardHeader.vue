@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import type { PageStatus } from '@/types/session';
+
+const { t } = useI18n();
 
 defineProps<{
   title: string;
@@ -12,7 +15,7 @@ defineProps<{
 <template>
   <h2 class="page-card__title">{{ title }}</h2>
   <div class="page-card__meta">
-    <span>出处：{{ source || '—' }}</span>
+    <span>{{ t('companion.sourcePrefix') }}{{ source || '—' }}</span>
     <StatusBadge :status="status" />
   </div>
 </template>

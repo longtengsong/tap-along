@@ -1,16 +1,12 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import type { PageStatus } from '@/types/session';
 
 defineProps<{
   status: PageStatus;
 }>();
 
-const labels: Record<PageStatus, string> = {
-  reading: '在读',
-  closed: '已合上',
-  saving: '正在收进页边',
-  failed: '没送进去',
-};
+const { t } = useI18n();
 </script>
 
 <template>
@@ -19,7 +15,7 @@ const labels: Record<PageStatus, string> = {
       ✓
     </span>
     <span v-else class="status-badge__dot" aria-hidden></span>
-    {{ labels[status] }}
+    {{ t(`status.${status}`) }}
   </span>
 </template>
 
