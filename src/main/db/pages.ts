@@ -100,6 +100,7 @@ const mapPageRow = (row: PageRow): PageSnapshot => ({
 export class PagesRepository {
   private readonly insertStatement;
   private readonly findStatement;
+  private readonly listRecentReadingStatement;
   private readonly updateLogStatement;
   private readonly updateLogAndRoundStatement;
   private readonly db: DatabaseSync;
@@ -122,6 +123,21 @@ export class PagesRepository {
         teaching_round_count
       FROM pages
       WHERE id = ?
+    `);
+    this.listRecentReadingStatement = this.db.prepare(`
+      SELECT
+        id,
+        edge_title,
+        body,
+        source,
+        parse_status,
+        companion_log,
+        page_status,
+        teaching_round_count
+      FROM pages
+      WHERE page_status = 'reading'
+      ORDER BY updated_at DESC, id DESC
+      LIMIT ?
     `);
     this.updateLogStatement = this.db.prepare(`
       UPDATE pages
@@ -153,6 +169,13 @@ export class PagesRepository {
 
     const row = this.findStatement.get(pageId) as PageRow | undefined;
     return row ? mapPageRow(row) : null;
+  }
+
+  listRecentReading(limit: number): PageSnapshot[] {
+    const rows = this.listRecentReadingStatement.all(
+      limit,
+    ) as unknown as PageRow[];
+    return rows.map(mapPageRow);
   }
 
   beginTeacherTurn(

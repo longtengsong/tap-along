@@ -45,7 +45,7 @@ const toPageRecord = (page: PageSnapshot): PageRecord => ({
   editing: false,
   editDraft: page.body,
   historyOpen: false,
-  suggestClose: false,
+  suggestClose: Boolean(page.messages.at(-1)?.suggestClose),
 });
 
 const createMockPage = ({ body, source }: SavePagePayload): PageRecord => ({
@@ -104,6 +104,17 @@ export const tapAlongApi = {
 
     const response = await bridge.getPage(pageId);
     return response.ok && response.page ? toPageRecord(response.page) : null;
+  },
+
+  async listRecentPages(limit = 1): Promise<PageRecord[]> {
+    if (!bridge?.listPages) {
+      return [];
+    }
+
+    const response = await bridge.listPages({ limit });
+    return response.ok && response.pages
+      ? response.pages.map(toPageRecord)
+      : [];
   },
 
   async editPage(pageId: number, body: string): Promise<PageRecord | null> {

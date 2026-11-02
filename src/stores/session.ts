@@ -40,8 +40,10 @@ interface PendingTeacherRequest extends TeacherAskPayload {
 
 let pendingTeacherRequest: PendingTeacherRequest | null = null;
 let teacherEventsReady = false;
+let restoreStarted = false;
 
 const state = reactive({
+  booting: true,
   view: 'new' as ViewState,
   pages: [] as PageRecord[],
   currentIndex: -1,
@@ -148,6 +150,28 @@ const ensureTeacherEvents = () => {
   tapAlongApi.onTeacherChunk(handleTeacherChunk);
   tapAlongApi.onTeacherDone(handleTeacherDone);
   teacherEventsReady = true;
+};
+
+const restoreLatestPage = async () => {
+  if (restoreStarted) {
+    return;
+  }
+
+  restoreStarted = true;
+
+  try {
+    const [page] = await tapAlongApi.listRecentPages(1);
+
+    if (page) {
+      state.pages = [page];
+      state.currentIndex = 0;
+      state.view = 'companion';
+    }
+  } catch {
+    // A restoration failure should leave the user at a usable new page.
+  } finally {
+    state.booting = false;
+  }
 };
 
 const currentPage = computed(() => state.pages[state.currentIndex] ?? null);
@@ -480,6 +504,7 @@ const showSettingsNotice = () => {
 
 export const useSessionStore = () => {
   ensureTeacherEvents();
+  void restoreLatestPage();
 
   return {
     state,

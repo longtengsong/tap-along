@@ -3,6 +3,7 @@ import test from 'node:test';
 import { PAGE_CHANNELS } from '../src/shared/pages.ts';
 import {
   getPage,
+  listPages,
   registerPageHandlers,
   savePage,
 } from '../src/main/ipc/pages.ts';
@@ -115,6 +116,47 @@ test('仓储读取失败时应返回统一错误', (t) => {
   });
 });
 
+test('列出最近在读页时应校验并限制数量', () => {
+  const calls = [];
+  const repository = {
+    listRecentReading(limit) {
+      calls.push(limit);
+      return [samplePage];
+    },
+  };
+
+  assert.deepEqual(listPages(repository, undefined), {
+    ok: true,
+    pages: [samplePage],
+  });
+  assert.deepEqual(listPages(repository, { limit: 50 }), {
+    ok: true,
+    pages: [samplePage],
+  });
+  assert.deepEqual(calls, [1, 20]);
+});
+
+test('列出最近页边时应拒绝无效参数并处理仓储异常', (t) => {
+  t.mock.method(console, 'error', () => {});
+  const repository = {
+    listRecentReading() {
+      throw new Error('数据库不可用');
+    },
+  };
+
+  for (const payload of [null, [], { limit: 0 }, { limit: 1.5 }]) {
+    assert.deepEqual(listPages(repository, payload), {
+      ok: false,
+      error: '列表参数无效。',
+    });
+  }
+
+  assert.deepEqual(listPages(repository, { limit: 1 }), {
+    ok: false,
+    error: '最近页边暂时打不开。',
+  });
+});
+
 test('IPC 注册应暴露保存和读取通道', () => {
   const handlers = new Map();
   const ipcMain = {
@@ -125,6 +167,7 @@ test('IPC 注册应暴露保存和读取通道', () => {
   const repository = {
     create: () => samplePage,
     findById: () => samplePage,
+    listRecentReading: () => [samplePage],
   };
 
   registerPageHandlers(ipcMain, repository);
@@ -140,5 +183,9 @@ test('IPC 注册应暴露保存和读取通道', () => {
   assert.deepEqual(handlers.get(PAGE_CHANNELS.get)(null, 1), {
     ok: true,
     page: samplePage,
+  });
+  assert.deepEqual(handlers.get(PAGE_CHANNELS.list)(null, { limit: 1 }), {
+    ok: true,
+    pages: [samplePage],
   });
 });

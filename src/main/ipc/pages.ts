@@ -1,5 +1,7 @@
 import type { IpcMain } from 'electron';
 import type {
+  ListPagesPayload,
+  PageListResult,
   PageOperationResult,
   SavePagePayload,
 } from '../../shared/pages.ts';
@@ -24,6 +26,24 @@ const parseSavePayload = (payload: unknown): SavePagePayload | null => {
     body,
     source: typeof payload.source === 'string' ? payload.source.trim() : '',
   };
+};
+
+const parseListPayload = (payload: unknown): ListPagesPayload | null => {
+  if (payload === undefined) {
+    return { limit: 1 };
+  }
+
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  const limit = payload.limit ?? 1;
+
+  if (typeof limit !== 'number' || !Number.isInteger(limit) || limit <= 0) {
+    return null;
+  }
+
+  return { limit: Math.min(limit, 20) };
 };
 
 export const savePage = (
@@ -69,6 +89,27 @@ export const getPage = (
   }
 };
 
+export const listPages = (
+  repository: Pick<PagesRepository, 'listRecentReading'>,
+  payload: unknown,
+): PageListResult => {
+  const input = parseListPayload(payload);
+
+  if (!input) {
+    return { ok: false, error: '列表参数无效。' };
+  }
+
+  try {
+    return {
+      ok: true,
+      pages: repository.listRecentReading(input.limit ?? 1),
+    };
+  } catch (error) {
+    console.error('读取最近页边失败：', error);
+    return { ok: false, error: '最近页边暂时打不开。' };
+  }
+};
+
 export const registerPageHandlers = (
   ipcMain: Pick<IpcMain, 'handle'>,
   repository: PagesRepository,
@@ -78,5 +119,8 @@ export const registerPageHandlers = (
   );
   ipcMain.handle(PAGE_CHANNELS.get, (_event, pageId: unknown) =>
     getPage(repository, pageId),
+  );
+  ipcMain.handle(PAGE_CHANNELS.list, (_event, payload: unknown) =>
+    listPages(repository, payload),
   );
 };

@@ -39,7 +39,17 @@ const submitComposer = () => {
 
 <template>
   <AppWindow>
-    <Transition name="screen-switch" mode="out-in">
+    <div
+      v-if="state.booting"
+      class="restoring"
+      role="status"
+      aria-live="polite"
+    >
+      <span class="restoring__mark" aria-hidden="true"></span>
+      <p>正在翻开上一页……</p>
+    </div>
+
+    <Transition v-else name="screen-switch" mode="out-in">
       <NewPageScreen
         v-if="state.view === 'new'"
         :body="state.draft.body"
@@ -93,6 +103,41 @@ const submitComposer = () => {
 </template>
 
 <style scoped>
+.restoring {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
+  color: var(--ink-faint);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.restoring p {
+  margin: 0;
+}
+
+.restoring__mark {
+  width: 28px;
+  height: 20px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--paper-raised);
+  box-shadow:
+    4px 4px 0 -1px var(--paper),
+    4px 4px 0 0 var(--line);
+  animation: page-breathe 1.4s ease-in-out infinite;
+}
+
+@keyframes page-breathe {
+  50% {
+    opacity: 0.55;
+    transform: translateY(-2px);
+  }
+}
+
 .screen-switch-enter-active,
 .screen-switch-leave-active {
   transition:

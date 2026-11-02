@@ -169,3 +169,30 @@ test('页边仓储应持久化老师问答并按请求编号去重', async (t) =
   assert.equal(duplicateTeacher.messages.length, 2);
   assert.equal(duplicateTeacher.teachingRoundCount, 1);
 });
+
+test('最近在读页应按更新时间和编号排序并排除已合上页', async (t) => {
+  const { db, repository } = await createRepository(t);
+  const firstPage = repository.create('第一页', '');
+  const secondPage = repository.create('第二页', '');
+  const closedPage = repository.create('已合上页', '');
+
+  db.prepare(
+    `UPDATE pages
+     SET updated_at = '2030-01-01 00:00:00'
+     WHERE id = ?`,
+  ).run(firstPage.id);
+  db.prepare(
+    `UPDATE pages
+     SET page_status = 'closed', updated_at = '2031-01-01 00:00:00'
+     WHERE id = ?`,
+  ).run(closedPage.id);
+
+  assert.deepEqual(
+    repository.listRecentReading(1).map((page) => page.id),
+    [firstPage.id],
+  );
+  assert.deepEqual(
+    repository.listRecentReading(5).map((page) => page.id),
+    [firstPage.id, secondPage.id],
+  );
+});

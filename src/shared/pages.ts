@@ -28,15 +28,26 @@ export interface SavePagePayload {
   source: string;
 }
 
+export interface ListPagesPayload {
+  limit?: number;
+}
+
 export interface PageOperationResult {
   ok: boolean;
   page?: PageSnapshot;
   error?: string;
 }
 
+export interface PageListResult {
+  ok: boolean;
+  pages?: PageSnapshot[];
+  error?: string;
+}
+
 export const PAGE_CHANNELS = {
   save: 'pages:save',
   get: 'pages:get',
+  list: 'pages:list',
 } as const;
 
 export interface TeacherAskPayload {
@@ -75,6 +86,7 @@ export const TEACHER_CHANNELS = {
 export interface TapAlongBridge {
   savePage?: (payload: SavePagePayload) => Promise<PageOperationResult>;
   getPage?: (pageId: number) => Promise<PageOperationResult>;
+  listPages?: (payload: ListPagesPayload) => Promise<PageListResult>;
   editPage?: (pageId: number, body: string) => Promise<PageOperationResult>;
   appendPage?: (pageId: number, body: string) => Promise<PageOperationResult>;
   closePage?: (pageId: number) => Promise<{ ok: boolean }>;
