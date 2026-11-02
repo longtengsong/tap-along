@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { normalizeLocale, resolveLocale } from '../src/i18n/locale.ts';
+import { APP_ERROR_CODES, ERROR_MESSAGE_KEYS } from '../src/shared/errors.ts';
 
 const localeDirectory = new URL('../src/i18n/locales/', import.meta.url);
 
@@ -56,4 +57,19 @@ test('locale 应优先使用已保存语言并识别系统语言', () => {
   assert.equal(resolveLocale('en', 'zh-CN'), 'en');
   assert.equal(resolveLocale('invalid', 'en-US'), 'en');
   assert.equal(resolveLocale(null, 'fr-FR'), 'zh-CN');
+});
+
+test('每个 IPC 错误码都应有中英文文案映射', async () => {
+  const zhKeys = new Set(
+    flattenMessages(await loadMessages('zh-CN.json')).map(([key]) => key),
+  );
+  const enKeys = new Set(
+    flattenMessages(await loadMessages('en.json')).map(([key]) => key),
+  );
+
+  for (const errorCode of APP_ERROR_CODES) {
+    const messageKey = ERROR_MESSAGE_KEYS[errorCode];
+    assert.equal(zhKeys.has(messageKey), true, `${errorCode} 缺少中文文案`);
+    assert.equal(enKeys.has(messageKey), true, `${errorCode} 缺少英文文案`);
+  }
 });

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppWindow from '@/components/layout/AppWindow.vue';
 import CompanionScreen from '@/components/companion/CompanionScreen.vue';
 import NewPageScreen from '@/components/newpage/NewPageScreen.vue';
 import OverlayHost from '@/components/overlay/OverlayHost.vue';
 import SettingsDialog from '@/components/layout/SettingsDialog.vue';
+import { ERROR_MESSAGE_KEYS } from '@/shared/errors';
 import { useSessionStore } from '@/stores/session';
 
 const { t } = useI18n();
@@ -31,6 +32,10 @@ const {
   retryTeacher,
   dismissOverlay,
 } = useSessionStore();
+
+const overlayErrorMessage = computed(() =>
+  t(ERROR_MESSAGE_KEYS[state.errorCode ?? 'UNKNOWN_ERROR']),
+);
 
 const submitComposer = () => {
   if (state.composerMode === 'append') {
@@ -94,6 +99,7 @@ const submitComposer = () => {
 
     <OverlayHost
       :overlay="state.overlay"
+      :error-message="overlayErrorMessage"
       @back-to-edit="dismissOverlay"
       @retry-save="retrySave"
       @retry-teacher="retryTeacher"

@@ -129,7 +129,7 @@ export class TeacherService {
       return {
         result: {
           ok: false,
-          error: '落笔内容或请求编号无效。',
+          errorCode: 'TEACHER_INVALID_REQUEST',
         },
       };
     }
@@ -154,7 +154,7 @@ export class TeacherService {
         result: {
           ok: false,
           requestId: input.requestId,
-          error: '老师暂时没应声。',
+          errorCode: 'TEACHER_NO_RESPONSE',
         },
       };
     }
@@ -164,7 +164,7 @@ export class TeacherService {
         result: {
           ok: false,
           requestId: input.requestId,
-          error: '这一页没有找到。',
+          errorCode: 'TEACHER_PAGE_NOT_FOUND',
         },
       };
     }
@@ -257,7 +257,7 @@ export class TeacherService {
         ok: false,
         pageId: input.pageId,
         requestId: input.requestId,
-        error: '老师暂时没应声。',
+        errorCode: 'TEACHER_NO_RESPONSE',
       };
       emit(failedEvent);
       return failedEvent;

@@ -107,7 +107,7 @@ test('老师生成失败时应保留用户消息并发送失败事件', async (t
   const done = await outcome.completion;
 
   assert.equal(done.ok, false);
-  assert.equal(done.error, '老师暂时没应声。');
+  assert.equal(done.errorCode, 'TEACHER_NO_RESPONSE');
   assert.equal(events.at(-1).ok, false);
 
   const savedPage = repository.findById(page.id);
@@ -158,7 +158,7 @@ test('开始写入失败时应直接返回失败', async (t) => {
     {
       ok: false,
       requestId: 'write-failed',
-      error: '老师暂时没应声。',
+      errorCode: 'TEACHER_NO_RESPONSE',
     },
   );
 });
@@ -263,7 +263,7 @@ test('老师服务应拒绝无效请求和不存在的页边', async (t) => {
     {
       ok: false,
       requestId: 'missing',
-      error: '这一页没有找到。',
+      errorCode: 'TEACHER_PAGE_NOT_FOUND',
     },
   );
 });

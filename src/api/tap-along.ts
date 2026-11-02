@@ -7,12 +7,13 @@ import type {
   TeacherDoneEvent,
   TeacherStartResult,
 } from '@/shared/pages';
+import type { AppErrorCode } from '@/shared/errors';
 import type { PageRecord } from '@/types/session';
 
 interface PageUiResult {
   ok: boolean;
   page?: PageRecord;
-  error?: string;
+  errorCode?: AppErrorCode;
 }
 
 const wait = (duration: number) =>
@@ -70,7 +71,7 @@ export const tapAlongApi = {
 
   async askTeacher(payload: TeacherAskPayload): Promise<TeacherStartResult> {
     if (!bridge?.askTeacher) {
-      return { ok: false, error: '当前环境不支持老师回应。' };
+      return { ok: false, errorCode: 'TEACHER_NO_RESPONSE' };
     }
 
     return bridge.askTeacher(payload);

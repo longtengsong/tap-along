@@ -53,7 +53,7 @@ export const savePage = (
   const input = parseSavePayload(payload);
 
   if (!input) {
-    return { ok: false, error: '正文不能为空。' };
+    return { ok: false, errorCode: 'INVALID_BODY' };
   }
 
   try {
@@ -63,7 +63,7 @@ export const savePage = (
     };
   } catch (error) {
     console.error('保存页边失败：', error);
-    return { ok: false, error: '这一句没送进去。' };
+    return { ok: false, errorCode: 'SAVE_FAILED' };
   }
 };
 
@@ -72,20 +72,20 @@ export const getPage = (
   pageId: unknown,
 ): PageOperationResult => {
   if (typeof pageId !== 'number' || !Number.isInteger(pageId) || pageId <= 0) {
-    return { ok: false, error: '页边编号无效。' };
+    return { ok: false, errorCode: 'INVALID_PAGE_ID' };
   }
 
   try {
     const page = repository.findById(pageId);
 
     if (!page) {
-      return { ok: false, error: '这一页没有找到。' };
+      return { ok: false, errorCode: 'PAGE_NOT_FOUND' };
     }
 
     return { ok: true, page };
   } catch (error) {
     console.error('读取页边失败：', error);
-    return { ok: false, error: '这一页暂时打不开。' };
+    return { ok: false, errorCode: 'READ_FAILED' };
   }
 };
 
@@ -96,7 +96,7 @@ export const listPages = (
   const input = parseListPayload(payload);
 
   if (!input) {
-    return { ok: false, error: '列表参数无效。' };
+    return { ok: false, errorCode: 'INVALID_LIST_LIMIT' };
   }
 
   try {
@@ -106,7 +106,7 @@ export const listPages = (
     };
   } catch (error) {
     console.error('读取最近页边失败：', error);
-    return { ok: false, error: '最近页边暂时打不开。' };
+    return { ok: false, errorCode: 'LIST_FAILED' };
   }
 };
 

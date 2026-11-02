@@ -47,7 +47,7 @@ test('保存页边时应拒绝无效正文', () => {
   for (const payload of [null, {}, { body: '' }, { body: '  ' }, { body: 1 }]) {
     assert.deepEqual(savePage(repository, payload), {
       ok: false,
-      error: '正文不能为空。',
+      errorCode: 'INVALID_BODY',
     });
   }
 });
@@ -77,7 +77,7 @@ test('仓储保存失败时应返回统一错误', (t) => {
 
   assert.deepEqual(savePage(repository, { body: '笔记' }), {
     ok: false,
-    error: '这一句没送进去。',
+    errorCode: 'SAVE_FAILED',
   });
 });
 
@@ -92,13 +92,13 @@ test('读取页边时应处理无效编号和不存在页边', () => {
   for (const pageId of [0, -1, 1.5, '1', null]) {
     assert.deepEqual(getPage(repository, pageId), {
       ok: false,
-      error: '页边编号无效。',
+      errorCode: 'INVALID_PAGE_ID',
     });
   }
 
   assert.deepEqual(getPage(repository, 1), {
     ok: false,
-    error: '这一页没有找到。',
+    errorCode: 'PAGE_NOT_FOUND',
   });
 });
 
@@ -112,7 +112,7 @@ test('仓储读取失败时应返回统一错误', (t) => {
 
   assert.deepEqual(getPage(repository, 1), {
     ok: false,
-    error: '这一页暂时打不开。',
+    errorCode: 'READ_FAILED',
   });
 });
 
@@ -147,13 +147,13 @@ test('列出最近页边时应拒绝无效参数并处理仓储异常', (t) => {
   for (const payload of [null, [], { limit: 0 }, { limit: 1.5 }]) {
     assert.deepEqual(listPages(repository, payload), {
       ok: false,
-      error: '列表参数无效。',
+      errorCode: 'INVALID_LIST_LIMIT',
     });
   }
 
   assert.deepEqual(listPages(repository, { limit: 1 }), {
     ok: false,
-    error: '最近页边暂时打不开。',
+    errorCode: 'LIST_FAILED',
   });
 });
 

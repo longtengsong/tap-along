@@ -6,6 +6,7 @@ import type { OverlayState } from '@/types/session';
 
 defineProps<{
   overlay: OverlayState;
+  errorMessage: string;
 }>();
 
 const emit = defineEmits<{
@@ -20,11 +21,13 @@ const emit = defineEmits<{
     <SavingOverlay v-if="overlay === 'saving'" />
     <FailedOverlay
       v-else-if="overlay === 'failed'"
+      :message="errorMessage"
       @back="emit('backToEdit')"
       @retry="emit('retrySave')"
     />
     <TeacherNoResponseOverlay
       v-else-if="overlay === 'teacher-no-response'"
+      :message="errorMessage"
       @retry="emit('retryTeacher')"
     />
   </Transition>

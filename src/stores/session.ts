@@ -2,6 +2,7 @@ import { computed, reactive } from 'vue';
 import { extractKeyword, tapAlongApi } from '@/api/tap-along';
 import { i18n } from '@/i18n';
 import { translateFixedMessage } from '@/i18n/fixed-messages';
+import type { AppErrorCode } from '@/shared/errors';
 import {
   resolveMockReplyLanguage,
   type ReplyLanguage,
@@ -54,6 +55,7 @@ const state = reactive({
   pages: [] as PageRecord[],
   currentIndex: -1,
   overlay: null as OverlayState,
+  errorCode: null as AppErrorCode | null,
   draft: {
     body: '',
     source: '',
@@ -112,6 +114,7 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
   if (!event.ok || !event.reply) {
     state.typing = false;
     state.overlay = 'teacher-no-response';
+    state.errorCode = event.errorCode ?? 'TEACHER_NO_RESPONSE';
     return;
   }
 
@@ -119,6 +122,8 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
   if (!page) {
     pendingTeacherRequest = null;
     state.typing = false;
+    state.overlay = 'teacher-no-response';
+    state.errorCode = 'PAGE_NOT_FOUND';
     return;
   }
 
@@ -144,6 +149,7 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
   page.suggestClose = Boolean(event.suggestClose);
   state.typing = false;
   state.overlay = null;
+  state.errorCode = null;
   pendingTeacherRequest = null;
 };
 
@@ -270,6 +276,7 @@ const completeSave = (page: PageRecord) => {
   state.draft.source = '';
   state.draftError = '';
   state.overlay = null;
+  state.errorCode = null;
   state.view = 'companion';
   state.sayMoreOpen = false;
   state.composerMode = 'normal';
@@ -287,23 +294,29 @@ const submitNewPage = async () => {
 
   state.draftError = '';
   state.overlay = 'saving';
+  state.errorCode = null;
 
   try {
     const response = await tapAlongApi.savePage({ body, source });
     if (!response.ok || !response.page) {
       state.overlay = 'failed';
+      state.errorCode = response.errorCode ?? 'SAVE_FAILED';
       return;
     }
 
     completeSave(response.page);
   } catch {
     state.overlay = 'failed';
+    state.errorCode = 'SAVE_FAILED';
   }
 };
 
-const markTeacherFailure = () => {
+const markTeacherFailure = (
+  errorCode: AppErrorCode = 'TEACHER_NO_RESPONSE',
+) => {
   state.typing = false;
   state.overlay = 'teacher-no-response';
+  state.errorCode = errorCode;
 };
 
 const startTeacherRequest = async (pending: PendingTeacherRequest) => {
@@ -315,7 +328,7 @@ const startTeacherRequest = async (pending: PendingTeacherRequest) => {
     });
 
     if (!response.ok) {
-      markTeacherFailure();
+      markTeacherFailure(response.errorCode);
     }
   } catch {
     markTeacherFailure();
@@ -356,6 +369,7 @@ const sendMockReply = async (
     }
   } catch {
     state.overlay = 'teacher-no-response';
+    state.errorCode = 'TEACHER_NO_RESPONSE';
   } finally {
     state.typing = false;
   }
@@ -375,6 +389,7 @@ const sendReply = async () => {
   state.replyDraft = '';
   state.typing = true;
   state.overlay = null;
+  state.errorCode = null;
 
   if (!tapAlongApi.supportsTeacherStreaming()) {
     await sendMockReply(page, text, userMessageId);
@@ -395,6 +410,7 @@ const retryTeacher = async () => {
 
   if (!pending) {
     state.overlay = null;
+    state.errorCode = null;
     return;
   }
 
@@ -408,6 +424,7 @@ const retryTeacher = async () => {
   }
 
   state.overlay = null;
+  state.errorCode = null;
   state.typing = true;
   await startTeacherRequest(pending);
 };
@@ -567,6 +584,7 @@ const retrySave = () => {
 
 const dismissOverlay = () => {
   state.overlay = null;
+  state.errorCode = null;
 };
 
 export const useSessionStore = () => {

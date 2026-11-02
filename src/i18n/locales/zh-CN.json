@@ -84,10 +84,19 @@
     "activeOrDriven": "分配是主动的，还是被任务牵引的"
   },
   "errors": {
+    "invalidBody": "正文不能为空。",
+    "invalidPageId": "页边编号无效。",
+    "pageNotFound": "这一页没有找到。",
+    "invalidListLimit": "列表参数无效。",
+    "listFailed": "最近页边暂时打不开。",
+    "readFailed": "这一页暂时打不开。",
+    "teacherInvalidRequest": "这一轮提问无效，请重新落笔。",
+    "teacherPageNotFound": "正在讨论的页边没有找到。",
     "teacherNoResponse": "老师暂时没应声，要再试一次吗？",
     "stackTooDeep": "页叠得有点深了，先合上一页再继续？",
     "saveFailed": "没送进去。",
-    "retry": "再试一次"
+    "retry": "再试一次",
+    "unknown": "刚刚没有处理好，请再试一次。"
   },
   "settings": {
     "title": "设置",

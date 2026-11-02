@@ -3,6 +3,10 @@ import { useI18n } from 'vue-i18n';
 import AppButton from '@/components/ui/AppButton.vue';
 import BaseOverlay from '@/components/ui/BaseOverlay.vue';
 
+defineProps<{
+  message: string;
+}>();
+
 const { t } = useI18n();
 
 const emit = defineEmits<{
@@ -12,7 +16,7 @@ const emit = defineEmits<{
 
 <template>
   <BaseOverlay>
-    <p class="overlay-copy">{{ t('errors.teacherNoResponse') }}</p>
+    <p class="overlay-copy">{{ message }}</p>
     <AppButton size="small" @click="emit('retry')">
       {{ t('errors.retry') }}
     </AppButton>

@@ -84,10 +84,19 @@
     "activeOrDriven": "is the allocation active, or driven by the task"
   },
   "errors": {
+    "invalidBody": "The note cannot be empty.",
+    "invalidPageId": "That page ID is invalid.",
+    "pageNotFound": "This page could not be found.",
+    "invalidListLimit": "The page list options are invalid.",
+    "listFailed": "Recent pages are temporarily unavailable.",
+    "readFailed": "This page is temporarily unavailable.",
+    "teacherInvalidRequest": "That question is invalid. Please try writing it again.",
+    "teacherPageNotFound": "The page being discussed could not be found.",
     "teacherNoResponse": "The teacher didn't respond. Try again?",
     "stackTooDeep": "The stack is getting deep. Close one page before continuing?",
     "saveFailed": "Couldn't save.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "unknown": "Something went wrong. Please try again."
   },
   "settings": {
     "title": "Settings",

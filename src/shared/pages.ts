@@ -1,3 +1,5 @@
+import type { AppErrorCode } from './errors.ts';
+
 export type PageLifecycleStatus = 'reading' | 'closed';
 
 export type ParseStatus = 'pending' | 'reading' | 'done' | 'failed';
@@ -35,13 +37,13 @@ export interface ListPagesPayload {
 export interface PageOperationResult {
   ok: boolean;
   page?: PageSnapshot;
-  error?: string;
+  errorCode?: AppErrorCode;
 }
 
 export interface PageListResult {
   ok: boolean;
   pages?: PageSnapshot[];
-  error?: string;
+  errorCode?: AppErrorCode;
 }
 
 export const PAGE_CHANNELS = {
@@ -59,7 +61,7 @@ export interface TeacherAskPayload {
 export interface TeacherStartResult {
   ok: boolean;
   requestId?: string;
-  error?: string;
+  errorCode?: AppErrorCode;
 }
 
 export interface TeacherChunkEvent {
@@ -74,7 +76,7 @@ export interface TeacherDoneEvent {
   requestId: string;
   reply?: string;
   suggestClose?: boolean;
-  error?: string;
+  errorCode?: AppErrorCode;
 }
 
 export const TEACHER_CHANNELS = {
