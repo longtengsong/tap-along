@@ -92,6 +92,13 @@ export interface TeacherResumePayload {
   requestId: string;
 }
 
+export interface TeacherMaintenancePayload {
+  pageId: number;
+  kind: 'edit' | 'append';
+  triggerText: string;
+  requestId: string;
+}
+
 export interface TeacherStartResult {
   ok: boolean;
   requestId?: string;
@@ -116,6 +123,7 @@ export interface TeacherDoneEvent {
 export const TEACHER_CHANNELS = {
   ask: 'teacher:ask',
   resume: 'teacher:resume',
+  maintenance: 'teacher:maintenance',
   chunk: 'teacher:chunk',
   done: 'teacher:done',
 } as const;
@@ -130,6 +138,9 @@ export interface TapAlongBridge {
   askTeacher?: (payload: TeacherAskPayload) => Promise<TeacherStartResult>;
   resumeTeacher?: (
     payload: TeacherResumePayload,
+  ) => Promise<TeacherStartResult>;
+  maintainTeacher?: (
+    payload: TeacherMaintenancePayload,
   ) => Promise<TeacherStartResult>;
   onTeacherChunk?: (callback: (event: TeacherChunkEvent) => void) => () => void;
   onTeacherDone?: (callback: (event: TeacherDoneEvent) => void) => () => void;

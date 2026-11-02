@@ -11,6 +11,7 @@ import {
   type TeacherAskPayload,
   type TeacherChunkEvent,
   type TeacherDoneEvent,
+  type TeacherMaintenancePayload,
   type TeacherResumePayload,
 } from './shared/pages.ts';
 
@@ -30,6 +31,8 @@ const tapAlongBridge: TapAlongBridge = {
     ipcRenderer.invoke(TEACHER_CHANNELS.ask, payload),
   resumeTeacher: (payload: TeacherResumePayload) =>
     ipcRenderer.invoke(TEACHER_CHANNELS.resume, payload),
+  maintainTeacher: (payload: TeacherMaintenancePayload) =>
+    ipcRenderer.invoke(TEACHER_CHANNELS.maintenance, payload),
   onTeacherChunk: (callback: (event: TeacherChunkEvent) => void) => {
     const listener = (
       _event: Electron.IpcRendererEvent,

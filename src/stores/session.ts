@@ -45,12 +45,13 @@ const message = (
 });
 
 interface PendingTeacherRequest {
-  kind: 'ask' | 'resume';
+  kind: 'ask' | 'resume' | 'maintenance';
   pageId: number;
   requestId: string;
   tempMessageId: string;
   userText?: string;
   contextPageId?: number;
+  maintenanceKind?: 'edit' | 'append';
 }
 
 let pendingTeacherRequest: PendingTeacherRequest | null = null;
@@ -249,7 +250,25 @@ const respondAfterMaintenance = async (
   kind: MaintenanceKind,
   triggerText: string,
 ) => {
+  const requestId = createId();
+  const tempMessageId = `teacher-${requestId}`;
+  pendingTeacherRequest = {
+    kind: 'maintenance',
+    pageId: page.id,
+    requestId,
+    tempMessageId,
+    userText: triggerText,
+    maintenanceKind: kind,
+  };
   state.typing = true;
+  state.overlay = null;
+  state.errorCode = null;
+
+  if (tapAlongApi.supportsTeacherMaintenance()) {
+    await startTeacherRequest(pendingTeacherRequest);
+    return;
+  }
+
   await wait(760);
   const replyLanguage = resolveMockReplyLanguage(
     triggerText,
@@ -266,6 +285,7 @@ const respondAfterMaintenance = async (
           'teacherFallback.suggestCloseAfterMaintain',
         ),
         true,
+        tempMessageId,
       ),
     );
   } else {
@@ -280,10 +300,11 @@ const respondAfterMaintenance = async (
         : translateFixedMessage(replyLanguage, 'teacherFallback.afterEdit', {
             keyword: extractKeyword(page.body),
           });
-    page.messages.push(message('teacher', reply));
+    page.messages.push(message('teacher', reply, false, tempMessageId));
   }
 
   state.typing = false;
+  pendingTeacherRequest = null;
 };
 
 const completeSave = (page: PageRecord) => {
@@ -342,18 +363,28 @@ const markTeacherFailure = (
 
 const startTeacherRequest = async (pending: PendingTeacherRequest) => {
   try {
-    const response =
-      pending.kind === 'resume' && pending.contextPageId
-        ? await tapAlongApi.resumeTeacher({
-            targetPageId: pending.pageId,
-            contextPageId: pending.contextPageId,
-            requestId: pending.requestId,
-          })
-        : await tapAlongApi.askTeacher({
-            pageId: pending.pageId,
-            userText: pending.userText ?? '',
-            requestId: pending.requestId,
-          });
+    let response;
+
+    if (pending.kind === 'resume' && pending.contextPageId) {
+      response = await tapAlongApi.resumeTeacher({
+        targetPageId: pending.pageId,
+        contextPageId: pending.contextPageId,
+        requestId: pending.requestId,
+      });
+    } else if (pending.kind === 'maintenance' && pending.maintenanceKind) {
+      response = await tapAlongApi.maintainTeacher({
+        pageId: pending.pageId,
+        kind: pending.maintenanceKind,
+        triggerText: pending.userText ?? '',
+        requestId: pending.requestId,
+      });
+    } else {
+      response = await tapAlongApi.askTeacher({
+        pageId: pending.pageId,
+        userText: pending.userText ?? '',
+        requestId: pending.requestId,
+      });
+    }
 
     if (!response.ok) {
       markTeacherFailure(response.errorCode);

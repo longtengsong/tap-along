@@ -5,6 +5,7 @@ import type {
   TeacherAskPayload,
   TeacherChunkEvent,
   TeacherDoneEvent,
+  TeacherMaintenancePayload,
   TeacherResumePayload,
   TeacherStartResult,
 } from '@/shared/pages';
@@ -98,6 +99,13 @@ export const tapAlongApi = {
       bridge?.resumeTeacher && bridge?.onTeacherChunk && bridge?.onTeacherDone,
     ),
 
+  supportsTeacherMaintenance: () =>
+    Boolean(
+      bridge?.maintainTeacher &&
+      bridge?.onTeacherChunk &&
+      bridge?.onTeacherDone,
+    ),
+
   async askTeacher(payload: TeacherAskPayload): Promise<TeacherStartResult> {
     if (!bridge?.askTeacher) {
       return { ok: false, errorCode: 'TEACHER_NO_RESPONSE' };
@@ -114,6 +122,16 @@ export const tapAlongApi = {
     }
 
     return bridge.resumeTeacher(payload);
+  },
+
+  async maintainTeacher(
+    payload: TeacherMaintenancePayload,
+  ): Promise<TeacherStartResult> {
+    if (!bridge?.maintainTeacher) {
+      return { ok: false, errorCode: 'TEACHER_NO_RESPONSE' };
+    }
+
+    return bridge.maintainTeacher(payload);
   },
 
   onTeacherChunk(callback: (event: TeacherChunkEvent) => void) {

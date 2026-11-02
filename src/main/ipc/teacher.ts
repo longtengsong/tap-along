@@ -38,4 +38,18 @@ export const registerTeacherHandlers = (
 
     return outcome.result;
   });
+  ipcMain.handle(TEACHER_CHANNELS.maintenance, (event, payload: unknown) => {
+    const outcome = teacherService.startMaintenance(
+      payload,
+      (teacherEvent: TeacherChunkEvent | TeacherDoneEvent) => {
+        const channel =
+          'chunk' in teacherEvent
+            ? TEACHER_CHANNELS.chunk
+            : TEACHER_CHANNELS.done;
+        event.sender.send(channel, teacherEvent);
+      },
+    );
+
+    return outcome.result;
+  });
 };

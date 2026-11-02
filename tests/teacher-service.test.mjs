@@ -668,3 +668,194 @@ test('跨页回问应把两页最近用户内容传给生成器', async (t) => {
     ),
   );
 });
+
+test('补一句后的老师回应应流式生成并持久化', async (t) => {
+  const { page, repository, service } = await createTeacherFixture(
+    t,
+    undefined,
+  );
+  repository.appendText(
+    page.id,
+    'This adds an English thought.',
+    'append-source',
+  );
+  const events = [];
+  const outcome = service.startMaintenance(
+    {
+      pageId: page.id,
+      kind: 'append',
+      triggerText: 'This adds an English thought.',
+      requestId: 'maintenance-append',
+    },
+    (event) => events.push(event),
+  );
+  const done = await outcome.completion;
+
+  assert.equal(done.ok, true);
+  assert.match(done.reply, /You've added that thought/);
+  const saved = repository.findById(page.id);
+  assert.equal(saved.teachingRoundCount, 0);
+  assert.equal(saved.messages.at(-1).text, done.reply);
+  assert.equal(saved.messages.at(-1).requestId, 'maintenance-append');
+  assert.ok(events.some((event) => 'chunk' in event));
+});
+
+test('改批注后的老师回应应跟随混合内容并防重复', async (t) => {
+  const { page, repository, service } = await createTeacherFixture(
+    t,
+    undefined,
+  );
+  repository.editText(page.id, '这是 mixed English note。', 'edit-source');
+  const payload = {
+    pageId: page.id,
+    kind: 'edit',
+    triggerText: '这是 mixed English note。',
+    requestId: 'maintenance-edit',
+  };
+  const first = service.startMaintenance(payload, () => {});
+  const done = await first.completion;
+
+  assert.match(done.reply, /修改后更清楚了/);
+  assert.doesNotMatch(done.reply, /Clearer now/);
+  const second = service.startMaintenance(payload, () => {});
+  assert.equal(second.completion, undefined);
+  assert.equal(
+    repository
+      .findById(page.id)
+      .messages.filter((message) => message.requestId === 'maintenance-edit')
+      .length,
+    1,
+  );
+});
+
+test('维护老师回应应拒绝关闭页面和无效请求', async (t) => {
+  const { page, repository, service } = await createTeacherFixture(
+    t,
+    undefined,
+  );
+
+  assert.equal(
+    service.startMaintenance(
+      { pageId: page.id, kind: 'unknown', triggerText: '内容', requestId: 'x' },
+      () => {},
+    ).result.ok,
+    false,
+  );
+
+  repository.closePage(page.id, 'close-for-maintenance');
+  assert.deepEqual(
+    service.startMaintenance(
+      {
+        pageId: page.id,
+        kind: 'edit',
+        triggerText: '修改内容',
+        requestId: 'maintenance-closed',
+      },
+      () => {},
+    ).result,
+    {
+      ok: false,
+      requestId: 'maintenance-closed',
+      errorCode: 'PAGE_CLOSED',
+    },
+  );
+});
+
+test('维护老师回应应处理缺失页、读取异常和写入异常', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  const { service } = await createTeacherFixture(t, undefined);
+
+  assert.deepEqual(
+    service.startMaintenance(
+      {
+        pageId: 999_999,
+        kind: 'append',
+        triggerText: '内容',
+        requestId: 'maintenance-missing',
+      },
+      () => {},
+    ).result,
+    {
+      ok: false,
+      requestId: 'maintenance-missing',
+      errorCode: 'TEACHER_PAGE_NOT_FOUND',
+    },
+  );
+
+  const readFailure = new TeacherService(
+    {
+      beginTeacherTurn() {
+        return null;
+      },
+      completeTeacherTurn() {
+        return null;
+      },
+      findById() {
+        throw new Error('读取失败');
+      },
+      appendTeacherPrompt() {
+        return null;
+      },
+    },
+    async function* () {
+      yield '不应执行';
+    },
+  );
+  assert.deepEqual(
+    readFailure.startMaintenance(
+      {
+        pageId: 1,
+        kind: 'edit',
+        triggerText: '修改内容',
+        requestId: 'maintenance-read-failed',
+      },
+      () => {},
+    ).result,
+    {
+      ok: false,
+      requestId: 'maintenance-read-failed',
+      errorCode: 'TEACHER_NO_RESPONSE',
+    },
+  );
+
+  const targetPage = {
+    id: 1,
+    title: '目标页',
+    body: '目标内容',
+    source: '',
+    status: 'reading',
+    parseStatus: 'pending',
+    teachingRoundCount: 0,
+    messages: [],
+  };
+  const writeFailure = new TeacherService(
+    {
+      beginTeacherTurn() {
+        return null;
+      },
+      completeTeacherTurn() {
+        return null;
+      },
+      findById() {
+        return targetPage;
+      },
+      appendTeacherPrompt() {
+        return { ok: false, reason: 'closed' };
+      },
+    },
+    async function* () {
+      yield '维护回应';
+    },
+  );
+  const done = await writeFailure.startMaintenance(
+    {
+      pageId: 1,
+      kind: 'append',
+      triggerText: '补充内容',
+      requestId: 'maintenance-write-failed',
+    },
+    () => {},
+  ).completion;
+  assert.equal(done.ok, false);
+  assert.equal(done.errorCode, 'TEACHER_NO_RESPONSE');
+});

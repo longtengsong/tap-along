@@ -3,6 +3,7 @@ import type {
   TeacherAskPayload,
   TeacherChunkEvent,
   TeacherDoneEvent,
+  TeacherMaintenancePayload,
   TeacherResumePayload,
   TeacherStartResult,
 } from '../../shared/pages.ts';
@@ -19,6 +20,7 @@ interface TeacherGeneratorInput {
   userText: string;
   replyLanguage: ReplyLanguage;
   contextPage?: PageSnapshot;
+  maintenanceKind?: 'edit' | 'append';
 }
 
 export type TeacherGenerator = (
@@ -88,6 +90,35 @@ const parseResumePayload = (payload: unknown): TeacherResumePayload | null => {
   };
 };
 
+const parseMaintenancePayload = (
+  payload: unknown,
+): TeacherMaintenancePayload | null => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return null;
+  }
+
+  const input = payload as Partial<TeacherMaintenancePayload>;
+
+  if (
+    !Number.isInteger(input.pageId) ||
+    (input.pageId ?? 0) <= 0 ||
+    (input.kind !== 'edit' && input.kind !== 'append') ||
+    typeof input.triggerText !== 'string' ||
+    !input.triggerText.trim() ||
+    typeof input.requestId !== 'string' ||
+    !input.requestId.trim()
+  ) {
+    return null;
+  }
+
+  return {
+    pageId: input.pageId as number,
+    kind: input.kind,
+    triggerText: input.triggerText.trim(),
+    requestId: input.requestId.trim(),
+  };
+};
+
 export const createOpeningTeacherMessage = (body: string) => {
   const replyLanguage = resolveMockReplyLanguage(body);
 
@@ -100,6 +131,7 @@ const createMockReply = (
   page: PageSnapshot,
   replyLanguage: ReplyLanguage,
   contextPage?: PageSnapshot,
+  maintenanceKind?: 'edit' | 'append',
 ) => {
   const keyword = extractContentKeyword(page.body, replyLanguage);
 
@@ -123,6 +155,37 @@ const createMockReply = (
           ),
         },
       ),
+      suggestClose: false,
+    };
+  }
+
+  if (maintenanceKind) {
+    if (page.teachingRoundCount >= 4) {
+      return {
+        text: translateFixedMessage(
+          replyLanguage,
+          'teacherFallback.suggestCloseAfterMaintain',
+        ),
+        suggestClose: true,
+      };
+    }
+
+    return {
+      text:
+        maintenanceKind === 'append'
+          ? translateFixedMessage(
+              replyLanguage,
+              'teacherFallback.afterAppend',
+              {
+                question: translateFixedMessage(
+                  replyLanguage,
+                  'teacherFallback.activeOrDriven',
+                ),
+              },
+            )
+          : translateFixedMessage(replyLanguage, 'teacherFallback.afterEdit', {
+              keyword,
+            }),
       suggestClose: false,
     };
   }
@@ -159,8 +222,14 @@ export const createMockTeacherStream: TeacherGenerator = async function* ({
   page,
   replyLanguage,
   contextPage,
+  maintenanceKind,
 }) {
-  const reply = createMockReply(page, replyLanguage, contextPage);
+  const reply = createMockReply(
+    page,
+    replyLanguage,
+    contextPage,
+    maintenanceKind,
+  );
   const characters = Array.from(reply.text);
 
   for (let index = 0; index < characters.length; index += 3) {
@@ -356,6 +425,160 @@ export class TeacherService {
       result: { ok: true, requestId: input.requestId },
       completion,
     };
+  }
+
+  startMaintenance(
+    payload: unknown,
+    emit: TeacherEventEmitter,
+  ): TeacherStartOutcome {
+    const input = parseMaintenancePayload(payload);
+
+    if (!input) {
+      return {
+        result: {
+          ok: false,
+          errorCode: 'TEACHER_INVALID_REQUEST',
+        },
+      };
+    }
+
+    if (this.activeRequests.has(input.requestId)) {
+      return {
+        result: { ok: true, requestId: input.requestId },
+      };
+    }
+
+    let page: PageSnapshot | null;
+
+    try {
+      page = this.repository.findById(input.pageId);
+    } catch (error) {
+      console.error('读取维护页边失败：', error);
+      return {
+        result: {
+          ok: false,
+          requestId: input.requestId,
+          errorCode: 'TEACHER_NO_RESPONSE',
+        },
+      };
+    }
+
+    if (!page) {
+      return {
+        result: {
+          ok: false,
+          requestId: input.requestId,
+          errorCode: 'TEACHER_PAGE_NOT_FOUND',
+        },
+      };
+    }
+
+    if (page.status !== 'reading') {
+      return {
+        result: {
+          ok: false,
+          requestId: input.requestId,
+          errorCode: 'PAGE_CLOSED',
+        },
+      };
+    }
+
+    if (
+      page.messages.some(
+        (message) =>
+          message.role === 'teacher' && message.requestId === input.requestId,
+      )
+    ) {
+      return {
+        result: { ok: true, requestId: input.requestId },
+      };
+    }
+
+    const previousUserTexts = page.messages
+      .filter((message) => message.role === 'user')
+      .map((message) => message.text);
+    const replyLanguage = resolveMockReplyLanguage(input.triggerText, [
+      page.body,
+      ...previousUserTexts,
+    ]);
+
+    this.activeRequests.add(input.requestId);
+    const completion = this.streamMaintenance(
+      page,
+      input,
+      replyLanguage,
+      emit,
+    ).finally(() => {
+      this.activeRequests.delete(input.requestId);
+    });
+
+    return {
+      result: { ok: true, requestId: input.requestId },
+      completion,
+    };
+  }
+
+  private async streamMaintenance(
+    page: PageSnapshot,
+    input: TeacherMaintenancePayload,
+    replyLanguage: ReplyLanguage,
+    emit: TeacherEventEmitter,
+  ): Promise<TeacherDoneEvent> {
+    let reply = '';
+
+    try {
+      for await (const chunk of this.generate({
+        page,
+        userText: input.triggerText,
+        replyLanguage,
+        maintenanceKind: input.kind,
+      })) {
+        if (!chunk) {
+          continue;
+        }
+
+        reply += chunk;
+        emit({
+          pageId: page.id,
+          requestId: input.requestId,
+          chunk,
+        });
+      }
+
+      if (!reply) {
+        throw new Error('老师没有返回维护回应');
+      }
+
+      const result = this.repository.appendTeacherPrompt(
+        page.id,
+        reply,
+        input.requestId,
+      );
+
+      if (!result.ok) {
+        throw new Error('保存维护回应失败');
+      }
+
+      const doneEvent: TeacherDoneEvent = {
+        ok: true,
+        pageId: page.id,
+        requestId: input.requestId,
+        reply,
+        suggestClose: page.teachingRoundCount >= 4,
+      };
+      emit(doneEvent);
+      return doneEvent;
+    } catch (error) {
+      console.error('生成维护老师回应失败：', error);
+      const failedEvent: TeacherDoneEvent = {
+        ok: false,
+        pageId: page.id,
+        requestId: input.requestId,
+        errorCode: 'TEACHER_NO_RESPONSE',
+      };
+      emit(failedEvent);
+      return failedEvent;
+    }
   }
 
   private async streamResume(
