@@ -3,6 +3,7 @@
   "productName": "tap-along",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "My Electron application description",
   "keywords": [],
   "license": "MIT",
@@ -18,6 +19,8 @@
     "release": "electron-forge release",
     "lint": "oxlint && oxfmt --check",
     "lint:fix": "oxlint --fix && oxfmt --write",
+    "test": "node --test --experimental-test-coverage --test-coverage-include=\"src/main/db/**/*.ts\" --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 --test-reporter=./tests/reporters/chinese-reporter.mjs \"tests/**/*.test.mjs\"",
+    "test:unit": "node --test --test-reporter=./tests/reporters/chinese-reporter.mjs \"tests/**/*.test.mjs\"",
     "typecheck": "tsc --noEmit"
   },
   "devEngines": {
