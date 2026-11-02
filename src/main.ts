@@ -22,7 +22,11 @@ import {
   ProviderConnectionService,
   ProviderConnectionTester,
 } from './main/services/provider-connection';
-import { TeacherService } from './main/services/teacher';
+import { createModelAwareTeacherStream } from './main/services/model-teacher';
+import {
+  createMockTeacherStream,
+  TeacherService,
+} from './main/services/teacher';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -106,7 +110,16 @@ if (!hasSingleInstanceLock) {
           new ProviderConnectionTester(),
         ),
       );
-      registerTeacherHandlers(ipcMain, new TeacherService(pagesRepository));
+      registerTeacherHandlers(
+        ipcMain,
+        new TeacherService(
+          pagesRepository,
+          createModelAwareTeacherStream({
+            configService: providerService,
+            fallback: createMockTeacherStream,
+          }),
+        ),
+      );
     } catch (error) {
       console.error('Failed to initialize the TapAlong database.', error);
       app.quit();

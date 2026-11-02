@@ -15,7 +15,7 @@ import {
 import { translateFixedMessage } from '../../i18n/fixed-messages.ts';
 import type { PagesRepository } from '../db/pages.ts';
 
-interface TeacherGeneratorInput {
+export interface TeacherGeneratorInput {
   page: PageSnapshot;
   userText: string;
   replyLanguage: ReplyLanguage;

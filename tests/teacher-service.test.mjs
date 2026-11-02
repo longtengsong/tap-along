@@ -14,6 +14,7 @@ import {
   createOpeningTeacherMessage,
   createMockTeacherStream,
 } from '../src/main/services/teacher.ts';
+import { createModelAwareTeacherStream } from '../src/main/services/model-teacher.ts';
 
 const createTeacherFixture = async (t, generator) => {
   const directory = await mkdtemp(path.join(tmpdir(), 'tap-along-teacher-'));
@@ -64,6 +65,76 @@ test('老师服务应流式返回并持久化完整问答', async (t) => {
   assert.equal(savedPage.messages[0].text, '我的回答。');
   assert.equal(savedPage.messages[1].role, 'teacher');
   assert.equal(savedPage.messages[1].text, '第一段第二段');
+});
+
+test('普通问答应使用激活模型流并只持久化一次完整回复', async (t) => {
+  const encoder = new TextEncoder();
+  const generator = createModelAwareTeacherStream({
+    configService: {
+      resolveActive: async () => ({
+        ok: true,
+        config: {
+          id: 'custom',
+          baseUrl: 'https://models.example.com/v1',
+          model: 'reading-model',
+          apiKey: 'sk-integration-private-key',
+        },
+      }),
+    },
+    fallback: async function* () {
+      yield '不应使用本地回退';
+    },
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            encoder.encode(
+              'data: {"choices":[{"delta":{"content":"模型"}}]}\n\n',
+            ),
+          );
+          controller.enqueue(
+            encoder.encode(
+              'data: {"choices":[{"delta":{"content":"问题？"}}]}\n\n',
+            ),
+          );
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        },
+      }),
+    }),
+  });
+  const { page, repository, service } = await createTeacherFixture(
+    t,
+    generator,
+  );
+  const events = [];
+  const outcome = service.start(
+    {
+      pageId: page.id,
+      userText: '请继续追问。',
+      requestId: 'model-request',
+    },
+    (event) => events.push(event),
+  );
+  const done = await outcome.completion;
+
+  assert.equal(done.ok, true);
+  assert.equal(done.reply, '模型问题？');
+  assert.deepEqual(
+    events.slice(0, 2).map((event) => event.chunk),
+    ['模型', '问题？'],
+  );
+
+  const savedPage = repository.findById(page.id);
+  const teacherMessages = savedPage.messages.filter(
+    (message) => message.role === 'teacher',
+  );
+  assert.equal(savedPage.teachingRoundCount, 1);
+  assert.equal(teacherMessages.length, 1);
+  assert.equal(teacherMessages[0].text, '模型问题？');
+  assert.equal(teacherMessages[0].requestId, 'model-request');
 });
 
 test('相同请求编号不应启动重复老师回应', async (t) => {

@@ -40,6 +40,13 @@ export interface ProviderRuntimeConfig {
   apiKey: string;
 }
 
+export type ProviderResolutionResult =
+  | {
+      ok: true;
+      config: ProviderRuntimeConfig;
+    }
+  | { ok: false; errorCode: AppErrorCode };
+
 const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
 
 const isProviderId = (value: unknown): value is ModelProviderId =>
@@ -127,13 +134,7 @@ export class ProviderConfigService {
     }
   }
 
-  async resolve(id: unknown): Promise<
-    | {
-        ok: true;
-        config: ProviderRuntimeConfig;
-      }
-    | { ok: false; errorCode: AppErrorCode }
-  > {
+  async resolve(id: unknown): Promise<ProviderResolutionResult> {
     if (!isProviderId(id)) {
       return { ok: false, errorCode: 'INVALID_PROVIDER' };
     }
@@ -159,6 +160,14 @@ export class ProviderConfigService {
           apiKey: await this.cipher.decrypt(provider.encryptedApiKey),
         },
       };
+    } catch {
+      return { ok: false, errorCode: 'CONFIG_FAILED' };
+    }
+  }
+
+  async resolveActive(): Promise<ProviderResolutionResult> {
+    try {
+      return await this.resolve(this.readSettings().activeProvider);
     } catch {
       return { ok: false, errorCode: 'CONFIG_FAILED' };
     }

@@ -267,6 +267,42 @@ test('运行时配置应解密 Key，并拒绝缺省或无法解密的配置', a
   });
 });
 
+test('应使用当前激活供应商的运行时配置，并在读取失败时返回统一错误', async () => {
+  const { service, store } = createFixture();
+
+  assert.deepEqual(await service.resolveActive(), {
+    ok: false,
+    errorCode: 'PROVIDER_NOT_CONFIGURED',
+  });
+
+  await service.save({
+    id: 'custom',
+    name: 'Local',
+    model: 'local-model',
+    baseUrl: 'http://localhost:11434/v1',
+    apiKey: 'local-key',
+  });
+  await service.setActive('custom');
+
+  assert.deepEqual(await service.resolveActive(), {
+    ok: true,
+    config: {
+      id: 'custom',
+      baseUrl: 'http://localhost:11434/v1',
+      model: 'local-model',
+      apiKey: 'local-key',
+    },
+  });
+
+  store.read = () => {
+    throw new Error('读取失败');
+  };
+  assert.deepEqual(await service.resolveActive(), {
+    ok: false,
+    errorCode: 'CONFIG_FAILED',
+  });
+});
+
 test('供应商服务应处理非法输入和存储异常', async () => {
   const { service, store } = createFixture();
 

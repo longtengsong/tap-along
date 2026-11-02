@@ -43,6 +43,8 @@ test('关键词提取应保留各语言的自然词序', () => {
 });
 
 test('真实模型 Prompt 应要求跟随最新用户语言并中文优先', () => {
+  assert.match(TEACHER_SYSTEM_PROMPT, /asking one concise, genuine/);
+  assert.match(TEACHER_SYSTEM_PROMPT, /Do not summarize, explain concepts/);
   assert.match(TEACHER_SYSTEM_PROMPT, /latest user message/);
   assert.match(TEACHER_SYSTEM_PROMPT, /both Chinese and English/);
   assert.match(TEACHER_SYSTEM_PROMPT, /respond in Chinese/);
