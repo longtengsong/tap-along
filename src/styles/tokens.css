@@ -1,0 +1,25 @@
+:root {
+  --paper: #fbfaf7;
+  --paper-raised: #fffefa;
+  --paper-deep: #f3f0e9;
+  --chrome: #f5f2ec;
+  --ink: #292824;
+  --ink-soft: #69655d;
+  --ink-faint: #9d988f;
+  --ink-ghost: #c8c2b7;
+  --line: #e5e0d6;
+  --line-soft: #f0ece4;
+  --moss: #4f765d;
+  --moss-soft: #e9efe8;
+  --amber: #ab7d4e;
+  --user-bubble: #efebe3;
+  --serif:
+    'Noto Serif SC', 'Songti SC', STSong, 'Source Han Serif SC', Georgia, serif;
+  --sans:
+    'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    sans-serif;
+  --shadow-window:
+    0 0 0 1px rgb(44 38 28 / 8%), 0 1px 2px rgb(44 38 28 / 4%),
+    0 28px 70px -25px rgb(60 47 29 / 34%);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.3, 1);
+}

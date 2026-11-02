@@ -10,8 +10,11 @@ if (started) {
 const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1180,
+    height: 780,
+    minWidth: 720,
+    minHeight: 560,
+    backgroundColor: '#e8e4dc',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
     },

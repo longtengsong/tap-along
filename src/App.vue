@@ -1,135 +1,142 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import AppWindow from '@/components/layout/AppWindow.vue';
+import CompanionScreen from '@/components/companion/CompanionScreen.vue';
+import NewPageScreen from '@/components/newpage/NewPageScreen.vue';
+import OverlayHost from '@/components/overlay/OverlayHost.vue';
+import { useSessionStore } from '@/stores/session';
 
-const note = ref('');
-const source = ref('');
-const submittedNote = ref('');
+const {
+  state,
+  currentPage,
+  canGoBack,
+  stackIsDeep,
+  submitNewPage,
+  sendReply,
+  submitAppend,
+  startEditing,
+  cancelEditing,
+  saveEditing,
+  startAppending,
+  startNewPage,
+  closeCurrentPage,
+  goBack,
+  toggleHistory,
+  retrySave,
+  dismissOverlay,
+  showSettingsNotice,
+} = useSessionStore();
 
-const submitNote = () => {
-  submittedNote.value = note.value.trim();
+const submitComposer = () => {
+  if (state.composerMode === 'append') {
+    void submitAppend();
+    return;
+  }
+
+  void sendReply();
 };
 </script>
 
 <template>
-  <main class="page">
-    <header>
-      <p class="eyebrow">轻叩伴读</p>
-      <h1>新页边</h1>
-      <p class="intro">读到哪里，记一句。</p>
-    </header>
-
-    <form class="note-form" @submit.prevent="submitNote">
-      <label for="note">笔记</label>
-      <textarea
-        id="note"
-        v-model="note"
-        placeholder="读到哪里，记一句……"
-        rows="8"
+  <AppWindow>
+    <Transition name="screen-switch" mode="out-in">
+      <NewPageScreen
+        v-if="state.view === 'new'"
+        :body="state.draft.body"
+        :source="state.draft.source"
+        :can-back="canGoBack"
+        :deep="stackIsDeep"
+        :error="state.draftError"
+        @update:body="state.draft.body = $event"
+        @update:source="state.draft.source = $event"
+        @submit="submitNewPage"
+        @back="goBack"
+        @settings="showSettingsNotice"
       />
-
-      <label for="source">出处</label>
-      <input
-        id="source"
-        v-model="source"
-        type="text"
-        placeholder="书名 / 网页 / 电影 / 课程"
+      <CompanionScreen
+        v-else-if="currentPage"
+        :page="currentPage"
+        :typing="state.typing"
+        :can-back="canGoBack"
+        :composer-mode="state.composerMode"
+        :reply-draft="state.replyDraft"
+        :say-more-open="state.sayMoreOpen"
+        @back="goBack"
+        @settings="showSettingsNotice"
+        @update-edit-draft="currentPage.editDraft = $event"
+        @save-edit="saveEditing"
+        @cancel-edit="cancelEditing"
+        @toggle-history="toggleHistory"
+        @update-reply-draft="state.replyDraft = $event"
+        @submit-reply="submitComposer"
+        @toggle-say-more="state.sayMoreOpen = !state.sayMoreOpen"
+        @edit="startEditing"
+        @append="startAppending"
+        @new-page="startNewPage"
+        @close="closeCurrentPage"
       />
+    </Transition>
 
-      <button type="submit" :disabled="!note.trim()">收进页边</button>
-    </form>
+    <OverlayHost
+      :overlay="state.overlay"
+      @back-to-edit="dismissOverlay"
+      @retry-save="retrySave"
+      @retry-teacher="dismissOverlay"
+    />
 
-    <section v-if="submittedNote" class="result">
-      <p>已收进页边</p>
-      <blockquote>{{ submittedNote }}</blockquote>
-      <small v-if="source.trim()">出处：{{ source }}</small>
-    </section>
-  </main>
+    <Transition name="toast">
+      <p v-if="state.settingsNotice" class="settings-toast" role="status">
+        设置还在路上，先专心读这一页。
+      </p>
+    </Transition>
+  </AppWindow>
 </template>
 
 <style scoped>
-.page {
-  display: grid;
-  gap: 2rem;
+.screen-switch-enter-active,
+.screen-switch-leave-active {
+  transition:
+    opacity 200ms ease,
+    transform 240ms var(--ease-out);
 }
 
-.eyebrow {
-  margin: 0 0 0.5rem;
-  color: #7a6f63;
-  font-size: 0.75rem;
-  letter-spacing: 0.12em;
+.screen-switch-enter-from {
+  opacity: 0;
+  transform: translateY(5px);
 }
 
-h1 {
+.screen-switch-leave-to {
+  opacity: 0;
+  transform: translateY(-3px);
+}
+
+.settings-toast {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  z-index: 90;
   margin: 0;
-  font-size: clamp(2rem, 8vw, 3.5rem);
-  font-weight: 500;
-}
-
-.intro {
-  margin: 0.75rem 0 0;
-  color: #6f675f;
-}
-
-.note-form {
-  display: grid;
-  gap: 0.75rem;
-}
-
-label {
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-textarea,
-input {
-  box-sizing: border-box;
-  width: 100%;
-  border: 1px solid #d8d2c8;
-  border-radius: 0.75rem;
-  background: #fffdf8;
-  color: inherit;
-  font: inherit;
-  padding: 0.875rem 1rem;
-}
-
-textarea {
-  resize: vertical;
-  line-height: 1.65;
-}
-
-button {
-  justify-self: start;
-  border: 0;
+  padding: 9px 17px;
+  border: 1px solid var(--line);
   border-radius: 999px;
-  background: #2f2a25;
-  color: #fffdf8;
-  cursor: pointer;
-  font: inherit;
-  padding: 0.75rem 1.25rem;
+  background: rgb(255 254 250 / 92%);
+  box-shadow: 0 8px 28px -18px rgb(54 43 27 / 48%);
+  color: var(--ink-soft);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  transform: translateX(-50%);
+  backdrop-filter: blur(8px);
 }
 
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.35;
+.toast-enter-active,
+.toast-leave-active {
+  transition:
+    opacity 180ms ease,
+    transform 200ms var(--ease-out);
 }
 
-.result {
-  border-left: 3px solid #b9ae9f;
-  padding-left: 1rem;
-}
-
-.result p {
-  margin: 0;
-  color: #6f675f;
-  font-size: 0.875rem;
-}
-
-blockquote {
-  margin: 0.5rem 0;
-  white-space: pre-wrap;
-}
-
-small {
-  color: #7a6f63;
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 5px);
 }
 </style>
