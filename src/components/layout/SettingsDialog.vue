@@ -23,6 +23,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [];
   openDeveloperPrompts: [];
+  developerModeChanged: [enabled: boolean];
 }>();
 
 const { locale, t } = useI18n();
@@ -127,6 +128,7 @@ const loadDeveloperMode = async () => {
 
     if (result.ok && result.enabled !== undefined) {
       developerMode.value = result.enabled;
+      emit('developerModeChanged', result.enabled);
     } else {
       developerModeError.value = t(
         ERROR_MESSAGE_KEYS[result.errorCode ?? 'UNKNOWN_ERROR'],
@@ -160,6 +162,7 @@ const toggleDeveloperMode = async () => {
     }
 
     developerMode.value = result.enabled;
+    emit('developerModeChanged', result.enabled);
     developerModeMessage.value = result.enabled
       ? t('settings.developerModeEnabledMessage')
       : t('settings.developerModeDisabledMessage');

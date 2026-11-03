@@ -3,6 +3,7 @@ import type { PromptCatalogValues } from '../../shared/prompts.ts';
 import { composeTeacherMessages, PROMPT_CATALOG } from '../prompts/index.ts';
 import { buildChatCompletionsUrl } from './provider-connection.ts';
 import type { DeveloperPromptConfigService } from './developer-prompts.ts';
+import type { TeacherRequestInspector } from './teacher-request-inspector.ts';
 import type {
   ProviderConfigService,
   ProviderRuntimeConfig,
@@ -15,6 +16,10 @@ interface TeacherStreamOptions {
   configService: Pick<ProviderConfigService, 'resolveActive'>;
   fallback: TeacherGenerator;
   promptService?: Pick<DeveloperPromptConfigService, 'resolve'>;
+  inspector?: Pick<
+    TeacherRequestInspector,
+    'recordSent' | 'recordFailed' | 'recordFallback'
+  >;
   fetchImpl?: FetchLike;
   timeoutMs?: number;
 }
@@ -161,6 +166,10 @@ const streamProviderReply = async function* (
   fetchImpl: FetchLike,
   timeoutMs: number,
   promptCatalog: PromptCatalogValues,
+  inspector?: Pick<
+    TeacherRequestInspector,
+    'recordSent' | 'recordFailed' | 'recordFallback'
+  >,
 ): AsyncGenerator<string> {
   const controller = new AbortController();
   const cancelFromCaller = () => controller.abort();
@@ -173,6 +182,22 @@ const streamProviderReply = async function* (
 
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const messages = composeTeacherMessages(input, promptCatalog);
+  const fail = (errorCode: AppErrorCode) => {
+    if (input.requestId) {
+      inspector?.recordFailed(input.requestId, errorCode);
+    }
+
+    return new ProviderRequestError(errorCode);
+  };
+
+  if (input.requestId) {
+    inspector?.recordSent({
+      requestId: input.requestId,
+      providerId: config.id,
+      model: config.model,
+      messages,
+    });
+  }
 
   try {
     let response: Awaited<ReturnType<FetchLike>>;
@@ -193,34 +218,35 @@ const streamProviderReply = async function* (
       });
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new ProviderRequestError('PROVIDER_TIMEOUT');
+        throw fail('PROVIDER_TIMEOUT');
       }
 
-      throw new ProviderRequestError('PROVIDER_NETWORK_ERROR');
+      throw fail('PROVIDER_NETWORK_ERROR');
     }
 
     if (!response.ok) {
-      throw new ProviderRequestError(
-        providerErrorCodeForStatus(response.status),
-      );
+      throw fail(providerErrorCodeForStatus(response.status));
     }
 
     if (!response.body) {
-      throw new ProviderRequestError('PROVIDER_REQUEST_FAILED');
+      throw fail('PROVIDER_REQUEST_FAILED');
     }
 
     try {
       yield* readChatCompletionStream(response.body);
     } catch (error) {
       if (error instanceof ProviderRequestError) {
+        if (input.requestId) {
+          inspector?.recordFailed(input.requestId, error.errorCode);
+        }
         throw error;
       }
 
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new ProviderRequestError('PROVIDER_TIMEOUT');
+        throw fail('PROVIDER_TIMEOUT');
       }
 
-      throw new ProviderRequestError('PROVIDER_NETWORK_ERROR');
+      throw fail('PROVIDER_NETWORK_ERROR');
     }
   } finally {
     clearTimeout(timeout);
@@ -232,6 +258,7 @@ export const createModelAwareTeacherStream = ({
   configService,
   fallback,
   promptService,
+  inspector,
   fetchImpl = globalThis.fetch,
   timeoutMs = 60_000,
 }: TeacherStreamOptions): TeacherGenerator =>
@@ -240,6 +267,9 @@ export const createModelAwareTeacherStream = ({
 
     if (!resolved.ok) {
       if (resolved.errorCode === 'PROVIDER_NOT_CONFIGURED') {
+        if (input.requestId) {
+          inspector?.recordFallback(input.requestId);
+        }
         yield* fallback(input);
         return;
       }
@@ -253,5 +283,6 @@ export const createModelAwareTeacherStream = ({
       fetchImpl,
       timeoutMs,
       promptService?.resolve() ?? PROMPT_CATALOG,
+      inspector,
     );
   };

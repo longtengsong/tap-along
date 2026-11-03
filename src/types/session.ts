@@ -11,6 +11,7 @@ export interface TalkMessage {
   role: MessageRole;
   text: string;
   suggestClose?: boolean;
+  requestId?: string;
 }
 
 export interface PageRecord {

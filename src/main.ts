@@ -26,6 +26,7 @@ import {
 } from './main/services/provider-connection';
 import { DeveloperModeService } from './main/services/developer-mode';
 import { DeveloperPromptConfigService } from './main/services/developer-prompts';
+import { TeacherRequestInspector } from './main/services/teacher-request-inspector';
 import { createModelAwareTeacherStream } from './main/services/model-teacher';
 import {
   createMockTeacherStream,
@@ -129,6 +130,9 @@ if (!hasSingleInstanceLock) {
           clear: () => settingsStore.delete('developerPromptProfile'),
         },
       );
+      const teacherRequestInspector = new TeacherRequestInspector(
+        developerModeService,
+      );
 
       registerPageHandlers(ipcMain, pagesRepository);
       registerSettingsHandlers(ipcMain, developerModeService);
@@ -154,8 +158,10 @@ if (!hasSingleInstanceLock) {
             configService: providerService,
             fallback: createMockTeacherStream,
             promptService: developerPromptService,
+            inspector: teacherRequestInspector,
           }),
         ),
+        teacherRequestInspector,
       );
     } catch (error) {
       console.error('Failed to initialize the TapAlong database.', error);

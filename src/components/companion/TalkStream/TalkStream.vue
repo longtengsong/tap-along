@@ -8,6 +8,7 @@ const props = defineProps<{
   messages: TalkMessage[];
   historyOpen: boolean;
   typing: boolean;
+  developerMode: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -35,6 +36,7 @@ watch(
     <MessageList
       :messages="messages"
       :history-open="historyOpen"
+      :developer-mode="developerMode"
       @toggle-history="emit('toggleHistory')"
     />
     <TypingIndicator v-if="typing" />

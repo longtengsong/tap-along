@@ -430,6 +430,8 @@ onBeforeUnmount(() => {
 .prompt-page__actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 12px;
 }
 

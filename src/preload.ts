@@ -13,6 +13,7 @@ import {
   type TeacherChunkEvent,
   type TeacherDoneEvent,
   type TeacherMaintenancePayload,
+  type TeacherRequestInspectionResult,
   type TeacherResumePayload,
 } from './shared/pages.ts';
 import {
@@ -60,6 +61,10 @@ const tapAlongBridge: TapAlongBridge = {
     ipcRenderer.on(TEACHER_CHANNELS.done, listener);
     return () => ipcRenderer.removeListener(TEACHER_CHANNELS.done, listener);
   },
+  inspectTeacherRequest: (
+    requestId: string,
+  ): Promise<TeacherRequestInspectionResult> =>
+    ipcRenderer.invoke(TEACHER_CHANNELS.inspectRequest, requestId),
   listProviders: () => ipcRenderer.invoke(PROVIDER_CHANNELS.list),
   getProvider: (id: ModelProviderId) =>
     ipcRenderer.invoke(PROVIDER_CHANNELS.get, id),

@@ -213,6 +213,16 @@
         "description": "Tells the model that the current page gained new content and the body is now the combined note, so it can continue from the addition."
       }
     },
+    "teacherRequestView": "View request",
+    "teacherRequestHide": "Hide request",
+    "teacherRequestTitle": "Messages sent to the LLM",
+    "teacherRequestFallback": "This turn used the local teacher fallback; no Messages were sent to an LLM.",
+    "teacherRequestUnavailable": "This request record is unavailable or outside the current in-memory retention window.",
+    "teacherRequestStatus": {
+      "sent": "Sent",
+      "failed": "Failed",
+      "fallback": "Local fallback"
+    },
     "conversationData": "Conversation data",
     "conversationDataHint": "Manage pages and conversations stored on this device.",
     "clearConversations": "Clear all conversations",

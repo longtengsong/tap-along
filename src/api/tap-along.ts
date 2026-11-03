@@ -9,6 +9,7 @@ import type {
   TeacherChunkEvent,
   TeacherDoneEvent,
   TeacherMaintenancePayload,
+  TeacherRequestInspectionResult,
   TeacherResumePayload,
   TeacherStartResult,
 } from '@/shared/pages';
@@ -68,6 +69,7 @@ const toPageRecord = (page: PageSnapshot): PageRecord => {
                 )
               : message.text,
       suggestClose: message.suggestClose,
+      requestId: message.requestId,
     })),
     teacherTurn: page.teachingRoundCount,
     editing: false,
@@ -155,6 +157,14 @@ export const tapAlongApi = {
 
   onTeacherDone(callback: (event: TeacherDoneEvent) => void) {
     return bridge?.onTeacherDone?.(callback) ?? (() => {});
+  },
+
+  async inspectTeacherRequest(
+    requestId: string,
+  ): Promise<TeacherRequestInspectionResult> {
+    return bridge?.inspectTeacherRequest
+      ? bridge.inspectTeacherRequest(requestId)
+      : { ok: false, errorCode: 'DEVELOPER_MODE_REQUIRED' };
   },
 
   async savePage(input: SavePagePayload): Promise<PageUiResult> {

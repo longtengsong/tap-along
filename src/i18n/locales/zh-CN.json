@@ -213,6 +213,16 @@
         "description": "告知模型用户刚刚补写了内容，当前正文是合并后的版本，从而围绕新增内容继续提问。"
       }
     },
+    "teacherRequestView": "查看请求",
+    "teacherRequestHide": "收起请求",
+    "teacherRequestTitle": "发送给 LLM 的 Messages",
+    "teacherRequestFallback": "本轮使用本地老师回退，未向 LLM 发送 Messages。",
+    "teacherRequestUnavailable": "该请求记录不存在，或已超出本次运行保留范围。",
+    "teacherRequestStatus": {
+      "sent": "已发送",
+      "failed": "请求失败",
+      "fallback": "本地回退"
+    },
     "conversationData": "会话数据",
     "conversationDataHint": "管理保存在此设备上的页边和对谈。",
     "clearConversations": "清空全部会话",

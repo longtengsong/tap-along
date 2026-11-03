@@ -69,7 +69,21 @@ test('老师 IPC 应启动请求并转发 chunk 与 done 事件', () => {
     },
   };
 
-  registerTeacherHandlers(ipcMain, service);
+  const inspectedRequest = {
+    requestId: 'request-1',
+    status: 'sent',
+    providerId: 'custom',
+    model: 'model',
+    messages: [{ role: 'user', content: 'Message' }],
+    createdAt: 1,
+  };
+  registerTeacherHandlers(ipcMain, service, {
+    get(requestId) {
+      return requestId === 'request-1'
+        ? { ok: true, request: inspectedRequest }
+        : { ok: true };
+    },
+  });
 
   assert.deepEqual(
     new Set(handlers.keys()),
@@ -78,6 +92,7 @@ test('老师 IPC 应启动请求并转发 chunk 与 done 事件', () => {
       TEACHER_CHANNELS.resume,
       TEACHER_CHANNELS.maintenance,
       TEACHER_CHANNELS.cancel,
+      TEACHER_CHANNELS.inspectRequest,
     ]),
   );
   assert.deepEqual(
@@ -110,6 +125,10 @@ test('老师 IPC 应启动请求并转发 chunk 与 done 事件', () => {
       requestId: 'maintenance-1',
     }),
     { ok: true, requestId: 'maintenance-1' },
+  );
+  assert.deepEqual(
+    handlers.get(TEACHER_CHANNELS.inspectRequest)(event, 'request-1'),
+    { ok: true, request: inspectedRequest },
   );
   assert.deepEqual(sent, [
     {

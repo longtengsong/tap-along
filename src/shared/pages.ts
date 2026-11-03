@@ -141,6 +141,29 @@ export interface TeacherCancelResult {
   errorCode?: AppErrorCode;
 }
 
+export type TeacherRequestInspectionStatus = 'sent' | 'failed' | 'fallback';
+
+export interface TeacherRequestInspectionMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export interface TeacherRequestInspection {
+  requestId: string;
+  status: TeacherRequestInspectionStatus;
+  providerId?: string;
+  model?: string;
+  messages: TeacherRequestInspectionMessage[];
+  createdAt: number;
+  errorCode?: AppErrorCode;
+}
+
+export interface TeacherRequestInspectionResult {
+  ok: boolean;
+  request?: TeacherRequestInspection;
+  errorCode?: AppErrorCode;
+}
+
 export const TEACHER_CHANNELS = {
   ask: 'teacher:ask',
   resume: 'teacher:resume',
@@ -148,6 +171,7 @@ export const TEACHER_CHANNELS = {
   cancel: 'teacher:cancel',
   chunk: 'teacher:chunk',
   done: 'teacher:done',
+  inspectRequest: 'teacher:inspect-request',
 } as const;
 
 export interface TapAlongBridge
@@ -171,4 +195,7 @@ export interface TapAlongBridge
   ) => Promise<TeacherCancelResult>;
   onTeacherChunk?: (callback: (event: TeacherChunkEvent) => void) => () => void;
   onTeacherDone?: (callback: (event: TeacherDoneEvent) => void) => () => void;
+  inspectTeacherRequest?: (
+    requestId: string,
+  ) => Promise<TeacherRequestInspectionResult>;
 }

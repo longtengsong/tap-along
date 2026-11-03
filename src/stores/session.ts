@@ -38,11 +38,13 @@ const message = (
   text: string,
   suggestClose = false,
   id: string = createId(),
+  requestId?: string,
 ): TalkMessage => ({
   id,
   role,
   text,
   suggestClose,
+  requestId,
 });
 
 interface PendingTeacherRequest {
@@ -113,7 +115,13 @@ const handleTeacherChunk = (event: TeacherChunkEvent) => {
     streamedMessage.text += event.chunk;
   } else {
     page.messages.push(
-      message('teacher', event.chunk, false, pending.tempMessageId),
+      message(
+        'teacher',
+        event.chunk,
+        false,
+        pending.tempMessageId,
+        pending.requestId,
+      ),
     );
   }
 };
@@ -174,6 +182,7 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
   if (streamedMessage) {
     streamedMessage.text = event.reply;
     streamedMessage.suggestClose = event.suggestClose;
+    streamedMessage.requestId = pending.requestId;
   } else {
     page.messages.push(
       message(
@@ -181,6 +190,7 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
         event.reply,
         event.suggestClose,
         pending.tempMessageId,
+        pending.requestId,
       ),
     );
   }

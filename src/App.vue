@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { settingsApi } from '@/api/settings';
 import AppWindow from '@/components/layout/AppWindow.vue';
 import CompanionScreen from '@/components/companion/CompanionScreen.vue';
 import NewPageScreen from '@/components/newpage/NewPageScreen.vue';
@@ -13,6 +14,7 @@ import { useSessionStore } from '@/stores/session';
 const { t } = useI18n();
 const settingsOpen = ref(false);
 const developerPromptsOpen = ref(false);
+const developerMode = ref(false);
 
 const {
   state,
@@ -64,6 +66,19 @@ const closeDeveloperPrompts = () => {
   developerPromptsOpen.value = false;
   settingsOpen.value = true;
 };
+
+const applyDeveloperMode = (enabled: boolean) => {
+  developerMode.value = enabled;
+};
+
+onMounted(async () => {
+  try {
+    const result = await settingsApi.getDeveloperMode();
+    developerMode.value = result.ok && result.enabled === true;
+  } catch {
+    developerMode.value = false;
+  }
+});
 </script>
 
 <template>
@@ -94,6 +109,7 @@ const closeDeveloperPrompts = () => {
       />
       <CompanionScreen
         v-else-if="currentPage"
+        :developer-mode="developerMode"
         :page="currentPage"
         :typing="state.typing"
         :can-back="canGoBack"
@@ -133,6 +149,7 @@ const closeDeveloperPrompts = () => {
       :clear-conversation-data="clearConversationData"
       @close="settingsOpen = false"
       @open-developer-prompts="openDeveloperPrompts"
+      @developer-mode-changed="applyDeveloperMode"
     />
 
     <DeveloperPromptPage

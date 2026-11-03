@@ -20,6 +20,7 @@ import type { CompressedPagePrompt } from '../prompts/index.ts';
 import { getTeacherFailureCode } from './model-teacher.ts';
 
 export interface TeacherGeneratorInput {
+  requestId?: string;
   page: PageSnapshot;
   userText: string;
   replyLanguage: ReplyLanguage;
@@ -662,6 +663,7 @@ export class TeacherService {
     try {
       throwIfCancelled(signal);
       for await (const chunk of this.generate({
+        requestId: input.requestId,
         page,
         userText: input.triggerText,
         replyLanguage,
@@ -749,6 +751,7 @@ export class TeacherService {
     try {
       throwIfCancelled(signal);
       for await (const chunk of this.generate({
+        requestId: input.requestId,
         page: targetPage,
         contextPage,
         userText: latestUserText,
@@ -836,6 +839,7 @@ export class TeacherService {
     try {
       throwIfCancelled(signal);
       for await (const chunk of this.generate({
+        requestId: input.requestId,
         page,
         userText: input.userText,
         replyLanguage,

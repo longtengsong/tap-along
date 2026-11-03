@@ -67,6 +67,7 @@ const createGenerator = ({
   fallbackCalls = [],
   resolveActive,
   promptService,
+  inspector,
   fetchImpl,
   timeoutMs,
 }) =>
@@ -76,6 +77,7 @@ const createGenerator = ({
         resolveActive ?? (async () => ({ ok: true, config: providerConfig })),
     },
     promptService,
+    inspector,
     fallback: async function* (input) {
       fallbackCalls.push(input);
       yield '本地老师回应';
@@ -156,6 +158,100 @@ test('开发者 Prompt 应应用于普通问答、跨页恢复和维护请求', 
   );
   assert.equal(requestBodies[2].messages[2].content, '自定义维护任务');
   assert.equal(requestBodies[2].messages[3].content, '自定义编辑动作');
+});
+
+test('模型请求应把最终 Messages 和模型信息交给开发者检查器', async () => {
+  const calls = [];
+  const generator = createGenerator({
+    inspector: {
+      recordSent(input) {
+        calls.push(['sent', input]);
+      },
+      recordFailed(requestId, errorCode) {
+        calls.push(['failed', requestId, errorCode]);
+      },
+      recordFallback(requestId) {
+        calls.push(['fallback', requestId]);
+      },
+    },
+    fetchImpl: async () =>
+      createSseResponse([
+        'data: {"choices":[{"delta":{"content":"请求问题？"}}]}\n\n',
+        'data: [DONE]\n\n',
+      ]),
+  });
+
+  await collect(
+    generator({
+      requestId: 'inspect-request-1',
+      page: createPage(),
+      userText: '检查这次请求。',
+      replyLanguage: 'zh-CN',
+    }),
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], 'sent');
+  assert.equal(calls[0][1].requestId, 'inspect-request-1');
+  assert.equal(calls[0][1].providerId, 'custom');
+  assert.equal(calls[0][1].model, 'reading-model');
+  assert.equal(calls[0][1].messages[0].content, PROMPT_CATALOG.teacher.system);
+});
+
+test('模型请求失败和本地回退应更新开发者检查器状态', async () => {
+  const calls = [];
+  const inspector = {
+    recordSent(input) {
+      calls.push(['sent', input.requestId]);
+    },
+    recordFailed(requestId, errorCode) {
+      calls.push(['failed', requestId, errorCode]);
+    },
+    recordFallback(requestId) {
+      calls.push(['fallback', requestId]);
+    },
+  };
+  const failedGenerator = createGenerator({
+    inspector,
+    fetchImpl: async () => {
+      throw new TypeError('network failed');
+    },
+  });
+
+  await assertProviderError(
+    collect(
+      failedGenerator({
+        requestId: 'failed-request',
+        page: createPage(),
+        userText: '请求失败。',
+        replyLanguage: 'zh-CN',
+      }),
+    ),
+    'PROVIDER_NETWORK_ERROR',
+  );
+  assert.deepEqual(calls, [
+    ['sent', 'failed-request'],
+    ['failed', 'failed-request', 'PROVIDER_NETWORK_ERROR'],
+  ]);
+
+  const fallbackCalls = [];
+  const fallbackGenerator = createGenerator({
+    inspector,
+    resolveActive: async () => ({
+      ok: false,
+      errorCode: 'PROVIDER_NOT_CONFIGURED',
+    }),
+    fallbackCalls,
+  });
+  await collect(
+    fallbackGenerator({
+      requestId: 'fallback-request',
+      page: createPage(),
+      userText: '本地回退。',
+      replyLanguage: 'zh-CN',
+    }),
+  );
+  assert.deepEqual(calls.at(-1), ['fallback', 'fallback-request']);
 });
 
 test('模型消息应包含页面上下文、历史角色和最新一次用户问题', () => {

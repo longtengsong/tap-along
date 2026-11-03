@@ -9,6 +9,7 @@ import type { TalkMessage } from '@/types/session';
 const props = defineProps<{
   messages: TalkMessage[];
   historyOpen: boolean;
+  developerMode: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -39,6 +40,8 @@ const visibleMessages = computed(() => {
         v-if="item.role === 'teacher'"
         :text="item.text"
         :suggest-close="item.suggestClose"
+        :developer-mode="developerMode"
+        :request-id="item.requestId"
       />
       <UserMessage v-else-if="item.role === 'user'" :text="item.text" />
       <MaintenanceMessage v-else :text="item.text" />

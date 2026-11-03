@@ -11,6 +11,7 @@ const { t } = useI18n();
 
 defineProps<{
   page: PageRecord;
+  developerMode: boolean;
   typing: boolean;
   canBack: boolean;
   composerMode: ComposerMode;
@@ -62,6 +63,7 @@ const emit = defineEmits<{
         :messages="page.messages"
         :history-open="page.historyOpen"
         :typing="typing"
+        :developer-mode="developerMode"
         @toggle-history="emit('toggleHistory')"
       />
       <BottomBar
