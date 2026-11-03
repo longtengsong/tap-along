@@ -1,5 +1,6 @@
 import type {
   PageSnapshot,
+  PageClearAllResult,
   SavePagePayload,
   TapAlongBridge,
   TeacherAskPayload,
@@ -187,6 +188,14 @@ export const tapAlongApi = {
     return response.ok && response.pages
       ? response.pages.map(toPageRecord)
       : [];
+  },
+
+  async clearAllPages(): Promise<PageClearAllResult> {
+    if (bridge?.clearAllPages) {
+      return bridge.clearAllPages();
+    }
+
+    return { ok: true, cleared: 0 };
   },
 
   async editPage(

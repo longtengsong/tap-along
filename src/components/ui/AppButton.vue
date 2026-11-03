@@ -1,7 +1,7 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    variant?: 'primary' | 'ghost' | 'text';
+    variant?: 'primary' | 'ghost' | 'text' | 'danger';
     size?: 'normal' | 'small';
     weak?: boolean;
     disabled?: boolean;
@@ -111,6 +111,20 @@ const emit = defineEmits<{
 
 .button--text:hover:not(:disabled) {
   color: var(--ink-soft);
+}
+
+.button--danger {
+  height: 40px;
+  padding: 0 21px;
+  border-radius: 999px;
+  background: #8e554b;
+  color: #fffaf7;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.button--danger:hover:not(:disabled) {
+  background: #79453d;
 }
 
 .button--weak {

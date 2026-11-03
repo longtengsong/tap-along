@@ -6,6 +6,7 @@ import AppButton from '@/components/ui/AppButton.vue';
 import { setLocale } from '@/i18n';
 import type { SupportedLocale } from '@/i18n/locale';
 import { ERROR_MESSAGE_KEYS, type AppErrorCode } from '@/shared/errors';
+import type { PageClearAllResult } from '@/shared/pages';
 import type {
   ModelProviderId,
   ModelProviderState,
@@ -15,6 +16,7 @@ import type {
 
 const props = defineProps<{
   open: boolean;
+  clearConversationData: () => Promise<PageClearAllResult>;
 }>();
 
 const emit = defineEmits<{
@@ -31,6 +33,10 @@ const providerSaving = ref(false);
 const providerTesting = ref(false);
 const providerMessage = ref('');
 const providerError = ref('');
+const dataConfirming = ref(false);
+const dataClearing = ref(false);
+const dataMessage = ref('');
+const dataError = ref('');
 let providerSelectionInitialized = false;
 const providerForm = reactive({
   name: '',
@@ -47,7 +53,11 @@ const selectedProvider = computed(
     ) ?? null,
 );
 
-const close = () => emit('close');
+const close = () => {
+  if (!dataClearing.value) {
+    emit('close');
+  }
+};
 
 const selectLocale = (nextLocale: SupportedLocale) => {
   setLocale(nextLocale);
@@ -215,6 +225,52 @@ const testProvider = async () => {
   }
 };
 
+const beginClearConversationData = () => {
+  if (dataClearing.value) {
+    return;
+  }
+
+  dataConfirming.value = true;
+  dataMessage.value = '';
+  dataError.value = '';
+};
+
+const cancelClearConversationData = () => {
+  if (!dataClearing.value) {
+    dataConfirming.value = false;
+  }
+};
+
+const confirmClearConversationData = async () => {
+  if (dataClearing.value) {
+    return;
+  }
+
+  dataClearing.value = true;
+  dataMessage.value = '';
+  dataError.value = '';
+
+  try {
+    const result = await props.clearConversationData();
+
+    if (!result.ok) {
+      dataError.value = t(
+        ERROR_MESSAGE_KEYS[result.errorCode ?? 'UNKNOWN_ERROR'],
+      );
+      return;
+    }
+
+    dataConfirming.value = false;
+    dataMessage.value = t('settings.conversationsCleared', {
+      count: result.cleared ?? 0,
+    });
+  } catch {
+    dataError.value = t(ERROR_MESSAGE_KEYS.SAVE_FAILED);
+  } finally {
+    dataClearing.value = false;
+  }
+};
+
 const handleKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Escape') {
     close();
@@ -236,6 +292,9 @@ watch(
       return;
     }
 
+    dataConfirming.value = false;
+    dataMessage.value = '';
+    dataError.value = '';
     document.removeEventListener('keydown', handleKeydown);
     previousFocus?.focus();
   },
@@ -475,6 +534,64 @@ onBeforeUnmount(() => {
 
           <p v-else class="provider-error" role="alert">
             {{ providerError }}
+          </p>
+        </section>
+
+        <section class="settings-section" aria-labelledby="settings-data">
+          <div class="settings-section__heading">
+            <h3 id="settings-data">{{ t('settings.conversationData') }}</h3>
+            <span>{{ t('settings.conversationDataHint') }}</span>
+          </div>
+
+          <div class="settings-data">
+            <div class="settings-data__copy">
+              <strong>{{ t('settings.clearConversations') }}</strong>
+              <p>{{ t('settings.clearConversationsDescription') }}</p>
+            </div>
+            <AppButton
+              v-if="!dataConfirming"
+              variant="text"
+              :disabled="dataClearing"
+              @click="beginClearConversationData"
+            >
+              {{ t('settings.clearConversationsAction') }}
+            </AppButton>
+          </div>
+
+          <div
+            v-if="dataConfirming"
+            class="settings-data__confirm"
+            role="alertdialog"
+            :aria-label="t('settings.confirmClearConversations')"
+          >
+            <p>{{ t('settings.clearConversationsWarning') }}</p>
+            <div class="settings-data__actions">
+              <AppButton
+                variant="ghost"
+                :disabled="dataClearing"
+                @click="cancelClearConversationData"
+              >
+                {{ t('common.cancel') }}
+              </AppButton>
+              <AppButton
+                variant="danger"
+                :disabled="dataClearing"
+                @click="confirmClearConversationData"
+              >
+                {{
+                  dataClearing
+                    ? t('settings.clearingConversations')
+                    : t('settings.confirmClearConversations')
+                }}
+              </AppButton>
+            </div>
+          </div>
+
+          <p v-if="dataError" class="provider-error" role="alert">
+            {{ dataError }}
+          </p>
+          <p v-if="dataMessage" class="provider-feedback" role="status">
+            {{ dataMessage }}
           </p>
         </section>
 
@@ -801,6 +918,58 @@ onBeforeUnmount(() => {
 .language-option__check {
   color: var(--moss);
   font-size: 11px;
+}
+
+.settings-data {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 13px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: rgb(255 254 250 / 58%);
+}
+
+.settings-data__copy {
+  min-width: 0;
+}
+
+.settings-data__copy strong {
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.settings-data__copy p {
+  margin: 5px 0 0;
+  color: var(--ink-faint);
+  font-size: 10.5px;
+  line-height: 1.6;
+}
+
+.settings-data__confirm {
+  margin-top: 10px;
+  padding: 14px 16px;
+  border: 1px solid rgb(142 85 75 / 24%);
+  border-radius: 12px;
+  background: rgb(142 85 75 / 5%);
+}
+
+.settings-data__confirm p {
+  margin: 0;
+  color: #7e4d45;
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+
+.settings-data__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 13px;
 }
 
 .settings-privacy {

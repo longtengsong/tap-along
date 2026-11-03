@@ -33,6 +33,7 @@ const tapAlongBridge: TapAlongBridge = {
     ipcRenderer.invoke(PAGE_CHANNELS.edit, payload),
   closePage: (payload: ClosePagePayload) =>
     ipcRenderer.invoke(PAGE_CHANNELS.close, payload),
+  clearAllPages: () => ipcRenderer.invoke(PAGE_CHANNELS.clearAll),
   askTeacher: (payload: TeacherAskPayload) =>
     ipcRenderer.invoke(TEACHER_CHANNELS.ask, payload),
   resumeTeacher: (payload: TeacherResumePayload) =>

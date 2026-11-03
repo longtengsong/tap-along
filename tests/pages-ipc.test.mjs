@@ -3,6 +3,7 @@ import test from 'node:test';
 import { PAGE_CHANNELS } from '../src/shared/pages.ts';
 import {
   appendPage,
+  clearAllPages,
   closePage,
   editPage,
   getPage,
@@ -342,6 +343,23 @@ test('合上页面 IPC 应返回统一错误码', (t) => {
   );
 });
 
+test('清空会话 IPC 应返回删除数量并处理仓储异常', (t) => {
+  t.mock.method(console, 'error', () => {});
+
+  assert.deepEqual(clearAllPages({ clearAll: () => 3 }), {
+    ok: true,
+    cleared: 3,
+  });
+  assert.deepEqual(
+    clearAllPages({
+      clearAll() {
+        throw new Error('清空失败');
+      },
+    }),
+    { ok: false, errorCode: 'SAVE_FAILED' },
+  );
+});
+
 test('IPC 注册应暴露保存和读取通道', () => {
   const handlers = new Map();
   const ipcMain = {
@@ -356,6 +374,7 @@ test('IPC 注册应暴露保存和读取通道', () => {
     appendText: () => ({ ok: true, page: samplePage }),
     editText: () => ({ ok: true, page: samplePage }),
     closePage: () => ({ ok: true, page: { ...samplePage, status: 'closed' } }),
+    clearAll: () => 1,
   };
 
   registerPageHandlers(ipcMain, repository);
@@ -399,4 +418,8 @@ test('IPC 注册应暴露保存和读取通道', () => {
     }),
     { ok: true, page: { ...samplePage, status: 'closed' } },
   );
+  assert.deepEqual(handlers.get(PAGE_CHANNELS.clearAll)(null), {
+    ok: true,
+    cleared: 1,
+  });
 });

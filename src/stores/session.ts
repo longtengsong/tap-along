@@ -12,6 +12,7 @@ import type {
   AppendPagePayload,
   ClosePagePayload,
   EditPagePayload,
+  PageClearAllResult,
   TeacherChunkEvent,
   TeacherDoneEvent,
 } from '@/shared/pages';
@@ -705,6 +706,52 @@ const startNewPage = () => {
   state.view = 'new';
 };
 
+const clearConversationData = async (): Promise<PageClearAllResult> => {
+  if (pendingTeacherRequest && state.teacherRequestActive) {
+    try {
+      await tapAlongApi.cancelTeacher({
+        requestId: pendingTeacherRequest.requestId,
+      });
+    } catch {
+      // Clearing persisted data should still proceed if cancellation fails.
+    }
+  }
+
+  try {
+    const result = await tapAlongApi.clearAllPages();
+
+    if (!result.ok) {
+      return result;
+    }
+
+    pendingTeacherRequest = null;
+    pendingAppendRequest = null;
+    pendingEditRequest = null;
+    pendingCloseRequest = null;
+    editRequestInFlight = false;
+    closeRequestInFlight = false;
+    closingPageId = null;
+    state.pages = [];
+    state.currentIndex = -1;
+    state.view = 'new';
+    state.overlay = null;
+    state.errorCode = null;
+    state.draft.body = '';
+    state.draft.source = '';
+    state.draftError = '';
+    state.replyDraft = '';
+    state.typing = false;
+    state.cancelling = false;
+    state.teacherRequestActive = false;
+    state.sayMoreOpen = false;
+    state.composerMode = 'normal';
+
+    return result;
+  } catch {
+    return { ok: false, errorCode: 'SAVE_FAILED' };
+  }
+};
+
 const resumeFromContext = async (
   targetPage: PageRecord,
   contextPage: PageRecord,
@@ -935,6 +982,7 @@ export const useSessionStore = () => {
     retryTeacher,
     cancelTeacher,
     canCancelTeacher,
+    clearConversationData,
     dismissOverlay,
   };
 };

@@ -32,6 +32,7 @@ const {
   retryTeacher,
   cancelTeacher,
   canCancelTeacher,
+  clearConversationData,
   dismissOverlay,
 } = useSessionStore();
 
@@ -115,7 +116,11 @@ const openModelSettings = () => {
       @open-settings="openModelSettings"
     />
 
-    <SettingsDialog :open="settingsOpen" @close="settingsOpen = false" />
+    <SettingsDialog
+      :open="settingsOpen"
+      :clear-conversation-data="clearConversationData"
+      @close="settingsOpen = false"
+    />
   </AppWindow>
 </template>
 

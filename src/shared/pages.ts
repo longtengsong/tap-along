@@ -72,6 +72,12 @@ export interface PageListResult {
   errorCode?: AppErrorCode;
 }
 
+export interface PageClearAllResult {
+  ok: boolean;
+  cleared?: number;
+  errorCode?: AppErrorCode;
+}
+
 export const PAGE_CHANNELS = {
   save: 'pages:save',
   get: 'pages:get',
@@ -79,6 +85,7 @@ export const PAGE_CHANNELS = {
   append: 'pages:append',
   edit: 'pages:edit',
   close: 'pages:close',
+  clearAll: 'pages:clear-all',
 } as const;
 
 export interface TeacherAskPayload {
@@ -147,6 +154,7 @@ export interface TapAlongBridge extends ProviderBridge {
   editPage?: (payload: EditPagePayload) => Promise<PageOperationResult>;
   appendPage?: (payload: AppendPagePayload) => Promise<PageOperationResult>;
   closePage?: (payload: ClosePagePayload) => Promise<PageOperationResult>;
+  clearAllPages?: () => Promise<PageClearAllResult>;
   askTeacher?: (payload: TeacherAskPayload) => Promise<TeacherStartResult>;
   resumeTeacher?: (
     payload: TeacherResumePayload,

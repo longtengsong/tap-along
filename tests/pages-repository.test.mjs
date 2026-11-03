@@ -384,3 +384,37 @@ test('跨页回问应拒绝不存在或已合上的目标页', async (t) => {
     },
   );
 });
+
+test('清空全部会话应删除打开页和已合上页', async (t) => {
+  const { repository } = await createRepository(t);
+  const readingPage = repository.create('仍在阅读的页。', '课程');
+  const closedPage = repository.create('已经合上的页。', '网页');
+  repository.closePage(closedPage.id, 'close-before-clear');
+
+  assert.equal(repository.clearAll(), 2);
+  assert.deepEqual(repository.listRecentReading(10), []);
+  assert.equal(repository.findById(readingPage.id), null);
+  assert.equal(repository.findById(closedPage.id), null);
+  assert.equal(repository.clearAll(), 0);
+});
+
+test('清空会话失败时应回滚并保留已有数据', async (t) => {
+  const { db, repository } = await createRepository(t);
+  const page = repository.create('不能被部分删除。', '');
+  const exec = db.exec.bind(db);
+  let commitAttempted = false;
+
+  db.exec = (sql) => {
+    if (sql === 'COMMIT') {
+      commitAttempted = true;
+      throw new Error('提交失败');
+    }
+
+    return exec(sql);
+  };
+
+  assert.throws(() => repository.clearAll(), /提交失败/);
+  assert.equal(commitAttempted, true);
+  assert.notEqual(repository.findById(page.id), null);
+  db.exec = exec;
+});

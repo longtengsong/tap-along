@@ -4,6 +4,7 @@ import type {
   ClosePagePayload,
   EditPagePayload,
   ListPagesPayload,
+  PageClearAllResult,
   PageListResult,
   PageOperationResult,
   SavePagePayload,
@@ -280,6 +281,17 @@ export const closePage = (
   }
 };
 
+export const clearAllPages = (
+  repository: Pick<PagesRepository, 'clearAll'>,
+): PageClearAllResult => {
+  try {
+    return { ok: true, cleared: repository.clearAll() };
+  } catch (error) {
+    console.error('清空会话数据失败：', error);
+    return { ok: false, errorCode: 'SAVE_FAILED' };
+  }
+};
+
 export const registerPageHandlers = (
   ipcMain: Pick<IpcMain, 'handle'>,
   repository: PagesRepository,
@@ -302,4 +314,5 @@ export const registerPageHandlers = (
   ipcMain.handle(PAGE_CHANNELS.close, (_event, payload: unknown) =>
     closePage(repository, payload),
   );
+  ipcMain.handle(PAGE_CHANNELS.clearAll, () => clearAllPages(repository));
 };

@@ -505,6 +505,13 @@ export class PagesRepository {
     });
   }
 
+  clearAll(): number {
+    return this.withTransaction(() => {
+      const result = this.db.prepare('DELETE FROM pages').run();
+      return Number(result.changes);
+    });
+  }
+
   private withTransaction<T>(operation: () => T): T {
     this.db.exec('BEGIN');
 
