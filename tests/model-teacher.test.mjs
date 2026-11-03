@@ -99,9 +99,13 @@ test('模型消息应包含页面上下文、历史角色和最新一次用户�
     role: 'system',
     content: PROMPT_CATALOG.teacher.system,
   });
-  assert.match(messages[1].content, /注意力与带宽/);
-  assert.match(messages[1].content, /注意力是一种有限资源/);
-  assert.deepEqual(messages.slice(2), [
+  assert.deepEqual(messages[1], {
+    role: 'system',
+    content: PROMPT_CATALOG.teacher.languagePolicy,
+  });
+  assert.match(messages[2].content, /注意力与带宽/);
+  assert.match(messages[2].content, /注意力是一种有限资源/);
+  assert.deepEqual(messages.slice(3), [
     { role: 'user', content: '这是我的旧想法。' },
     { role: 'assistant', content: '旧问题是什么？' },
     { role: 'user', content: '我补了一句。' },
@@ -126,7 +130,7 @@ test('模型消息应包含页面上下文、历史角色和最新一次用户�
     userText: '当前问题',
     replyLanguage: 'zh-CN',
   });
-  assert.equal(withoutEmptyMessages.length, 3);
+  assert.equal(withoutEmptyMessages.length, 4);
 });
 
 test('跨页模型消息应依次包含上下文页、目标页和真实用户语言内容', () => {
@@ -159,18 +163,22 @@ test('跨页模型消息应依次包含上下文页、目标页和真实用户�
   });
   assert.deepEqual(messages[1], {
     role: 'system',
+    content: PROMPT_CATALOG.teacher.languagePolicy,
+  });
+  assert.deepEqual(messages[2], {
+    role: 'system',
     content: PROMPT_CATALOG.teacher.resume,
   });
-  assert.match(messages[2].content, /recently closed context page/);
-  assert.match(messages[2].content, /有限的注意力/);
-  assert.match(messages[2].content, /注意力需要主动分配/);
-  assert.deepEqual(messages.slice(3, 5), [
+  assert.match(messages[3].content, /recently closed context page/);
+  assert.match(messages[3].content, /有限的注意力/);
+  assert.match(messages[3].content, /注意力需要主动分配/);
+  assert.deepEqual(messages.slice(4, 6), [
     { role: 'user', content: '上下文页里的最后想法。' },
     { role: 'assistant', content: '上下文页里的老师问题？' },
   ]);
-  assert.match(messages[5].content, /current target page/);
-  assert.match(messages[5].content, /注意力与任务/);
-  assert.match(messages[5].content, /任务会牵引注意力/);
+  assert.match(messages[6].content, /current target page/);
+  assert.match(messages[6].content, /注意力与任务/);
+  assert.match(messages[6].content, /任务会牵引注意力/);
   assert.deepEqual(messages.at(-1), {
     role: 'user',
     content: '目标页里的当前想法。',
@@ -207,10 +215,14 @@ test('维护模型消息应区分编辑和补一句并保留最新用户内容',
   });
   assert.deepEqual(editMessages[1], {
     role: 'system',
+    content: PROMPT_CATALOG.teacher.languagePolicy,
+  });
+  assert.deepEqual(editMessages[2], {
+    role: 'system',
     content: PROMPT_CATALOG.teacher.maintenance,
   });
-  assert.match(editMessages[2].content, /edited the current note/);
-  assert.match(editMessages[3].content, /注意力与带宽/);
+  assert.match(editMessages[3].content, /edited the current note/);
+  assert.match(editMessages[4].content, /注意力与带宽/);
   assert.deepEqual(editMessages.at(-1), {
     role: 'user',
     content: '修改后的完整想法。',
@@ -222,7 +234,7 @@ test('维护模型消息应区分编辑和补一句并保留最新用户内容',
     replyLanguage: 'zh-CN',
     maintenanceKind: 'append',
   });
-  assert.match(appendMessages[2].content, /appended a new thought/);
+  assert.match(appendMessages[3].content, /appended a new thought/);
   assert.deepEqual(appendMessages.at(-1), {
     role: 'user',
     content: '新补充的想法。',
@@ -268,7 +280,11 @@ test('已配置供应商应通过 SSE 流式返回模型增量内容', async () 
   assert.equal(requestBody.model, 'reading-model');
   assert.equal(requestBody.stream, true);
   assert.equal(requestBody.messages[0].content, PROMPT_CATALOG.teacher.system);
-  assert.match(requestBody.messages[1].content, /注意力与带宽/);
+  assert.equal(
+    requestBody.messages[1].content,
+    PROMPT_CATALOG.teacher.languagePolicy,
+  );
+  assert.match(requestBody.messages[2].content, /注意力与带宽/);
   assert.deepEqual(requestBody.messages.at(-1), {
     role: 'user',
     content: '我的问题。',
@@ -373,7 +389,7 @@ test('跨页回问应调用激活模型并发送双页 Prompt', async () => {
     ['两页之间'],
   );
   const requestBody = JSON.parse(requestOptions.body);
-  assert.equal(requestBody.messages[1].content, PROMPT_CATALOG.teacher.resume);
+  assert.equal(requestBody.messages[2].content, PROMPT_CATALOG.teacher.resume);
   assert.match(JSON.stringify(requestBody.messages), /上下文页想法/);
   assert.match(JSON.stringify(requestBody.messages), /目标页想法/);
   assert.equal(requestOptions.body.includes(providerConfig.apiKey), false);
@@ -419,11 +435,11 @@ test('编辑和补一句维护流程都应调用激活模型', async () => {
   );
   assert.equal(requestBodies.length, 2);
   assert.equal(
-    requestBodies[0].messages[1].content,
+    requestBodies[0].messages[2].content,
     PROMPT_CATALOG.teacher.maintenance,
   );
-  assert.match(requestBodies[0].messages[2].content, /edited the current note/);
-  assert.match(requestBodies[1].messages[2].content, /appended a new thought/);
+  assert.match(requestBodies[0].messages[3].content, /edited the current note/);
+  assert.match(requestBodies[1].messages[3].content, /appended a new thought/);
   assert.deepEqual(requestBodies[0].messages.at(-1), {
     role: 'user',
     content: '修改后的想法。',

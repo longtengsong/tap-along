@@ -52,8 +52,9 @@ const collectStrings = (value) =>
     : Object.values(value).flatMap((entry) => collectStrings(entry));
 
 test('Prompt Catalog 应包含版本和全部非空提示词', () => {
-  assert.match(PROMPT_VERSION, /^teacher-v\d+\.\d+\.\d+$/);
+  assert.equal(PROMPT_VERSION, 'teacher-v1.1.0');
   assert.ok(PROMPT_CATALOG.teacher.system.trim());
+  assert.ok(PROMPT_CATALOG.teacher.languagePolicy.trim());
   assert.ok(PROMPT_CATALOG.teacher.resume.trim());
   assert.ok(PROMPT_CATALOG.teacher.maintenance.trim());
   assert.ok(PROMPT_CATALOG.teacher.context.currentPage.trim());
@@ -68,7 +69,7 @@ test('Prompt Catalog 应包含版本和全部非空提示词', () => {
   }
 });
 
-test('Prompt 迁移后应保持既有消息内容指纹', () => {
+test('Prompt v1.1.0 应保持当前消息内容指纹', () => {
   const messages = {
     ask: buildTeacherMessages({
       page: promptPage,
@@ -100,12 +101,12 @@ test('Prompt 迁移后应保持既有消息内容指纹', () => {
       Object.entries(messages).map(([name, value]) => [name, digest(value)]),
     ),
     {
-      ask: 'ed4537617a1bddae95adabb80b931c520651189244811bb30efd34de6b183e12',
+      ask: '9f7891f8c59b0bbfb3f5a28dc4ca081f7ad55750807e79a772d327710ebe6184',
       resume:
-        '650629c8b83088553c26acdb773f5c1c566f161941bd1ea6db7434e535ca370c',
-      edit: 'b6fd4f92c48eeef4d044f2020d3826438f6164126226657697e0864c1e8fd940',
+        '557cdfe938e31311dd5ae7e06533c26544e8ef0a72260cd14947359107bb89bc',
+      edit: '4bd1a82b54315dcbaf9be4cfd76060286c303f8990c6888731f2d83921ee57d3',
       append:
-        'ff69079d8e0ec09dd78f02fb945d9b24f3caea4fd661c3b87fdf24329c87aae8',
+        '82520f888c5a4ee088d426037c3ceae09999b068d7c78410a675d2de2da5b147',
     },
   );
   assert.equal(
@@ -153,6 +154,50 @@ test('模式组装入口应保持现有模式优先级', () => {
       userText: '当前想法。',
     }),
   );
+});
+
+test('四种老师模式应各包含一次语言政策且位于模式任务之前', () => {
+  const modeMessages = [
+    buildTeacherMessages({
+      page: promptPage,
+      userText: '当前想法。',
+    }),
+    buildResumeTeacherMessages({
+      page: targetPage,
+      contextPage,
+      userText: '上下文想法。',
+    }),
+    buildMaintenanceTeacherMessages({
+      page: promptPage,
+      userText: '修改后的想法。',
+      maintenanceKind: 'edit',
+    }),
+    buildMaintenanceTeacherMessages({
+      page: promptPage,
+      userText: '补充的想法。',
+      maintenanceKind: 'append',
+    }),
+  ];
+
+  for (const messages of modeMessages) {
+    assert.deepEqual(messages[0], {
+      role: 'system',
+      content: PROMPT_CATALOG.teacher.system,
+    });
+    assert.deepEqual(messages[1], {
+      role: 'system',
+      content: PROMPT_CATALOG.teacher.languagePolicy,
+    });
+    assert.equal(
+      messages.filter(
+        (message) => message.content === PROMPT_CATALOG.teacher.languagePolicy,
+      ).length,
+      1,
+    );
+  }
+
+  assert.equal(modeMessages[1][2].content, PROMPT_CATALOG.teacher.resume);
+  assert.equal(modeMessages[2][2].content, PROMPT_CATALOG.teacher.maintenance);
 });
 
 test('业务服务文件不得重新写入模型提示词原文', async () => {

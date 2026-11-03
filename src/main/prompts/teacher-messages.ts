@@ -20,6 +20,7 @@ export const buildTeacherMessages = ({
 }: TeacherPromptInput): ChatMessage[] => {
   const messages: ChatMessage[] = [
     { role: 'system', content: PROMPT_CATALOG.teacher.system },
+    { role: 'system', content: PROMPT_CATALOG.teacher.languagePolicy },
     { role: 'system', content: buildCurrentPageContext(page) },
     ...toPageMessages(page),
   ];
@@ -41,6 +42,7 @@ export const buildResumeTeacherMessages = ({
   const targetMessages = toPageMessages(page);
   const messages: ChatMessage[] = [
     { role: 'system', content: PROMPT_CATALOG.teacher.system },
+    { role: 'system', content: PROMPT_CATALOG.teacher.languagePolicy },
     { role: 'system', content: PROMPT_CATALOG.teacher.resume },
     {
       role: 'system',
@@ -75,6 +77,7 @@ export const buildMaintenanceTeacherMessages = ({
 
   return [
     { role: 'system', content: PROMPT_CATALOG.teacher.system },
+    { role: 'system', content: PROMPT_CATALOG.teacher.languagePolicy },
     { role: 'system', content: PROMPT_CATALOG.teacher.maintenance },
     { role: 'system', content: action },
     { role: 'system', content: buildCurrentPageContext(page) },

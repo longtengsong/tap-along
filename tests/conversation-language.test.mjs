@@ -45,23 +45,19 @@ test('真实模型 Prompt 应要求跟随最新用户语言并中文优先', () 
     PROMPT_CATALOG.teacher.system,
     /Do not summarize, explain concepts/,
   );
-  assert.match(PROMPT_CATALOG.teacher.system, /latest user message/);
-  assert.match(PROMPT_CATALOG.teacher.system, /both Chinese and English/);
-  assert.match(PROMPT_CATALOG.teacher.system, /respond in Chinese/);
-  assert.match(PROMPT_CATALOG.teacher.system, /overrides the language/);
+  assert.doesNotMatch(PROMPT_CATALOG.teacher.system, /respond in Chinese/);
+  assert.match(PROMPT_CATALOG.teacher.languagePolicy, /user writes their/);
+  assert.match(PROMPT_CATALOG.teacher.languagePolicy, /quoted notes/);
+  assert.match(PROMPT_CATALOG.teacher.languagePolicy, /user-authored wording/);
+  assert.match(PROMPT_CATALOG.teacher.languagePolicy, /Chinese and English/);
+  assert.match(PROMPT_CATALOG.teacher.languagePolicy, /respond in Chinese/);
   assert.match(
-    PROMPT_CATALOG.teacher.system,
+    PROMPT_CATALOG.teacher.languagePolicy,
     /Do not use the application UI language/,
   );
   assert.match(PROMPT_CATALOG.teacher.resume, /recently closed context page/);
-  assert.match(
-    PROMPT_CATALOG.teacher.resume,
-    /most recent meaningful user-authored/,
-  );
+  assert.doesNotMatch(PROMPT_CATALOG.teacher.resume, /respond in Chinese/);
   assert.match(PROMPT_CATALOG.teacher.maintenance, /action is an edit/);
   assert.match(PROMPT_CATALOG.teacher.maintenance, /action is an append/);
-  assert.match(
-    PROMPT_CATALOG.teacher.maintenance,
-    /latest meaningful user-authored/,
-  );
+  assert.doesNotMatch(PROMPT_CATALOG.teacher.maintenance, /respond in Chinese/);
 });

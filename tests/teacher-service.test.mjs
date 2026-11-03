@@ -198,7 +198,7 @@ test('跨页回问应使用激活模型生成问题并保留目标页轮次', as
   assert.equal(done.ok, true);
   assert.equal(done.reply, '两页之间有什么联系？');
   const requestBody = JSON.parse(requestOptions.body);
-  assert.equal(requestBody.messages[1].content, PROMPT_CATALOG.teacher.resume);
+  assert.equal(requestBody.messages[2].content, PROMPT_CATALOG.teacher.resume);
   assert.match(JSON.stringify(requestBody.messages), /注意力需要主动分配/);
   assert.match(JSON.stringify(requestBody.messages), /注意力像带宽/);
   assert.equal(requestOptions.body.includes('sk-resume-private-key'), false);
@@ -297,10 +297,10 @@ test('编辑和补一句维护应使用激活模型并持久化回应', async (t
       assert.equal(done.reply, '维护后的模型问题？');
       const requestBody = JSON.parse(requestOptions.body);
       assert.equal(
-        requestBody.messages[1].content,
+        requestBody.messages[2].content,
         PROMPT_CATALOG.teacher.maintenance,
       );
-      assert.match(requestBody.messages[2].content, scenario.action);
+      assert.match(requestBody.messages[3].content, scenario.action);
       assert.match(JSON.stringify(requestBody.messages), scenario.content);
       assert.deepEqual(requestBody.messages.at(-1), {
         role: 'user',
