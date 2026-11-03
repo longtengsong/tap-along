@@ -16,20 +16,39 @@ import { createOpeningTeacherMessage } from '../services/teacher.ts';
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
-const parseSavePayload = (payload: unknown): SavePagePayload | null => {
+const parseSavePayload = (
+  payload: unknown,
+):
+  | { ok: true; value: SavePagePayload }
+  | { ok: false; errorCode: 'INVALID_BODY' | 'INVALID_PAGE_ID' } => {
   if (!isRecord(payload) || typeof payload.body !== 'string') {
-    return null;
+    return { ok: false, errorCode: 'INVALID_BODY' };
   }
 
   const body = payload.body.trim();
 
   if (!body) {
-    return null;
+    return { ok: false, errorCode: 'INVALID_BODY' };
+  }
+
+  if (
+    payload.parentPageId !== undefined &&
+    (typeof payload.parentPageId !== 'number' ||
+      !Number.isInteger(payload.parentPageId) ||
+      payload.parentPageId <= 0)
+  ) {
+    return { ok: false, errorCode: 'INVALID_PAGE_ID' };
   }
 
   return {
-    body,
-    source: typeof payload.source === 'string' ? payload.source.trim() : '',
+    ok: true,
+    value: {
+      body,
+      source: typeof payload.source === 'string' ? payload.source.trim() : '',
+      ...(typeof payload.parentPageId === 'number'
+        ? { parentPageId: payload.parentPageId }
+        : {}),
+    },
   };
 };
 
@@ -129,17 +148,22 @@ export const savePage = (
 ): PageOperationResult => {
   const input = parseSavePayload(payload);
 
-  if (!input) {
-    return { ok: false, errorCode: 'INVALID_BODY' };
+  if (!input.ok) {
+    return { ok: false, errorCode: input.errorCode };
   }
 
   try {
     return {
       ok: true,
-      page: repository.create(input.body, input.source, {
-        text: createOpeningTeacherMessage(input.body),
-        requestId: 'opening',
-      }),
+      page: repository.create(
+        input.value.body,
+        input.value.source,
+        {
+          text: createOpeningTeacherMessage(input.value.body),
+          requestId: 'opening',
+        },
+        input.value.parentPageId ?? null,
+      ),
     };
   } catch (error) {
     console.error('保存页边失败：', error);

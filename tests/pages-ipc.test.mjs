@@ -26,8 +26,8 @@ const samplePage = {
 test('保存页边时应校验正文并清理出处', () => {
   const calls = [];
   const repository = {
-    create(body, source, openingMessage) {
-      calls.push({ body, source, openingMessage });
+    create(body, source, openingMessage, parentPageId) {
+      calls.push({ body, source, openingMessage, parentPageId });
       return samplePage;
     },
   };
@@ -35,6 +35,7 @@ test('保存页边时应校验正文并清理出处', () => {
   const result = savePage(repository, {
     body: '  注意力像带宽。  ',
     source: ' 课程 ',
+    parentPageId: 9,
   });
 
   assert.deepEqual(result, { ok: true, page: samplePage });
@@ -46,6 +47,7 @@ test('保存页边时应校验正文并清理出处', () => {
         text: '你写的“注意力像带宽”是指什么？能再具体说说吗？',
         requestId: 'opening',
       },
+      parentPageId: 9,
     },
   ]);
 });
@@ -63,6 +65,13 @@ test('保存页边时应拒绝无效正文', () => {
       errorCode: 'INVALID_BODY',
     });
   }
+
+  for (const parentPageId of [0, -1, 1.5, '1', null]) {
+    assert.deepEqual(savePage(repository, { body: '有效正文', parentPageId }), {
+      ok: false,
+      errorCode: 'INVALID_PAGE_ID',
+    });
+  }
 });
 
 test('出处不是字符串时应按空出处保存', () => {
@@ -78,6 +87,7 @@ test('出处不是字符串时应按空出处保存', () => {
 
   assert.equal(result.ok, true);
   assert.equal(receivedSource, '');
+  assert.equal(savePage(repository, { body: '根页面' }).ok, true);
 });
 
 test('仓储保存失败时应返回统一错误', (t) => {

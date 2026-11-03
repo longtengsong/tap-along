@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import {
   DATABASE_FILENAME,
@@ -47,13 +48,14 @@ test('初始化数据库时应启用 WAL、页边表及索引', async (t) => {
   assert.equal(table.name, 'pages', '应创建 pages 表');
   assert.deepEqual(
     new Set(indexes),
-    new Set(['idx_pages_status', 'idx_pages_updated']),
-    '应创建页边状态和更新时间索引',
+    new Set(['idx_pages_parent', 'idx_pages_status', 'idx_pages_updated']),
+    '应创建页边状态、更新时间和父级索引',
   );
   assert.deepEqual(
     columns,
     [
       'id',
+      'parent_page_id',
       'edge_title',
       'body',
       'source',
@@ -65,6 +67,50 @@ test('初始化数据库时应启用 WAL、页边表及索引', async (t) => {
       'updated_at',
     ],
     '页边表字段应符合数据模型',
+  );
+});
+
+test('旧数据库应幂等迁移页面父级字段并保留数据', async (t) => {
+  const databasePath = await createDatabasePath(t);
+  const legacy = new DatabaseSync(databasePath);
+  legacy.exec(`
+    CREATE TABLE pages (
+      id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+      edge_title            TEXT,
+      body                  TEXT NOT NULL,
+      source                TEXT,
+      parse_status          TEXT NOT NULL DEFAULT 'pending',
+      companion_log         TEXT,
+      page_status           TEXT NOT NULL DEFAULT 'reading',
+      teaching_round_count  INTEGER DEFAULT 0,
+      created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  legacy
+    .prepare('INSERT INTO pages (body, source) VALUES (?, ?)')
+    .run('旧数据库中的页边。', '课程');
+  legacy.close();
+
+  const firstConnection = openDatabase(databasePath);
+  const columns = firstConnection
+    .prepare("PRAGMA table_info('pages')")
+    .all()
+    .map((row) => row.name);
+  const page = firstConnection
+    .prepare('SELECT body, parent_page_id FROM pages')
+    .get();
+  closeDatabase(firstConnection);
+
+  const secondConnection = openDatabase(databasePath);
+  t.after(() => closeDatabase(secondConnection));
+
+  assert.ok(columns.includes('parent_page_id'));
+  assert.equal(page.body, '旧数据库中的页边。');
+  assert.equal(page.parent_page_id, null);
+  assert.equal(
+    secondConnection.prepare('SELECT COUNT(*) AS count FROM pages').get().count,
+    1,
   );
 });
 

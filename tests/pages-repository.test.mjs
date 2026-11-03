@@ -385,10 +385,105 @@ test('跨页回问应拒绝不存在或已合上的目标页', async (t) => {
   );
 });
 
+test('页面仓储应持久化父子关系并查询已合上后代正文', async (t) => {
+  const { repository } = await createRepository(t);
+  const pageA = repository.create('A 的正文。', '');
+  const pageB = repository.create('B 的正文。', '', undefined, pageA.id);
+  const pageC = repository.create('C 的正文。', '', undefined, pageB.id);
+
+  repository.closePage(pageC.id, 'close-c');
+  repository.closePage(pageB.id, 'close-b');
+
+  assert.deepEqual(repository.listClosedDescendantBodies(pageB.id, true), [
+    { pageId: pageB.id, body: 'B 的正文。', depth: 0 },
+    { pageId: pageC.id, body: 'C 的正文。', depth: 1 },
+  ]);
+  assert.deepEqual(repository.listClosedDescendantBodies(pageA.id), [
+    { pageId: pageB.id, body: 'B 的正文。', depth: 1 },
+    { pageId: pageC.id, body: 'C 的正文。', depth: 2 },
+  ]);
+  assert.deepEqual(repository.listClosedDescendantBodies(pageC.id), []);
+});
+
+test('后代正文链应排除未合上页并按深度和页面编号排序', async (t) => {
+  const { repository } = await createRepository(t);
+  const root = repository.create('根页正文。', '');
+  const firstChild = repository.create(
+    '第一子页正文。',
+    '',
+    undefined,
+    root.id,
+  );
+  const secondChild = repository.create(
+    '第二子页正文。',
+    '',
+    undefined,
+    root.id,
+  );
+  const grandchild = repository.create(
+    '孙页正文。',
+    '',
+    undefined,
+    firstChild.id,
+  );
+
+  repository.closePage(secondChild.id, 'close-second');
+  repository.closePage(grandchild.id, 'close-grandchild');
+  repository.closePage(firstChild.id, 'close-first');
+
+  assert.deepEqual(repository.listClosedDescendantBodies(root.id), [
+    { pageId: firstChild.id, body: '第一子页正文。', depth: 1 },
+    { pageId: secondChild.id, body: '第二子页正文。', depth: 1 },
+    { pageId: grandchild.id, body: '孙页正文。', depth: 2 },
+  ]);
+});
+
+test('页面创建应拒绝不存在的父页并接受无父页根页面', async (t) => {
+  const { repository } = await createRepository(t);
+
+  assert.equal(repository.create('根页面。', '').body, '根页面。');
+  assert.throws(
+    () => repository.create('孤儿页面。', '', undefined, 999_999),
+    '父页不存在时应拒绝创建',
+  );
+  assert.deepEqual(repository.listClosedDescendantBodies(0), []);
+  assert.deepEqual(repository.listClosedDescendantBodies(999_999), []);
+});
+
+test('应用重启后页面父子关系和正文链应保持可查询', async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'tap-along-lineage-'));
+  const databasePath = allocateDatabasePath(directory);
+  let db = openDatabase(databasePath);
+  let repository = new PagesRepository(db);
+  const pageA = repository.create('A 正文。', '');
+  const pageB = repository.create('B 正文。', '', undefined, pageA.id);
+  const pageC = repository.create('C 正文。', '', undefined, pageB.id);
+  repository.closePage(pageC.id, 'close-persist-c');
+  repository.closePage(pageB.id, 'close-persist-b');
+  closeDatabase(db);
+
+  db = openDatabase(databasePath);
+  repository = new PagesRepository(db);
+  t.after(async () => {
+    closeDatabase(db);
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  assert.deepEqual(repository.listClosedDescendantBodies(pageA.id), [
+    { pageId: pageB.id, body: 'B 正文。', depth: 1 },
+    { pageId: pageC.id, body: 'C 正文。', depth: 2 },
+  ]);
+});
+
 test('清空全部会话应删除打开页和已合上页', async (t) => {
   const { repository } = await createRepository(t);
   const readingPage = repository.create('仍在阅读的页。', '课程');
-  const closedPage = repository.create('已经合上的页。', '网页');
+  const closedPage = repository.create(
+    '已经合上的页。',
+    '网页',
+    undefined,
+    readingPage.id,
+  );
   repository.closePage(closedPage.id, 'close-before-clear');
 
   assert.equal(repository.clearAll(), 2);

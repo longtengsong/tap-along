@@ -370,7 +370,11 @@ const submitNewPage = async () => {
   state.errorCode = null;
 
   try {
-    const response = await tapAlongApi.savePage({ body, source });
+    const response = await tapAlongApi.savePage({
+      body,
+      source,
+      parentPageId: currentPage.value?.id,
+    });
     if (!response.ok || !response.page) {
       state.overlay = 'failed';
       state.errorCode = response.errorCode ?? 'SAVE_FAILED';

@@ -37,6 +37,7 @@ export interface PageSnapshot {
 export interface SavePagePayload {
   body: string;
   source: string;
+  parentPageId?: number;
 }
 
 export interface AppendPagePayload {

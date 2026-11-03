@@ -24,6 +24,18 @@ interface OpeningMessage {
   requestId: string;
 }
 
+export interface ClosedDescendantBody {
+  pageId: number;
+  body: string;
+  depth: number;
+}
+
+interface ClosedDescendantBodyRow {
+  page_id: number;
+  body: string;
+  depth: number;
+}
+
 const MESSAGE_ROLES = new Set<PageMessageRole>([
   'teacher',
   'user',
@@ -137,8 +149,14 @@ export class PagesRepository {
   constructor(db: DatabaseSync) {
     this.db = db;
     this.insertStatement = this.db.prepare(`
-      INSERT INTO pages (body, source, parse_status, page_status)
-      VALUES (?, ?, 'pending', 'reading')
+      INSERT INTO pages (
+        parent_page_id,
+        body,
+        source,
+        parse_status,
+        page_status
+      )
+      VALUES (?, ?, ?, 'pending', 'reading')
     `);
     this.findStatement = this.db.prepare(`
       SELECT
@@ -205,9 +223,14 @@ export class PagesRepository {
     body: string,
     source: string,
     openingMessage?: OpeningMessage,
+    parentPageId: number | null = null,
   ): PageSnapshot {
     return this.withTransaction(() => {
-      const result = this.insertStatement.run(body, source || null);
+      const result = this.insertStatement.run(
+        parentPageId,
+        body,
+        source || null,
+      );
       const pageId = Number(result.lastInsertRowid);
 
       if (openingMessage?.text) {
@@ -246,6 +269,68 @@ export class PagesRepository {
       limit,
     ) as unknown as PageRow[];
     return rows.map(mapPageRow);
+  }
+
+  listClosedDescendantBodies(
+    pageId: number,
+    includeSelf = false,
+  ): ClosedDescendantBody[] {
+    if (!Number.isInteger(pageId) || pageId <= 0) {
+      return [];
+    }
+
+    const rows = this.db
+      .prepare(
+        `
+          WITH RECURSIVE descendants(
+            page_id,
+            body,
+            page_status,
+            depth,
+            path
+          ) AS (
+            SELECT
+              id,
+              body,
+              page_status,
+              0,
+              printf(',%d,', id)
+            FROM pages
+            WHERE id = ?
+
+            UNION ALL
+
+            SELECT
+              pages.id,
+              pages.body,
+              pages.page_status,
+              descendants.depth + 1,
+              descendants.path || pages.id || ','
+            FROM pages
+            JOIN descendants
+              ON pages.parent_page_id = descendants.page_id
+            WHERE
+              descendants.depth < 100
+              AND instr(
+                descendants.path,
+                ',' || pages.id || ','
+              ) = 0
+          )
+          SELECT page_id, body, depth
+          FROM descendants
+          WHERE
+            page_status = 'closed'
+            AND (? = 1 OR depth > 0)
+          ORDER BY depth ASC, page_id ASC
+        `,
+      )
+      .all(pageId, includeSelf ? 1 : 0) as unknown as ClosedDescendantBodyRow[];
+
+    return rows.map((row) => ({
+      pageId: row.page_id,
+      body: row.body,
+      depth: row.depth,
+    }));
   }
 
   beginTeacherTurn(
@@ -507,8 +592,11 @@ export class PagesRepository {
 
   clearAll(): number {
     return this.withTransaction(() => {
-      const result = this.db.prepare('DELETE FROM pages').run();
-      return Number(result.changes);
+      const count = this.db
+        .prepare('SELECT COUNT(*) AS count FROM pages')
+        .get() as { count: number };
+      this.db.prepare('DELETE FROM pages').run();
+      return Number(count.count);
     });
   }
 
