@@ -148,6 +148,7 @@
     "unsavedChangesMessage": "The prompts have unsaved changes. Returning to settings will discard them.",
     "continueEditing": "Continue editing",
     "discardChangesAndReturn": "Discard and return",
+    "restoreFieldDefault": "Restore default",
     "savePrompts": "Save prompts",
     "resetPrompts": "Restore all defaults",
     "resetPromptsWarning": "This deletes the saved custom prompts and restores the built-in defaults.",

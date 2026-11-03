@@ -19,6 +19,7 @@ const { t } = useI18n();
 const page = ref<HTMLElement | null>(null);
 const leaveDialog = ref<HTMLElement | null>(null);
 const prompts = ref<PromptCatalogValues | null>(null);
+const defaults = ref<PromptCatalogValues | null>(null);
 const originalSnapshot = ref<string | null>(null);
 const baseVersion = ref('');
 const hasSavedProfile = ref(false);
@@ -41,12 +42,13 @@ const hasUnsavedChanges = computed(
 const applyResult = (
   result: Awaited<ReturnType<typeof developerPromptsApi.get>>,
 ) => {
-  if (!result.ok || !result.prompts) {
+  if (!result.ok || !result.prompts || !result.defaultPrompts) {
     error.value = t(ERROR_MESSAGE_KEYS[result.errorCode ?? 'UNKNOWN_ERROR']);
     return false;
   }
 
   prompts.value = structuredClone(result.prompts);
+  defaults.value = structuredClone(result.defaultPrompts);
   originalSnapshot.value = JSON.stringify(prompts.value);
   baseVersion.value = result.basePromptVersion ?? '';
   hasSavedProfile.value = result.hasSavedProfile === true;
@@ -58,6 +60,7 @@ const applyResult = (
 const loadPrompts = async () => {
   loading.value = true;
   prompts.value = null;
+  defaults.value = null;
   originalSnapshot.value = null;
   error.value = '';
   message.value = '';
@@ -262,7 +265,11 @@ onBeforeUnmount(() => {
               </span>
             </div>
 
-            <DeveloperPromptEditor v-if="prompts" v-model="prompts" />
+            <DeveloperPromptEditor
+              v-if="prompts && defaults"
+              v-model="prompts"
+              :defaults="defaults"
+            />
 
             <p v-if="error" class="prompt-page__error" role="alert">
               {{ error }}

@@ -1,39 +1,54 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, useId } from 'vue';
 
 const props = defineProps<{
   label: string;
   description: string;
+  defaultValue: string;
+  resetLabel: string;
   modelValue: string;
 }>();
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
+  reset: [];
 }>();
 
 const characterCount = computed(() => props.modelValue.length);
-
-const updateValue = (event: Event) => {
-  emit('update:modelValue', (event.target as HTMLTextAreaElement).value);
-};
+const inputId = useId();
+const isDefault = computed(() => props.modelValue === props.defaultValue);
+const value = computed({
+  get: () => props.modelValue,
+  set: (nextValue: string) => emit('update:modelValue', nextValue),
+});
 </script>
 
 <template>
-  <label class="prompt-field">
+  <div class="prompt-field">
     <span class="prompt-field__heading">
-      <strong>{{ label }}</strong>
-      <span>{{ characterCount }}</span>
+      <label :for="inputId">{{ label }}</label>
+      <span class="prompt-field__tools">
+        <button
+          type="button"
+          :disabled="isDefault"
+          :aria-label="`${resetLabel}: ${label}`"
+          @click="emit('reset')"
+        >
+          {{ resetLabel }}
+        </button>
+        <span>{{ characterCount }}</span>
+      </span>
     </span>
     <span class="prompt-field__description">{{ description }}</span>
     <textarea
-      :value="modelValue"
+      :id="inputId"
+      v-model="value"
       class="prompt-field__input"
       :aria-label="label"
       rows="6"
       spellcheck="false"
-      @input="updateValue"
     ></textarea>
-  </label>
+  </div>
 </template>
 
 <style scoped>
@@ -49,17 +64,47 @@ const updateValue = (event: Event) => {
   gap: 16px;
 }
 
-.prompt-field__heading strong {
+.prompt-field__heading > label {
   color: var(--ink);
   font-size: 12px;
   font-weight: 550;
   letter-spacing: 0.025em;
 }
 
-.prompt-field__heading > span {
+.prompt-field__tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.prompt-field__tools > span {
   color: var(--ink-ghost);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 9.5px;
+}
+
+.prompt-field__tools button {
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--moss);
+  font: inherit;
+  font-size: 9.5px;
+  cursor: pointer;
+}
+
+.prompt-field__tools button:hover:not(:disabled) {
+  color: var(--ink);
+}
+
+.prompt-field__tools button:disabled {
+  color: var(--ink-ghost);
+  cursor: default;
+}
+
+.prompt-field__tools button:focus-visible {
+  outline: 2px solid var(--moss);
+  outline-offset: 2px;
 }
 
 .prompt-field__description {

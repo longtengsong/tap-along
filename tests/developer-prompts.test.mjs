@@ -39,6 +39,7 @@ test('开发者模式关闭时应使用内置提示词', () => {
   assert.deepEqual(service.get(), {
     ok: true,
     prompts: PROMPT_CATALOG,
+    defaultPrompts: PROMPT_CATALOG,
     basePromptVersion: PROMPT_VERSION,
     hasSavedProfile: false,
   });
@@ -73,6 +74,7 @@ test('开发者模式应保存完整提示词并从后续请求中读取', () =>
   assert.equal(saved.hasSavedProfile, true);
   assert.equal(saved.basePromptVersion, PROMPT_VERSION);
   assert.deepEqual(saved.prompts, prompts);
+  assert.deepEqual(saved.defaultPrompts, PROMPT_CATALOG);
   assert.equal(store.value.schemaVersion, 1);
   assert.equal(store.value.prompts.teacher.system, 'Custom teacher.');
   assert.deepEqual(service.resolve(), prompts);
@@ -81,6 +83,7 @@ test('开发者模式应保存完整提示词并从后续请求中读取', () =>
   assert.equal(loaded.ok, true);
   assert.equal(loaded.hasSavedProfile, true);
   assert.deepEqual(loaded.prompts, prompts);
+  assert.deepEqual(loaded.defaultPrompts, PROMPT_CATALOG);
 });
 
 test('开发者 Prompt 配置应拒绝缺失字段和非法结构', () => {
@@ -137,6 +140,7 @@ test('恢复默认应删除用户配置并返回内置提示词', () => {
   assert.deepEqual(result, {
     ok: true,
     prompts: PROMPT_CATALOG,
+    defaultPrompts: PROMPT_CATALOG,
     basePromptVersion: PROMPT_VERSION,
     hasSavedProfile: false,
   });
@@ -158,6 +162,7 @@ test('损坏的已保存配置应安全回退到内置提示词', () => {
   assert.equal(result.ok, true);
   assert.equal(result.hasSavedProfile, false);
   assert.equal(result.prompts, PROMPT_CATALOG);
+  assert.equal(result.defaultPrompts, PROMPT_CATALOG);
   assert.equal(service.resolve(), PROMPT_CATALOG);
 });
 

@@ -148,6 +148,7 @@
     "unsavedChangesMessage": "当前提示词有未保存的修改。返回设置后，这些修改将丢失。",
     "continueEditing": "继续编辑",
     "discardChangesAndReturn": "放弃修改并返回",
+    "restoreFieldDefault": "恢复默认",
     "savePrompts": "保存提示词",
     "resetPrompts": "恢复全部默认",
     "resetPromptsWarning": "此操作将删除已保存的自定义提示词，并恢复内置默认值。",

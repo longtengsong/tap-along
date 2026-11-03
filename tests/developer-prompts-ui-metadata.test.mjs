@@ -50,5 +50,7 @@ for (const [locale, messages] of [
     for (const key of groupKeys) {
       assert.ok(messages.settings.promptGroups[key]?.trim(), key);
     }
+
+    assert.ok(messages.settings.restoreFieldDefault?.trim());
   });
 }

@@ -33,6 +33,7 @@ export interface DeveloperPromptProfile {
 export interface DeveloperPromptsResult {
   ok: boolean;
   prompts?: PromptCatalogValues;
+  defaultPrompts?: PromptCatalogValues;
   basePromptVersion?: string;
   hasSavedProfile?: boolean;
   errorCode?: AppErrorCode;

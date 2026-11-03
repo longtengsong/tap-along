@@ -142,6 +142,7 @@ export class DeveloperPromptConfigService {
       return {
         ok: true,
         prompts: profile?.prompts ?? PROMPT_CATALOG,
+        defaultPrompts: PROMPT_CATALOG,
         basePromptVersion: profile?.basePromptVersion ?? PROMPT_VERSION,
         hasSavedProfile: profile !== null,
       };
@@ -176,6 +177,7 @@ export class DeveloperPromptConfigService {
       return {
         ok: true,
         prompts,
+        defaultPrompts: PROMPT_CATALOG,
         basePromptVersion: PROMPT_VERSION,
         hasSavedProfile: true,
       };
@@ -194,6 +196,7 @@ export class DeveloperPromptConfigService {
       return {
         ok: true,
         prompts: PROMPT_CATALOG,
+        defaultPrompts: PROMPT_CATALOG,
         basePromptVersion: PROMPT_VERSION,
         hasSavedProfile: false,
       };
