@@ -9,6 +9,7 @@ import {
   type SavePagePayload,
   type TapAlongBridge,
   type TeacherAskPayload,
+  type TeacherCancelPayload,
   type TeacherChunkEvent,
   type TeacherDoneEvent,
   type TeacherMaintenancePayload,
@@ -38,6 +39,8 @@ const tapAlongBridge: TapAlongBridge = {
     ipcRenderer.invoke(TEACHER_CHANNELS.resume, payload),
   maintainTeacher: (payload: TeacherMaintenancePayload) =>
     ipcRenderer.invoke(TEACHER_CHANNELS.maintenance, payload),
+  cancelTeacher: (payload: TeacherCancelPayload) =>
+    ipcRenderer.invoke(TEACHER_CHANNELS.cancel, payload),
   onTeacherChunk: (callback: (event: TeacherChunkEvent) => void) => {
     const listener = (
       _event: Electron.IpcRendererEvent,

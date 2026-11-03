@@ -16,6 +16,8 @@ defineProps<{
   composerMode: ComposerMode;
   replyDraft: string;
   sayMoreOpen: boolean;
+  canCancel: boolean;
+  cancelling: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -27,6 +29,7 @@ const emit = defineEmits<{
   toggleHistory: [];
   updateReplyDraft: [value: string];
   submitReply: [];
+  cancelTeacher: [];
   toggleSayMore: [];
   edit: [];
   append: [];
@@ -67,9 +70,12 @@ const emit = defineEmits<{
         :model-value="replyDraft"
         :typing="typing"
         :say-more-open="sayMoreOpen"
+        :can-cancel="canCancel"
+        :cancelling="cancelling"
         :closed="page.status === 'closed'"
         @update:model-value="emit('updateReplyDraft', $event)"
         @submit="emit('submitReply')"
+        @cancel-teacher="emit('cancelTeacher')"
         @toggle-say-more="emit('toggleSayMore')"
         @edit="emit('edit')"
         @append="emit('append')"

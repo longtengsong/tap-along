@@ -30,6 +30,8 @@ const {
   toggleHistory,
   retrySave,
   retryTeacher,
+  cancelTeacher,
+  canCancelTeacher,
   dismissOverlay,
 } = useSessionStore();
 
@@ -85,6 +87,8 @@ const openModelSettings = () => {
         :composer-mode="state.composerMode"
         :reply-draft="state.replyDraft"
         :say-more-open="state.sayMoreOpen"
+        :can-cancel="canCancelTeacher"
+        :cancelling="state.cancelling"
         @back="goBack"
         @settings="settingsOpen = true"
         @update-edit-draft="currentPage.editDraft = $event"
@@ -93,6 +97,7 @@ const openModelSettings = () => {
         @toggle-history="toggleHistory"
         @update-reply-draft="state.replyDraft = $event"
         @submit-reply="submitComposer"
+        @cancel-teacher="cancelTeacher"
         @toggle-say-more="state.sayMoreOpen = !state.sayMoreOpen"
         @edit="startEditing"
         @append="startAppending"

@@ -3,6 +3,8 @@ import type {
   SavePagePayload,
   TapAlongBridge,
   TeacherAskPayload,
+  TeacherCancelPayload,
+  TeacherCancelResult,
   TeacherChunkEvent,
   TeacherDoneEvent,
   TeacherMaintenancePayload,
@@ -106,6 +108,8 @@ export const tapAlongApi = {
       bridge?.onTeacherDone,
     ),
 
+  supportsTeacherCancellation: () => Boolean(bridge?.cancelTeacher),
+
   async askTeacher(payload: TeacherAskPayload): Promise<TeacherStartResult> {
     if (!bridge?.askTeacher) {
       return { ok: false, errorCode: 'TEACHER_NO_RESPONSE' };
@@ -132,6 +136,16 @@ export const tapAlongApi = {
     }
 
     return bridge.maintainTeacher(payload);
+  },
+
+  async cancelTeacher(
+    payload: TeacherCancelPayload,
+  ): Promise<TeacherCancelResult> {
+    if (!bridge?.cancelTeacher) {
+      return { ok: true };
+    }
+
+    return bridge.cancelTeacher(payload);
   },
 
   onTeacherChunk(callback: (event: TeacherChunkEvent) => void) {

@@ -52,4 +52,7 @@ export const registerTeacherHandlers = (
 
     return outcome.result;
   });
+  ipcMain.handle(TEACHER_CHANNELS.cancel, (_event, payload: unknown) =>
+    teacherService.cancel(payload),
+  );
 };

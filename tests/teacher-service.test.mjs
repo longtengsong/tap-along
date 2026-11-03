@@ -448,6 +448,120 @@ test('老师服务应向界面传递受控的模型错误码', async (t) => {
   });
 });
 
+test('老师服务应支持幂等取消且不保存部分回应', async (t) => {
+  t.mock.method(console, 'error', () => {});
+
+  const exerciseCancellation = async (t, startRequest) => {
+    let notifyStarted;
+    const started = new Promise((resolve) => {
+      notifyStarted = resolve;
+    });
+    const { page, repository, service } = await createTeacherFixture(
+      t,
+      async function* ({ signal }) {
+        yield '部分回应';
+        notifyStarted();
+        await new Promise((resolve) => {
+          if (signal?.aborted) {
+            resolve();
+            return;
+          }
+
+          signal?.addEventListener('abort', resolve, { once: true });
+        });
+        yield '取消后的内容';
+      },
+    );
+    const events = [];
+    const outcome = startRequest(repository, service, page, events);
+
+    await started;
+    assert.deepEqual(service.cancel({ requestId: `cancel-${page.id}` }), {
+      ok: true,
+    });
+    const done = await outcome.completion;
+
+    assert.equal(done.cancelled, true);
+    assert.equal(done.reply, undefined);
+    assert.equal(done.errorCode, undefined);
+    assert.equal(events.at(-1).cancelled, true);
+    const savedPage = repository.findById(page.id);
+    assert.equal(savedPage.teachingRoundCount, 0);
+    assert.equal(
+      savedPage.messages.some(
+        (message) =>
+          message.role === 'teacher' &&
+          message.requestId === `cancel-${page.id}`,
+      ),
+      false,
+    );
+    assert.deepEqual(service.cancel({ requestId: `cancel-${page.id}` }), {
+      ok: true,
+    });
+  };
+
+  await t.test('普通问答', async (t) => {
+    await exerciseCancellation(t, (_repository, service, page, events) =>
+      service.start(
+        {
+          pageId: page.id,
+          userText: '需要取消的问题。',
+          requestId: `cancel-${page.id}`,
+        },
+        (event) => events.push(event),
+      ),
+    );
+  });
+
+  await t.test('跨页回问', async (t) => {
+    await exerciseCancellation(t, (repository, service, page, events) => {
+      const contextPage = repository.create('已合上的上下文。', '');
+      repository.closePage(contextPage.id, 'close-cancel-context');
+
+      return service.startResume(
+        {
+          targetPageId: page.id,
+          contextPageId: contextPage.id,
+          requestId: `cancel-${page.id}`,
+        },
+        (event) => events.push(event),
+      );
+    });
+  });
+
+  for (const kind of ['edit', 'append']) {
+    await t.test(`维护 ${kind}`, async (t) => {
+      await exerciseCancellation(t, (_repository, service, page, events) =>
+        service.startMaintenance(
+          {
+            pageId: page.id,
+            kind,
+            triggerText: '需要取消的维护内容。',
+            requestId: `cancel-${page.id}`,
+          },
+          (event) => events.push(event),
+        ),
+      );
+    });
+  }
+});
+
+test('取消请求应校验编号并接受不存在的完成请求', async (t) => {
+  const { service } = await createTeacherFixture(t, async function* () {
+    yield '';
+  });
+
+  for (const payload of [null, {}, { requestId: ' ' }]) {
+    assert.deepEqual(service.cancel(payload), {
+      ok: false,
+      errorCode: 'TEACHER_INVALID_REQUEST',
+    });
+  }
+  assert.deepEqual(service.cancel({ requestId: 'already-finished' }), {
+    ok: true,
+  });
+});
+
 test('老师空流应返回失败且不增加轮次', async (t) => {
   t.mock.method(console, 'error', () => {});
   const { page, repository, service } = await createTeacherFixture(

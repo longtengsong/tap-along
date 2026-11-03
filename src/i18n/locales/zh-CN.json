@@ -43,6 +43,8 @@
     "sourcePrefix": "出处：",
     "statusPrefix": "状态：",
     "typing": "老师正在回应",
+    "stop": "停止",
+    "stopping": "正在停止",
     "maintenanceMenu": "页边维护",
     "editBodyAria": "编辑页边正文",
     "closedNote": "这页已合上"

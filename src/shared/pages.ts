@@ -119,12 +119,23 @@ export interface TeacherDoneEvent {
   reply?: string;
   suggestClose?: boolean;
   errorCode?: AppErrorCode;
+  cancelled?: boolean;
+}
+
+export interface TeacherCancelPayload {
+  requestId: string;
+}
+
+export interface TeacherCancelResult {
+  ok: boolean;
+  errorCode?: AppErrorCode;
 }
 
 export const TEACHER_CHANNELS = {
   ask: 'teacher:ask',
   resume: 'teacher:resume',
   maintenance: 'teacher:maintenance',
+  cancel: 'teacher:cancel',
   chunk: 'teacher:chunk',
   done: 'teacher:done',
 } as const;
@@ -143,6 +154,9 @@ export interface TapAlongBridge extends ProviderBridge {
   maintainTeacher?: (
     payload: TeacherMaintenancePayload,
   ) => Promise<TeacherStartResult>;
+  cancelTeacher?: (
+    payload: TeacherCancelPayload,
+  ) => Promise<TeacherCancelResult>;
   onTeacherChunk?: (callback: (event: TeacherChunkEvent) => void) => () => void;
   onTeacherDone?: (callback: (event: TeacherDoneEvent) => void) => () => void;
 }

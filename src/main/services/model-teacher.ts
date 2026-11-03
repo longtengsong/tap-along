@@ -279,6 +279,14 @@ const streamProviderReply = async function* (
   timeoutMs: number,
 ): AsyncGenerator<string> {
   const controller = new AbortController();
+  const cancelFromCaller = () => controller.abort();
+
+  if (input.signal?.aborted) {
+    controller.abort();
+  } else {
+    input.signal?.addEventListener('abort', cancelFromCaller, { once: true });
+  }
+
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const messages = input.maintenanceKind
     ? buildMaintenanceTeacherMessages({
@@ -342,6 +350,7 @@ const streamProviderReply = async function* (
     }
   } finally {
     clearTimeout(timeout);
+    input.signal?.removeEventListener('abort', cancelFromCaller);
   }
 };
 

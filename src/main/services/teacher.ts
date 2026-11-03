@@ -1,6 +1,8 @@
 import type {
   PageSnapshot,
   TeacherAskPayload,
+  TeacherCancelPayload,
+  TeacherCancelResult,
   TeacherChunkEvent,
   TeacherDoneEvent,
   TeacherMaintenancePayload,
@@ -22,6 +24,7 @@ export interface TeacherGeneratorInput {
   replyLanguage: ReplyLanguage;
   contextPage?: PageSnapshot;
   maintenanceKind?: 'edit' | 'append';
+  signal?: AbortSignal;
 }
 
 export type TeacherGenerator = (
@@ -37,8 +40,34 @@ type TeacherEventEmitter = (
   event: TeacherChunkEvent | TeacherDoneEvent,
 ) => void;
 
+interface ActiveTeacherRequest {
+  controller: AbortController;
+}
+
 const wait = (duration: number) =>
   new Promise((resolve) => setTimeout(resolve, duration));
+
+const throwIfCancelled = (signal: AbortSignal) => {
+  if (signal.aborted) {
+    throw new Error('老师请求已取消');
+  }
+};
+
+const parseTeacherCancelPayload = (
+  payload: unknown,
+): TeacherCancelPayload | null => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return null;
+  }
+
+  const input = payload as Partial<TeacherCancelPayload>;
+
+  if (typeof input.requestId !== 'string' || !input.requestId.trim()) {
+    return null;
+  }
+
+  return { requestId: input.requestId.trim() };
+};
 
 const parseTeacherPayload = (payload: unknown): TeacherAskPayload | null => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
@@ -240,7 +269,7 @@ export const createMockTeacherStream: TeacherGenerator = async function* ({
 };
 
 export class TeacherService {
-  private readonly activeRequests = new Set<string>();
+  private readonly activeRequests = new Map<string, ActiveTeacherRequest>();
   private readonly repository: Pick<
     PagesRepository,
     | 'beginTeacherTurn'
@@ -262,6 +291,23 @@ export class TeacherService {
   ) {
     this.repository = repository;
     this.generate = generate;
+  }
+
+  cancel(payload: unknown): TeacherCancelResult {
+    const input = parseTeacherCancelPayload(payload);
+
+    if (!input) {
+      return { ok: false, errorCode: 'TEACHER_INVALID_REQUEST' };
+    }
+
+    const active = this.activeRequests.get(input.requestId);
+
+    if (!active) {
+      return { ok: true };
+    }
+
+    active.controller.abort();
+    return { ok: true };
   }
 
   start(payload: unknown, emit: TeacherEventEmitter): TeacherStartOutcome {
@@ -322,9 +368,17 @@ export class TeacherService {
       };
     }
 
-    this.activeRequests.add(input.requestId);
-    const completion = this.streamResponse(page, input, emit).finally(() => {
-      this.activeRequests.delete(input.requestId);
+    const active: ActiveTeacherRequest = { controller: new AbortController() };
+    this.activeRequests.set(input.requestId, active);
+    const completion = this.streamResponse(
+      page,
+      input,
+      emit,
+      active.controller.signal,
+    ).finally(() => {
+      if (this.activeRequests.get(input.requestId) === active) {
+        this.activeRequests.delete(input.requestId);
+      }
     });
 
     return {
@@ -412,14 +466,18 @@ export class TeacherService {
       };
     }
 
-    this.activeRequests.add(input.requestId);
+    const active: ActiveTeacherRequest = { controller: new AbortController() };
+    this.activeRequests.set(input.requestId, active);
     const completion = this.streamResume(
       targetPage,
       contextPage,
       input,
       emit,
+      active.controller.signal,
     ).finally(() => {
-      this.activeRequests.delete(input.requestId);
+      if (this.activeRequests.get(input.requestId) === active) {
+        this.activeRequests.delete(input.requestId);
+      }
     });
 
     return {
@@ -503,14 +561,18 @@ export class TeacherService {
       ...previousUserTexts,
     ]);
 
-    this.activeRequests.add(input.requestId);
+    const active: ActiveTeacherRequest = { controller: new AbortController() };
+    this.activeRequests.set(input.requestId, active);
     const completion = this.streamMaintenance(
       page,
       input,
       replyLanguage,
       emit,
+      active.controller.signal,
     ).finally(() => {
-      this.activeRequests.delete(input.requestId);
+      if (this.activeRequests.get(input.requestId) === active) {
+        this.activeRequests.delete(input.requestId);
+      }
     });
 
     return {
@@ -524,16 +586,20 @@ export class TeacherService {
     input: TeacherMaintenancePayload,
     replyLanguage: ReplyLanguage,
     emit: TeacherEventEmitter,
+    signal: AbortSignal,
   ): Promise<TeacherDoneEvent> {
     let reply = '';
 
     try {
+      throwIfCancelled(signal);
       for await (const chunk of this.generate({
         page,
         userText: input.triggerText,
         replyLanguage,
         maintenanceKind: input.kind,
+        signal,
       })) {
+        throwIfCancelled(signal);
         if (!chunk) {
           continue;
         }
@@ -546,6 +612,7 @@ export class TeacherService {
         });
       }
 
+      throwIfCancelled(signal);
       if (!reply) {
         throw new Error('老师没有返回维护回应');
       }
@@ -560,6 +627,7 @@ export class TeacherService {
         throw new Error('保存维护回应失败');
       }
 
+      throwIfCancelled(signal);
       const doneEvent: TeacherDoneEvent = {
         ok: true,
         pageId: page.id,
@@ -570,12 +638,19 @@ export class TeacherService {
       emit(doneEvent);
       return doneEvent;
     } catch (error) {
-      console.error('生成维护老师回应失败：', error);
+      const cancelled = signal.aborted;
+
+      if (!cancelled) {
+        console.error('生成维护老师回应失败：', error);
+      }
+
       const failedEvent: TeacherDoneEvent = {
         ok: false,
         pageId: page.id,
         requestId: input.requestId,
-        errorCode: getTeacherFailureCode(error),
+        ...(cancelled
+          ? { cancelled: true }
+          : { errorCode: getTeacherFailureCode(error) }),
       };
       emit(failedEvent);
       return failedEvent;
@@ -587,6 +662,7 @@ export class TeacherService {
     contextPage: PageSnapshot,
     input: TeacherResumePayload,
     emit: TeacherEventEmitter,
+    signal: AbortSignal,
   ): Promise<TeacherDoneEvent> {
     let reply = '';
     const contextUserTexts = contextPage.messages
@@ -603,12 +679,15 @@ export class TeacherService {
     ]);
 
     try {
+      throwIfCancelled(signal);
       for await (const chunk of this.generate({
         page: targetPage,
         contextPage,
         userText: latestUserText,
         replyLanguage,
+        signal,
       })) {
+        throwIfCancelled(signal);
         if (!chunk) {
           continue;
         }
@@ -621,6 +700,7 @@ export class TeacherService {
         });
       }
 
+      throwIfCancelled(signal);
       if (!reply) {
         throw new Error('老师没有返回跨页问题');
       }
@@ -635,6 +715,7 @@ export class TeacherService {
         throw new Error('保存跨页问题失败');
       }
 
+      throwIfCancelled(signal);
       const doneEvent: TeacherDoneEvent = {
         ok: true,
         pageId: targetPage.id,
@@ -645,12 +726,19 @@ export class TeacherService {
       emit(doneEvent);
       return doneEvent;
     } catch (error) {
-      console.error('生成跨页老师问题失败：', error);
+      const cancelled = signal.aborted;
+
+      if (!cancelled) {
+        console.error('生成跨页老师问题失败：', error);
+      }
+
       const failedEvent: TeacherDoneEvent = {
         ok: false,
         pageId: targetPage.id,
         requestId: input.requestId,
-        errorCode: getTeacherFailureCode(error),
+        ...(cancelled
+          ? { cancelled: true }
+          : { errorCode: getTeacherFailureCode(error) }),
       };
       emit(failedEvent);
       return failedEvent;
@@ -661,6 +749,7 @@ export class TeacherService {
     page: PageSnapshot,
     input: TeacherAskPayload,
     emit: TeacherEventEmitter,
+    signal: AbortSignal,
   ): Promise<TeacherDoneEvent> {
     let reply = '';
     const previousUserTexts = page.messages
@@ -675,11 +764,14 @@ export class TeacherService {
     );
 
     try {
+      throwIfCancelled(signal);
       for await (const chunk of this.generate({
         page,
         userText: input.userText,
         replyLanguage,
+        signal,
       })) {
+        throwIfCancelled(signal);
         if (!chunk) {
           continue;
         }
@@ -692,6 +784,7 @@ export class TeacherService {
         });
       }
 
+      throwIfCancelled(signal);
       if (!reply) {
         throw new Error('老师没有返回内容');
       }
@@ -708,6 +801,7 @@ export class TeacherService {
         throw new Error('保存老师回应后无法读取页边');
       }
 
+      throwIfCancelled(signal);
       const doneEvent: TeacherDoneEvent = {
         ok: true,
         pageId: input.pageId,
@@ -718,12 +812,19 @@ export class TeacherService {
       emit(doneEvent);
       return doneEvent;
     } catch (error) {
-      console.error('生成老师回应失败：', error);
+      const cancelled = signal.aborted;
+
+      if (!cancelled) {
+        console.error('生成老师回应失败：', error);
+      }
+
       const failedEvent: TeacherDoneEvent = {
         ok: false,
         pageId: input.pageId,
         requestId: input.requestId,
-        errorCode: getTeacherFailureCode(error),
+        ...(cancelled
+          ? { cancelled: true }
+          : { errorCode: getTeacherFailureCode(error) }),
       };
       emit(failedEvent);
       return failedEvent;

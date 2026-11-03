@@ -7,6 +7,8 @@ defineProps<{
   mode: ComposerMode;
   modelValue: string;
   typing: boolean;
+  canCancel: boolean;
+  cancelling: boolean;
   sayMoreOpen: boolean;
   closed: boolean;
 }>();
@@ -14,6 +16,7 @@ defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: string];
   submit: [];
+  cancelTeacher: [];
   toggleSayMore: [];
   edit: [];
   append: [];
@@ -29,9 +32,12 @@ const emit = defineEmits<{
     :mode="mode"
     :model-value="modelValue"
     :typing="typing"
+    :can-cancel="canCancel"
+    :cancelling="cancelling"
     :say-more-open="sayMoreOpen"
     @update:model-value="emit('update:modelValue', $event)"
     @submit="emit('submit')"
+    @cancel-teacher="emit('cancelTeacher')"
     @toggle-say-more="emit('toggleSayMore')"
     @edit="emit('edit')"
     @append="emit('append')"

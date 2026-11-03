@@ -43,6 +43,8 @@
     "sourcePrefix": "Source: ",
     "statusPrefix": "Status: ",
     "typing": "The teacher is responding",
+    "stop": "Stop",
+    "stopping": "Stopping",
     "maintenanceMenu": "Page actions",
     "editBodyAria": "Edit page note",
     "closedNote": "This page is closed"

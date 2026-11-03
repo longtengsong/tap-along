@@ -11,12 +11,15 @@ const props = defineProps<{
   mode: ComposerMode;
   modelValue: string;
   typing: boolean;
+  canCancel: boolean;
+  cancelling: boolean;
   sayMoreOpen: boolean;
 }>();
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
   submit: [];
+  cancelTeacher: [];
   toggleSayMore: [];
   edit: [];
   append: [];
@@ -64,6 +67,17 @@ const handleEnter = (event: KeyboardEvent) => {
             @keydown.enter="handleEnter"
           />
           <AppButton
+            v-if="typing && canCancel"
+            class="composer__send"
+            size="small"
+            variant="ghost"
+            :disabled="cancelling"
+            @click="emit('cancelTeacher')"
+          >
+            {{ cancelling ? t('companion.stopping') : t('companion.stop') }}
+          </AppButton>
+          <AppButton
+            v-else
             class="composer__send"
             size="small"
             :disabled="typing || !modelValue.trim()"

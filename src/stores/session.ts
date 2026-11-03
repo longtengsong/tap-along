@@ -78,6 +78,8 @@ const state = reactive({
   draftError: '',
   replyDraft: '',
   typing: false,
+  cancelling: false,
+  teacherRequestActive: false,
   sayMoreOpen: false,
   composerMode: 'normal' as ComposerMode,
 });
@@ -126,8 +128,28 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
     return;
   }
 
+  if (event.cancelled) {
+    const page = findPage(event.pageId);
+
+    if (page) {
+      page.messages = page.messages.filter(
+        (item) => item.id !== pending.tempMessageId,
+      );
+    }
+
+    state.typing = false;
+    state.cancelling = false;
+    state.teacherRequestActive = false;
+    state.overlay = null;
+    state.errorCode = null;
+    pendingTeacherRequest = null;
+    return;
+  }
+
   if (!event.ok || !event.reply) {
     state.typing = false;
+    state.cancelling = false;
+    state.teacherRequestActive = false;
     state.overlay = 'teacher-no-response';
     state.errorCode = event.errorCode ?? 'TEACHER_NO_RESPONSE';
     return;
@@ -137,6 +159,8 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
   if (!page) {
     pendingTeacherRequest = null;
     state.typing = false;
+    state.cancelling = false;
+    state.teacherRequestActive = false;
     state.overlay = 'teacher-no-response';
     state.errorCode = 'PAGE_NOT_FOUND';
     return;
@@ -165,6 +189,8 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
   }
   page.suggestClose = Boolean(event.suggestClose);
   state.typing = false;
+  state.cancelling = false;
+  state.teacherRequestActive = false;
   state.overlay = null;
   state.errorCode = null;
   pendingTeacherRequest = null;
@@ -261,6 +287,8 @@ const respondAfterMaintenance = async (
     maintenanceKind: kind,
   };
   state.typing = true;
+  state.cancelling = false;
+  state.teacherRequestActive = false;
   state.overlay = null;
   state.errorCode = null;
 
@@ -304,6 +332,8 @@ const respondAfterMaintenance = async (
   }
 
   state.typing = false;
+  state.cancelling = false;
+  state.teacherRequestActive = false;
   pendingTeacherRequest = null;
 };
 
@@ -357,11 +387,16 @@ const markTeacherFailure = (
   errorCode: AppErrorCode = 'TEACHER_NO_RESPONSE',
 ) => {
   state.typing = false;
+  state.cancelling = false;
+  state.teacherRequestActive = false;
   state.overlay = 'teacher-no-response';
   state.errorCode = errorCode;
 };
 
 const startTeacherRequest = async (pending: PendingTeacherRequest) => {
+  state.teacherRequestActive = true;
+  state.cancelling = false;
+
   try {
     let response;
 
@@ -431,6 +466,8 @@ const sendMockReply = async (
     state.errorCode = 'TEACHER_NO_RESPONSE';
   } finally {
     state.typing = false;
+    state.cancelling = false;
+    state.teacherRequestActive = false;
   }
 };
 
@@ -447,6 +484,8 @@ const sendReply = async () => {
   page.messages.push(message('user', text, false, userMessageId));
   state.replyDraft = '';
   state.typing = true;
+  state.cancelling = false;
+  state.teacherRequestActive = false;
   state.overlay = null;
   state.errorCode = null;
 
@@ -486,8 +525,40 @@ const retryTeacher = async () => {
   state.overlay = null;
   state.errorCode = null;
   state.typing = true;
+  state.cancelling = false;
+  state.teacherRequestActive = false;
   await startTeacherRequest(pending);
 };
+
+const cancelTeacher = async () => {
+  const pending = pendingTeacherRequest;
+
+  if (!pending || !state.teacherRequestActive || state.cancelling) {
+    return;
+  }
+
+  state.cancelling = true;
+
+  try {
+    const result = await tapAlongApi.cancelTeacher({
+      requestId: pending.requestId,
+    });
+
+    if (!result.ok) {
+      state.cancelling = false;
+      markTeacherFailure(result.errorCode);
+    }
+  } catch {
+    state.cancelling = false;
+  }
+};
+
+const canCancelTeacher = computed(
+  () =>
+    state.typing &&
+    state.teacherRequestActive &&
+    tapAlongApi.supportsTeacherCancellation(),
+);
 
 const submitAppend = async () => {
   const page = currentPage.value;
@@ -510,12 +581,16 @@ const submitAppend = async () => {
   state.overlay = null;
   state.errorCode = null;
   state.typing = true;
+  state.cancelling = false;
+  state.teacherRequestActive = false;
 
   try {
     const response = await tapAlongApi.appendPage(page.id, text, requestId);
 
     if (!response.ok) {
       state.typing = false;
+      state.cancelling = false;
+      state.teacherRequestActive = false;
       state.overlay = 'failed';
       state.errorCode = response.errorCode ?? 'MAINTENANCE_FAILED';
       return;
@@ -536,6 +611,8 @@ const submitAppend = async () => {
     await respondAfterMaintenance(page, 'append', text);
   } catch {
     state.typing = false;
+    state.cancelling = false;
+    state.teacherRequestActive = false;
     state.overlay = 'failed';
     state.errorCode = 'MAINTENANCE_FAILED';
   }
@@ -642,6 +719,8 @@ const resumeFromContext = async (
     tempMessageId,
   };
   state.typing = true;
+  state.cancelling = false;
+  state.teacherRequestActive = false;
   state.overlay = null;
   state.errorCode = null;
 
@@ -687,6 +766,8 @@ const resumeFromContext = async (
     ),
   );
   state.typing = false;
+  state.cancelling = false;
+  state.teacherRequestActive = false;
   pendingTeacherRequest = null;
 };
 
@@ -852,6 +933,8 @@ export const useSessionStore = () => {
     toggleHistory,
     retrySave,
     retryTeacher,
+    cancelTeacher,
+    canCancelTeacher,
     dismissOverlay,
   };
 };

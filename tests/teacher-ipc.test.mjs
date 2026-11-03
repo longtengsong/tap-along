@@ -52,6 +52,9 @@ test('老师 IPC 应启动请求并转发 chunk 与 done 事件', () => {
       });
       return { result: { ok: true, requestId: payload.requestId } };
     },
+    cancel(payload) {
+      return { ok: true, requestId: payload.requestId };
+    },
   };
   const ipcMain = {
     handle(channel, handler) {
@@ -74,6 +77,7 @@ test('老师 IPC 应启动请求并转发 chunk 与 done 事件', () => {
       TEACHER_CHANNELS.ask,
       TEACHER_CHANNELS.resume,
       TEACHER_CHANNELS.maintenance,
+      TEACHER_CHANNELS.cancel,
     ]),
   );
   assert.deepEqual(
@@ -97,6 +101,12 @@ test('老师 IPC 应启动请求并转发 chunk 与 done 事件', () => {
       pageId: 1,
       kind: 'append',
       triggerText: '补入的想法',
+      requestId: 'maintenance-1',
+    }),
+    { ok: true, requestId: 'maintenance-1' },
+  );
+  assert.deepEqual(
+    handlers.get(TEACHER_CHANNELS.cancel)(event, {
       requestId: 'maintenance-1',
     }),
     { ok: true, requestId: 'maintenance-1' },

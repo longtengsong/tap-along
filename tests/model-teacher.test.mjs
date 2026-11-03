@@ -582,3 +582,39 @@ test('模型流式请求超时时应中止连接', async () => {
     'PROVIDER_TIMEOUT',
   );
 });
+
+test('外层取消信号应中止模型流式连接', async () => {
+  const controller = new AbortController();
+  let notifyStarted;
+  const started = new Promise((resolve) => {
+    notifyStarted = resolve;
+  });
+  const generator = createGenerator({
+    fetchImpl: async (_url, options) => {
+      notifyStarted();
+      return new Promise((_resolve, reject) => {
+        options.signal.addEventListener(
+          'abort',
+          () => {
+            const error = new Error('cancelled');
+            error.name = 'AbortError';
+            reject(error);
+          },
+          { once: true },
+        );
+      });
+    },
+  });
+  const pending = collect(
+    generator({
+      page: createPage(),
+      userText: '继续。',
+      replyLanguage: 'zh-CN',
+      signal: controller.signal,
+    }),
+  );
+
+  await started;
+  controller.abort();
+  await assertProviderError(pending, 'PROVIDER_TIMEOUT');
+});
