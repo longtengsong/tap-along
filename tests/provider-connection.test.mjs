@@ -5,6 +5,7 @@ import {
   ProviderConnectionTester,
   buildChatCompletionsUrl,
 } from '../src/main/services/provider-connection.ts';
+import { PROMPT_CATALOG } from '../src/main/prompts/index.ts';
 
 const runtimeConfig = {
   id: 'custom',
@@ -51,6 +52,24 @@ test('连接测试应发送 Bearer Key 和最小请求，不携带笔记内容',
   });
   assert.equal(requestOptions.body.includes('笔记'), false);
   assert.equal(requestOptions.body.includes('page'), false);
+});
+
+test('连接测试应使用开发者配置的测试提示词', async () => {
+  let requestOptions;
+  const promptCatalog = structuredClone(PROMPT_CATALOG);
+  promptCatalog.provider.connectionTest = 'Custom connection check.';
+  const tester = new ProviderConnectionTester(async (_url, options) => {
+    requestOptions = options;
+    return { ok: true, status: 200 };
+  });
+
+  assert.deepEqual(await tester.test(runtimeConfig, promptCatalog), {
+    ok: true,
+  });
+  assert.equal(
+    JSON.parse(requestOptions.body).messages[0].content,
+    'Custom connection check.',
+  );
 });
 
 test('连接测试应把常见 HTTP 错误映射为可展示错误', async (t) => {
@@ -135,4 +154,27 @@ test('连接服务应在配置解析成功后调用测试器', async () => {
     ok: false,
     errorCode: 'PROVIDER_NOT_CONFIGURED',
   });
+});
+
+test('连接服务应把有效 Prompt 配置传给测试器', async () => {
+  let testedPromptCatalog;
+  const promptCatalog = structuredClone(PROMPT_CATALOG);
+  promptCatalog.provider.connectionTest = 'Configured check.';
+  const service = new ProviderConnectionService(
+    {
+      resolve: async () => ({ ok: true, config: runtimeConfig }),
+    },
+    {
+      test: async (_config, prompts) => {
+        testedPromptCatalog = prompts;
+        return { ok: true };
+      },
+    },
+    {
+      resolve: () => promptCatalog,
+    },
+  );
+
+  assert.deepEqual(await service.test('custom'), { ok: true });
+  assert.equal(testedPromptCatalog, promptCatalog);
 });

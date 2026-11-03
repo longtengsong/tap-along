@@ -1,3 +1,5 @@
+import type { PromptCatalogValues } from '../../shared/prompts.ts';
+
 export const PROMPT_VERSION = 'teacher-v1.3.0';
 
 export const PROMPT_CATALOG = {
@@ -82,4 +84,4 @@ or reconstruct missing dialogue.
         'The user appended a new thought to the current note. The page body now contains the combined note.',
     },
   },
-} as const;
+} as const satisfies PromptCatalogValues;

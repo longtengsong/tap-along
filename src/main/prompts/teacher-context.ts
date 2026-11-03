@@ -1,4 +1,5 @@
 import type { PageMessageSnapshot, PageSnapshot } from '../../shared/pages.ts';
+import type { PromptCatalogValues } from '../../shared/prompts.ts';
 import { PROMPT_CATALOG } from './catalog.ts';
 
 export type ChatRole = 'system' | 'user' | 'assistant';
@@ -28,8 +29,11 @@ export const escapePromptData = (value: string) =>
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;');
 
-export const buildCurrentPageContext = (page: PageSnapshot) =>
-  renderPromptTemplate(PROMPT_CATALOG.teacher.context.currentPage, {
+export const buildCurrentPageContext = (
+  page: PageSnapshot,
+  promptCatalog: PromptCatalogValues = PROMPT_CATALOG,
+) =>
+  renderPromptTemplate(promptCatalog.teacher.context.currentPage, {
     title: escapePromptData(page.title),
     body: escapePromptData(page.body),
   });
@@ -37,17 +41,18 @@ export const buildCurrentPageContext = (page: PageSnapshot) =>
 export const buildResumePageContext = (
   page: PageSnapshot,
   kind: 'targetPage',
+  promptCatalog: PromptCatalogValues = PROMPT_CATALOG,
 ) =>
-  renderPromptTemplate(PROMPT_CATALOG.teacher.context[kind], {
+  renderPromptTemplate(promptCatalog.teacher.context[kind], {
     title: escapePromptData(page.title),
     body: escapePromptData(page.body),
   });
 
-export const buildCompressedPageContext = ({
-  body,
-  depth,
-}: CompressedPagePrompt) =>
-  renderPromptTemplate(PROMPT_CATALOG.teacher.context.closedPage, {
+export const buildCompressedPageContext = (
+  { body, depth }: CompressedPagePrompt,
+  promptCatalog: PromptCatalogValues = PROMPT_CATALOG,
+) =>
+  renderPromptTemplate(promptCatalog.teacher.context.closedPage, {
     depth: String(depth),
     body: escapePromptData(body),
   });

@@ -66,6 +66,7 @@ const createSseResponse = (parts, status = 200) => ({
 const createGenerator = ({
   fallbackCalls = [],
   resolveActive,
+  promptService,
   fetchImpl,
   timeoutMs,
 }) =>
@@ -74,6 +75,7 @@ const createGenerator = ({
       resolveActive:
         resolveActive ?? (async () => ({ ok: true, config: providerConfig })),
     },
+    promptService,
     fallback: async function* (input) {
       fallbackCalls.push(input);
       yield '本地老师回应';
@@ -81,6 +83,80 @@ const createGenerator = ({
     fetchImpl,
     timeoutMs,
   });
+
+test('开发者 Prompt 应应用于普通问答、跨页恢复和维护请求', async () => {
+  const requestBodies = [];
+  const promptCatalog = structuredClone(PROMPT_CATALOG);
+  promptCatalog.teacher.system = '自定义基础老师';
+  promptCatalog.teacher.languagePolicy = '自定义语言策略';
+  promptCatalog.teacher.resume = '自定义跨页恢复';
+  promptCatalog.teacher.maintenance = '自定义维护任务';
+  promptCatalog.teacher.contextBoundary = '自定义上下文边界';
+  promptCatalog.teacher.compressedContextPolicy = '自定义压缩上下文';
+  promptCatalog.teacher.context.currentPage =
+    '<custom_current>{{title}}|{{body}}</custom_current>';
+  promptCatalog.teacher.context.closedPage =
+    '<custom_closed>{{depth}}|{{body}}</custom_closed>';
+  promptCatalog.teacher.context.targetPage =
+    '<custom_target>{{title}}|{{body}}</custom_target>';
+  promptCatalog.teacher.maintenanceAction.edit = '自定义编辑动作';
+  promptCatalog.teacher.maintenanceAction.append = '自定义补写动作';
+
+  const generator = createGenerator({
+    promptService: {
+      resolve: () => promptCatalog,
+    },
+    fetchImpl: async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return createSseResponse([
+        'data: {"choices":[{"delta":{"content":"自定义回应？"}}]}\n\n',
+        'data: [DONE]\n\n',
+      ]);
+    },
+  });
+  const page = createPage();
+
+  await collect(
+    generator({
+      page,
+      userText: '普通问题。',
+      replyLanguage: 'zh-CN',
+    }),
+  );
+  await collect(
+    generator({
+      page,
+      contextPage: { ...page, id: 2, body: '上下文正文' },
+      userText: '跨页问题。',
+      replyLanguage: 'zh-CN',
+    }),
+  );
+  await collect(
+    generator({
+      page,
+      userText: '编辑后的正文。',
+      replyLanguage: 'zh-CN',
+      maintenanceKind: 'edit',
+    }),
+  );
+
+  assert.equal(requestBodies.length, 3);
+  assert.equal(requestBodies[0].messages[0].content, '自定义基础老师');
+  assert.equal(requestBodies[0].messages[1].content, '自定义语言策略');
+  assert.equal(requestBodies[0].messages[2].content, '自定义上下文边界');
+  assert.match(
+    requestBodies[0].messages[3].content,
+    /<custom_current>注意力与带宽/,
+  );
+  assert.equal(requestBodies[1].messages[2].content, '自定义跨页恢复');
+  assert.equal(requestBodies[1].messages[4].content, '自定义压缩上下文');
+  assert.match(
+    requestBodies[1].messages[6].content,
+    /<custom_target>注意力与带宽/,
+  );
+  assert.equal(requestBodies[2].messages[2].content, '自定义维护任务');
+  assert.equal(requestBodies[2].messages[3].content, '自定义编辑动作');
+});
 
 test('模型消息应包含页面上下文、历史角色和最新一次用户问题', () => {
   const page = createPage([

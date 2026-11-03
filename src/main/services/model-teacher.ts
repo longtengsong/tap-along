@@ -1,6 +1,8 @@
 import type { AppErrorCode } from '../../shared/errors.ts';
-import { composeTeacherMessages } from '../prompts/index.ts';
+import type { PromptCatalogValues } from '../../shared/prompts.ts';
+import { composeTeacherMessages, PROMPT_CATALOG } from '../prompts/index.ts';
 import { buildChatCompletionsUrl } from './provider-connection.ts';
+import type { DeveloperPromptConfigService } from './developer-prompts.ts';
 import type {
   ProviderConfigService,
   ProviderRuntimeConfig,
@@ -12,6 +14,7 @@ type FetchLike = typeof fetch;
 interface TeacherStreamOptions {
   configService: Pick<ProviderConfigService, 'resolveActive'>;
   fallback: TeacherGenerator;
+  promptService?: Pick<DeveloperPromptConfigService, 'resolve'>;
   fetchImpl?: FetchLike;
   timeoutMs?: number;
 }
@@ -157,6 +160,7 @@ const streamProviderReply = async function* (
   config: ProviderRuntimeConfig,
   fetchImpl: FetchLike,
   timeoutMs: number,
+  promptCatalog: PromptCatalogValues,
 ): AsyncGenerator<string> {
   const controller = new AbortController();
   const cancelFromCaller = () => controller.abort();
@@ -168,7 +172,7 @@ const streamProviderReply = async function* (
   }
 
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  const messages = composeTeacherMessages(input);
+  const messages = composeTeacherMessages(input, promptCatalog);
 
   try {
     let response: Awaited<ReturnType<FetchLike>>;
@@ -227,6 +231,7 @@ const streamProviderReply = async function* (
 export const createModelAwareTeacherStream = ({
   configService,
   fallback,
+  promptService,
   fetchImpl = globalThis.fetch,
   timeoutMs = 60_000,
 }: TeacherStreamOptions): TeacherGenerator =>
@@ -242,5 +247,11 @@ export const createModelAwareTeacherStream = ({
       throw new ProviderRequestError(resolved.errorCode);
     }
 
-    yield* streamProviderReply(input, resolved.config, fetchImpl, timeoutMs);
+    yield* streamProviderReply(
+      input,
+      resolved.config,
+      fetchImpl,
+      timeoutMs,
+      promptService?.resolve() ?? PROMPT_CATALOG,
+    );
   };

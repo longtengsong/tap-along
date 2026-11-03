@@ -1,5 +1,7 @@
 import type { ProviderConnectionResult } from '../../shared/providers.ts';
+import type { PromptCatalogValues } from '../../shared/prompts.ts';
 import { PROMPT_CATALOG } from '../prompts/index.ts';
+import type { DeveloperPromptConfigService } from './developer-prompts.ts';
 import type {
   ProviderConfigService,
   ProviderRuntimeConfig,
@@ -24,7 +26,10 @@ export class ProviderConnectionTester {
     this.timeoutMs = timeoutMs;
   }
 
-  async test(config: ProviderRuntimeConfig): Promise<ProviderConnectionResult> {
+  async test(
+    config: ProviderRuntimeConfig,
+    promptCatalog: PromptCatalogValues = PROMPT_CATALOG,
+  ): Promise<ProviderConnectionResult> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
 
@@ -42,7 +47,7 @@ export class ProviderConnectionTester {
             messages: [
               {
                 role: 'user',
-                content: PROMPT_CATALOG.provider.connectionTest,
+                content: promptCatalog.provider.connectionTest,
               },
             ],
             max_tokens: 1,
@@ -84,13 +89,19 @@ export class ProviderConnectionTester {
 export class ProviderConnectionService {
   private readonly configService: Pick<ProviderConfigService, 'resolve'>;
   private readonly tester: Pick<ProviderConnectionTester, 'test'>;
+  private readonly promptService?: Pick<
+    DeveloperPromptConfigService,
+    'resolve'
+  >;
 
   constructor(
     configService: Pick<ProviderConfigService, 'resolve'>,
     tester: Pick<ProviderConnectionTester, 'test'>,
+    promptService?: Pick<DeveloperPromptConfigService, 'resolve'>,
   ) {
     this.configService = configService;
     this.tester = tester;
+    this.promptService = promptService;
   }
 
   async test(id: unknown): Promise<ProviderConnectionResult> {
@@ -100,6 +111,9 @@ export class ProviderConnectionService {
       return { ok: false, errorCode: resolved.errorCode };
     }
 
-    return this.tester.test(resolved.config);
+    return this.tester.test(
+      resolved.config,
+      this.promptService?.resolve() ?? PROMPT_CATALOG,
+    );
   }
 }

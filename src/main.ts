@@ -9,8 +9,10 @@ import {
   openDatabase,
 } from './main/db/client';
 import { PagesRepository } from './main/db/pages';
+import { registerDeveloperPromptHandlers } from './main/ipc/developer-prompts';
 import { registerPageHandlers } from './main/ipc/pages';
 import { registerProviderHandlers } from './main/ipc/providers';
+import { registerSettingsHandlers } from './main/ipc/settings';
 import { registerTeacherHandlers } from './main/ipc/teacher';
 import { ElectronSecretCipher } from './main/config/electron-secret-cipher';
 import {
@@ -22,11 +24,14 @@ import {
   ProviderConnectionService,
   ProviderConnectionTester,
 } from './main/services/provider-connection';
+import { DeveloperModeService } from './main/services/developer-mode';
+import { DeveloperPromptConfigService } from './main/services/developer-prompts';
 import { createModelAwareTeacherStream } from './main/services/model-teacher';
 import {
   createMockTeacherStream,
   TeacherService,
 } from './main/services/teacher';
+import type { DeveloperPromptProfile } from './shared/prompts';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -34,8 +39,14 @@ if (started) {
 }
 
 let database: DatabaseSync | null = null;
+let developerModeService: DeveloperModeService | null = null;
 
-const createWindow = () => {
+const isDeveloperModeEnabled = () => {
+  const result = developerModeService?.get();
+  return result?.ok === true && result.enabled === true;
+};
+
+const createWindow = (developerMode = false) => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 1180,
@@ -60,14 +71,20 @@ const createWindow = () => {
     );
   }
 
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  if (developerMode) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      mainWindow.webContents.openDevTools({ mode: 'detach' });
+    });
+  }
 };
 
 const focusMainWindow = () => {
   const mainWindow = BrowserWindow.getAllWindows()[0];
 
   if (!mainWindow) {
+    if (app.isReady() && developerModeService) {
+      createWindow(isDeveloperModeEnabled());
+    }
     return;
   }
 
@@ -75,6 +92,7 @@ const focusMainWindow = () => {
     mainWindow.restore();
   }
 
+  mainWindow.show();
   mainWindow.focus();
 };
 
@@ -91,13 +109,30 @@ if (!hasSingleInstanceLock) {
       const pagesRepository = new PagesRepository(database);
       const settingsStore = new Store<{
         modelProviders?: StoredProviderSettings;
+        developerMode?: boolean;
+        developerPromptProfile?: DeveloperPromptProfile;
       }>({ name: 'tap-along-settings' });
       const providerStore: ProviderSettingsStore = {
         read: () => settingsStore.get('modelProviders'),
         write: (settings) => settingsStore.set('modelProviders', settings),
       };
+      developerModeService = new DeveloperModeService({
+        read: () => settingsStore.get('developerMode', false),
+        write: (enabled) => settingsStore.set('developerMode', enabled),
+      });
+      const developerPromptService = new DeveloperPromptConfigService(
+        developerModeService,
+        {
+          read: () => settingsStore.get('developerPromptProfile'),
+          write: (profile) =>
+            settingsStore.set('developerPromptProfile', profile),
+          clear: () => settingsStore.delete('developerPromptProfile'),
+        },
+      );
 
       registerPageHandlers(ipcMain, pagesRepository);
+      registerSettingsHandlers(ipcMain, developerModeService);
+      registerDeveloperPromptHandlers(ipcMain, developerPromptService);
       const providerService = new ProviderConfigService(
         providerStore,
         new ElectronSecretCipher(),
@@ -108,6 +143,7 @@ if (!hasSingleInstanceLock) {
         new ProviderConnectionService(
           providerService,
           new ProviderConnectionTester(),
+          developerPromptService,
         ),
       );
       registerTeacherHandlers(
@@ -117,6 +153,7 @@ if (!hasSingleInstanceLock) {
           createModelAwareTeacherStream({
             configService: providerService,
             fallback: createMockTeacherStream,
+            promptService: developerPromptService,
           }),
         ),
       );
@@ -126,13 +163,13 @@ if (!hasSingleInstanceLock) {
       return;
     }
 
-    createWindow();
+    createWindow(isDeveloperModeEnabled());
 
     // On OS X it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
-        createWindow();
+        createWindow(isDeveloperModeEnabled());
       }
     });
   });

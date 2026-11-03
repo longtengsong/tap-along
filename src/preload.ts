@@ -20,6 +20,8 @@ import {
   type ModelProviderId,
   type SaveModelProviderPayload,
 } from './shared/providers.ts';
+import { DEVELOPER_PROMPTS_CHANNELS } from './shared/prompts.ts';
+import { SETTINGS_CHANNELS } from './shared/settings.ts';
 
 const tapAlongBridge: TapAlongBridge = {
   savePage: (payload: SavePagePayload) =>
@@ -69,6 +71,15 @@ const tapAlongBridge: TapAlongBridge = {
     ipcRenderer.invoke(PROVIDER_CHANNELS.setActive, id),
   testProvider: (id: ModelProviderId) =>
     ipcRenderer.invoke(PROVIDER_CHANNELS.test, id),
+  getDeveloperMode: () =>
+    ipcRenderer.invoke(SETTINGS_CHANNELS.getDeveloperMode),
+  setDeveloperMode: (enabled: boolean) =>
+    ipcRenderer.invoke(SETTINGS_CHANNELS.setDeveloperMode, enabled),
+  getDeveloperPrompts: () => ipcRenderer.invoke(DEVELOPER_PROMPTS_CHANNELS.get),
+  saveDeveloperPrompts: (prompts) =>
+    ipcRenderer.invoke(DEVELOPER_PROMPTS_CHANNELS.save, prompts),
+  resetDeveloperPrompts: () =>
+    ipcRenderer.invoke(DEVELOPER_PROMPTS_CHANNELS.reset),
 };
 
 contextBridge.exposeInMainWorld('tapAlong', tapAlongBridge);

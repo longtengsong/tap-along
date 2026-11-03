@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { developerPromptsApi } from '@/api/developer-prompts';
 import { providerApi } from '@/api/providers';
+import { settingsApi } from '@/api/settings';
 import AppButton from '@/components/ui/AppButton.vue';
 import { setLocale } from '@/i18n';
 import type { SupportedLocale } from '@/i18n/locale';
 import { ERROR_MESSAGE_KEYS, type AppErrorCode } from '@/shared/errors';
 import type { PageClearAllResult } from '@/shared/pages';
+import type { PromptCatalogValues } from '@/shared/prompts';
 import type {
   ModelProviderId,
   ModelProviderState,
@@ -37,6 +40,20 @@ const dataConfirming = ref(false);
 const dataClearing = ref(false);
 const dataMessage = ref('');
 const dataError = ref('');
+const developerMode = ref(false);
+const developerModeLoading = ref(false);
+const developerModeSaving = ref(false);
+const developerModeMessage = ref('');
+const developerModeError = ref('');
+const developerPromptsText = ref('');
+const developerPromptsBaseVersion = ref('');
+const developerPromptsHasSavedProfile = ref(false);
+const developerPromptsLoading = ref(false);
+const developerPromptsSaving = ref(false);
+const developerPromptsResetting = ref(false);
+const developerPromptsConfirmResetting = ref(false);
+const developerPromptsMessage = ref('');
+const developerPromptsError = ref('');
 let providerSelectionInitialized = false;
 const providerForm = reactive({
   name: '',
@@ -110,6 +127,173 @@ const loadProviders = async () => {
     showProviderError('CONFIG_FAILED');
   } finally {
     providerLoading.value = false;
+  }
+};
+
+const clearDeveloperPrompts = () => {
+  developerPromptsText.value = '';
+  developerPromptsBaseVersion.value = '';
+  developerPromptsHasSavedProfile.value = false;
+  developerPromptsConfirmResetting.value = false;
+  developerPromptsMessage.value = '';
+  developerPromptsError.value = '';
+};
+
+const applyDeveloperPrompts = (
+  result: Awaited<ReturnType<typeof developerPromptsApi.get>>,
+) => {
+  if (!result.ok || !result.prompts) {
+    developerPromptsError.value = t(
+      ERROR_MESSAGE_KEYS[result.errorCode ?? 'UNKNOWN_ERROR'],
+    );
+    return false;
+  }
+
+  developerPromptsText.value = JSON.stringify(result.prompts, null, 2);
+  developerPromptsBaseVersion.value = result.basePromptVersion ?? '';
+  developerPromptsHasSavedProfile.value = result.hasSavedProfile === true;
+  developerPromptsConfirmResetting.value = false;
+  return true;
+};
+
+const loadDeveloperPrompts = async () => {
+  developerPromptsLoading.value = true;
+  developerPromptsError.value = '';
+
+  try {
+    applyDeveloperPrompts(await developerPromptsApi.get());
+  } catch {
+    developerPromptsError.value = t(ERROR_MESSAGE_KEYS.CONFIG_FAILED);
+  } finally {
+    developerPromptsLoading.value = false;
+  }
+};
+
+const saveDeveloperPrompts = async () => {
+  if (developerPromptsSaving.value || developerPromptsResetting.value) {
+    return;
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(developerPromptsText.value);
+  } catch {
+    developerPromptsMessage.value = '';
+    developerPromptsError.value = t('settings.invalidPromptJson');
+    return;
+  }
+
+  developerPromptsSaving.value = true;
+  developerPromptsMessage.value = '';
+  developerPromptsError.value = '';
+
+  try {
+    const result = await developerPromptsApi.save(
+      parsed as PromptCatalogValues,
+    );
+
+    if (applyDeveloperPrompts(result)) {
+      developerPromptsMessage.value = t('settings.promptsSaved');
+    }
+  } catch {
+    developerPromptsError.value = t(ERROR_MESSAGE_KEYS.CONFIG_FAILED);
+  } finally {
+    developerPromptsSaving.value = false;
+  }
+};
+
+const requestResetDeveloperPrompts = () => {
+  developerPromptsMessage.value = '';
+  developerPromptsError.value = '';
+  developerPromptsConfirmResetting.value = true;
+};
+
+const cancelResetDeveloperPrompts = () => {
+  developerPromptsConfirmResetting.value = false;
+};
+
+const resetDeveloperPrompts = async () => {
+  if (developerPromptsSaving.value || developerPromptsResetting.value) {
+    return;
+  }
+
+  developerPromptsResetting.value = true;
+  developerPromptsMessage.value = '';
+  developerPromptsError.value = '';
+
+  try {
+    const result = await developerPromptsApi.reset();
+
+    if (applyDeveloperPrompts(result)) {
+      developerPromptsMessage.value = t('settings.promptsReset');
+    }
+  } catch {
+    developerPromptsError.value = t(ERROR_MESSAGE_KEYS.CONFIG_FAILED);
+  } finally {
+    developerPromptsResetting.value = false;
+  }
+};
+
+const loadDeveloperMode = async () => {
+  developerModeLoading.value = true;
+  developerModeError.value = '';
+
+  try {
+    const result = await settingsApi.getDeveloperMode();
+
+    if (result.ok && result.enabled !== undefined) {
+      developerMode.value = result.enabled;
+      if (result.enabled) {
+        await loadDeveloperPrompts();
+      } else {
+        clearDeveloperPrompts();
+      }
+    } else {
+      developerModeError.value = t(
+        ERROR_MESSAGE_KEYS[result.errorCode ?? 'UNKNOWN_ERROR'],
+      );
+    }
+  } catch {
+    developerModeError.value = t(ERROR_MESSAGE_KEYS.CONFIG_FAILED);
+  } finally {
+    developerModeLoading.value = false;
+  }
+};
+
+const toggleDeveloperMode = async () => {
+  if (developerModeLoading.value || developerModeSaving.value) {
+    return;
+  }
+
+  const enabled = !developerMode.value;
+  developerModeSaving.value = true;
+  developerModeMessage.value = '';
+  developerModeError.value = '';
+
+  try {
+    const result = await settingsApi.setDeveloperMode(enabled);
+
+    if (!result.ok || result.enabled === undefined) {
+      developerModeError.value = t(
+        ERROR_MESSAGE_KEYS[result.errorCode ?? 'UNKNOWN_ERROR'],
+      );
+      return;
+    }
+
+    developerMode.value = result.enabled;
+    developerModeMessage.value = result.enabled
+      ? t('settings.developerModeEnabledMessage')
+      : t('settings.developerModeDisabledMessage');
+    if (result.enabled) {
+      await loadDeveloperPrompts();
+    } else {
+      clearDeveloperPrompts();
+    }
+  } catch {
+    developerModeError.value = t(ERROR_MESSAGE_KEYS.CONFIG_FAILED);
+  } finally {
+    developerModeSaving.value = false;
   }
 };
 
@@ -287,6 +471,7 @@ watch(
           : null;
       document.addEventListener('keydown', handleKeydown);
       void loadProviders();
+      void loadDeveloperMode();
       await nextTick();
       dialog.value?.focus();
       return;
@@ -295,6 +480,9 @@ watch(
     dataConfirming.value = false;
     dataMessage.value = '';
     dataError.value = '';
+    developerModeMessage.value = '';
+    developerModeError.value = '';
+    clearDeveloperPrompts();
     document.removeEventListener('keydown', handleKeydown);
     previousFocus?.focus();
   },
@@ -362,6 +550,159 @@ onBeforeUnmount(() => {
                 {{ activeLocale === 'en' ? '✓' : '' }}
               </span>
             </button>
+          </div>
+        </section>
+
+        <section
+          class="settings-section"
+          aria-labelledby="settings-developer-mode"
+        >
+          <div class="settings-section__heading">
+            <h3 id="settings-developer-mode">
+              {{ t('settings.developerMode') }}
+            </h3>
+            <span>{{ t('settings.developerModeHint') }}</span>
+          </div>
+
+          <div class="developer-mode">
+            <div class="developer-mode__copy">
+              <strong>{{ t('settings.developerModeLabel') }}</strong>
+              <p>{{ t('settings.developerModeDescription') }}</p>
+            </div>
+            <button
+              class="developer-mode__toggle"
+              :class="{
+                'developer-mode__toggle--enabled': developerMode,
+              }"
+              type="button"
+              role="switch"
+              :aria-checked="developerMode"
+              :aria-label="t('a11y.developerModeToggle')"
+              :disabled="developerModeLoading || developerModeSaving"
+              @click="toggleDeveloperMode"
+            >
+              <span class="developer-mode__track" aria-hidden="true">
+                <span class="developer-mode__thumb"></span>
+              </span>
+              <span>
+                {{
+                  developerModeLoading || developerModeSaving
+                    ? t('common.loading')
+                    : developerMode
+                      ? t('settings.developerModeOn')
+                      : t('settings.developerModeOff')
+                }}
+              </span>
+            </button>
+          </div>
+
+          <p v-if="developerModeError" class="provider-error" role="alert">
+            {{ developerModeError }}
+          </p>
+          <p
+            v-if="developerModeMessage"
+            class="provider-feedback"
+            role="status"
+          >
+            {{ developerModeMessage }}
+          </p>
+
+          <div v-if="developerMode" class="developer-prompts">
+            <div class="developer-prompts__heading">
+              <div>
+                <strong>{{ t('settings.developerPromptsTitle') }}</strong>
+                <p>{{ t('settings.developerPromptsDescription') }}</p>
+              </div>
+              <span v-if="developerPromptsBaseVersion">
+                {{
+                  t('settings.developerPromptsBaseVersion', {
+                    version: developerPromptsBaseVersion,
+                  })
+                }}
+              </span>
+            </div>
+
+            <p v-if="developerPromptsLoading" class="provider-feedback">
+              {{ t('settings.developerPromptsLoading') }}
+            </p>
+            <template v-else>
+              <span
+                v-if="developerPromptsHasSavedProfile"
+                class="developer-prompts__saved"
+              >
+                {{ t('settings.developerPromptsSavedProfile') }}
+              </span>
+              <textarea
+                v-model="developerPromptsText"
+                class="developer-prompts__editor"
+                :aria-label="t('a11y.developerPromptsEditor')"
+                spellcheck="false"
+              ></textarea>
+
+              <div class="developer-prompts__actions">
+                <AppButton
+                  size="small"
+                  :disabled="
+                    developerPromptsSaving || developerPromptsResetting
+                  "
+                  @click="saveDeveloperPrompts"
+                >
+                  {{ t('settings.savePrompts') }}
+                </AppButton>
+                <AppButton
+                  v-if="!developerPromptsConfirmResetting"
+                  variant="text"
+                  :disabled="
+                    developerPromptsSaving || developerPromptsResetting
+                  "
+                  @click="requestResetDeveloperPrompts"
+                >
+                  {{ t('settings.resetPrompts') }}
+                </AppButton>
+              </div>
+
+              <div
+                v-if="developerPromptsConfirmResetting"
+                class="settings-data__confirm"
+              >
+                <p>{{ t('settings.resetPromptsWarning') }}</p>
+                <div class="settings-data__actions">
+                  <AppButton
+                    variant="ghost"
+                    :disabled="developerPromptsResetting"
+                    @click="cancelResetDeveloperPrompts"
+                  >
+                    {{ t('common.cancel') }}
+                  </AppButton>
+                  <AppButton
+                    variant="danger"
+                    :disabled="developerPromptsResetting"
+                    @click="resetDeveloperPrompts"
+                  >
+                    {{
+                      developerPromptsResetting
+                        ? t('common.loading')
+                        : t('settings.confirmResetPrompts')
+                    }}
+                  </AppButton>
+                </div>
+              </div>
+
+              <p
+                v-if="developerPromptsError"
+                class="provider-error"
+                role="alert"
+              >
+                {{ developerPromptsError }}
+              </p>
+              <p
+                v-if="developerPromptsMessage"
+                class="provider-feedback"
+                role="status"
+              >
+                {{ developerPromptsMessage }}
+              </p>
+            </template>
           </div>
         </section>
 
@@ -918,6 +1259,175 @@ onBeforeUnmount(() => {
 .language-option__check {
   color: var(--moss);
   font-size: 11px;
+}
+
+.developer-mode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 13px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: rgb(255 254 250 / 58%);
+}
+
+.developer-mode__copy {
+  min-width: 0;
+}
+
+.developer-mode__copy strong {
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.developer-mode__copy p {
+  margin: 5px 0 0;
+  color: var(--ink-faint);
+  font-size: 10.5px;
+  line-height: 1.6;
+}
+
+.developer-mode__toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-width: 76px;
+  padding: 5px 8px 5px 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.developer-mode__toggle:hover:not(:disabled) {
+  border-color: var(--ink-ghost);
+  color: var(--ink-soft);
+}
+
+.developer-mode__toggle--enabled {
+  border-color: #c9d6cb;
+  background: var(--moss-soft);
+  color: var(--moss);
+}
+
+.developer-mode__toggle:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.developer-mode__toggle:focus-visible {
+  outline: 2px solid var(--moss);
+  outline-offset: 2px;
+}
+
+.developer-mode__track {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--line);
+  transition: background-color 180ms ease;
+}
+
+.developer-mode__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--paper-raised);
+  box-shadow: 0 1px 3px rgb(44 35 23 / 18%);
+  transition: transform 180ms var(--ease-out);
+}
+
+.developer-mode__toggle--enabled .developer-mode__track {
+  background: var(--moss);
+}
+
+.developer-mode__toggle--enabled .developer-mode__thumb {
+  transform: translateX(12px);
+}
+
+.developer-prompts {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: rgb(255 254 250 / 58%);
+}
+
+.developer-prompts__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.developer-prompts__heading strong {
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.developer-prompts__heading p {
+  margin: 5px 0 0;
+  color: var(--ink-faint);
+  font-size: 10.5px;
+  line-height: 1.6;
+}
+
+.developer-prompts__heading > span,
+.developer-prompts__saved {
+  flex: none;
+  color: var(--moss);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.developer-prompts__saved {
+  display: inline-block;
+  margin-top: 10px;
+}
+
+.developer-prompts__editor {
+  width: 100%;
+  min-height: 280px;
+  margin-top: 10px;
+  padding: 12px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgb(255 254 250 / 82%);
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  line-height: 1.55;
+  tab-size: 2;
+}
+
+.developer-prompts__editor:focus-visible {
+  outline: 2px solid var(--moss);
+  outline-offset: 2px;
+}
+
+.developer-prompts__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
 }
 
 .settings-data {

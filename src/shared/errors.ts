@@ -25,6 +25,9 @@ export const APP_ERROR_CODES = [
   'PROVIDER_TIMEOUT',
   'PROVIDER_REQUEST_FAILED',
   'PROVIDER_TEST_FAILED',
+  'DEVELOPER_MODE_REQUIRED',
+  'INVALID_PROMPT_PROFILE',
+  'PROMPT_PROFILE_TOO_LARGE',
   'UNKNOWN_ERROR',
 ] as const;
 
@@ -57,5 +60,8 @@ export const ERROR_MESSAGE_KEYS = {
   PROVIDER_TIMEOUT: 'errors.providerTimeout',
   PROVIDER_REQUEST_FAILED: 'errors.providerRequestFailed',
   PROVIDER_TEST_FAILED: 'errors.providerTestFailed',
+  DEVELOPER_MODE_REQUIRED: 'errors.developerModeRequired',
+  INVALID_PROMPT_PROFILE: 'errors.invalidPromptProfile',
+  PROMPT_PROFILE_TOO_LARGE: 'errors.promptProfileTooLarge',
   UNKNOWN_ERROR: 'errors.unknown',
 } as const satisfies Record<AppErrorCode, string>;

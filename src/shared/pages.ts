@@ -1,5 +1,7 @@
 import type { AppErrorCode } from './errors.ts';
+import type { DeveloperPromptsBridge } from './prompts.ts';
 import type { ProviderBridge } from './providers.ts';
+import type { SettingsBridge } from './settings.ts';
 
 export type PageLifecycleStatus = 'reading' | 'closed';
 
@@ -148,7 +150,8 @@ export const TEACHER_CHANNELS = {
   done: 'teacher:done',
 } as const;
 
-export interface TapAlongBridge extends ProviderBridge {
+export interface TapAlongBridge
+  extends ProviderBridge, SettingsBridge, DeveloperPromptsBridge {
   savePage?: (payload: SavePagePayload) => Promise<PageOperationResult>;
   getPage?: (pageId: number) => Promise<PageOperationResult>;
   listPages?: (payload: ListPagesPayload) => Promise<PageListResult>;

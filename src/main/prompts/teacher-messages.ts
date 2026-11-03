@@ -1,4 +1,5 @@
 import type { PageSnapshot } from '../../shared/pages.ts';
+import type { PromptCatalogValues } from '../../shared/prompts.ts';
 import { PROMPT_CATALOG } from './catalog.ts';
 import {
   buildCompressedPageContext,
@@ -38,37 +39,39 @@ const normalizeCompressedPages = (pages: CompressedPagePrompt[]) => {
     });
 };
 
-const buildCompressedContextMessages = (pages: CompressedPagePrompt[]) => {
+const toSystemMessage = (content: string): ChatMessage[] =>
+  content.trim() ? [{ role: 'system', content }] : [];
+
+const buildCompressedContextMessages = (
+  pages: CompressedPagePrompt[],
+  promptCatalog: PromptCatalogValues,
+) => {
   if (pages.length === 0) {
     return [];
   }
 
   return [
-    {
-      role: 'system' as const,
-      content: PROMPT_CATALOG.teacher.compressedContextPolicy,
-    },
+    ...toSystemMessage(promptCatalog.teacher.compressedContextPolicy),
     ...pages.map(
       (page): ChatMessage => ({
         role: 'system',
-        content: buildCompressedPageContext(page),
+        content: buildCompressedPageContext(page, promptCatalog),
       }),
     ),
-  ];
+  ].filter((message) => message.content.trim());
 };
 
-export const buildTeacherMessages = ({
-  page,
-  userText,
-  compressedPages = [],
-}: TeacherPromptInput): ChatMessage[] => {
+export const buildTeacherMessages = (
+  { page, userText, compressedPages = [] }: TeacherPromptInput,
+  promptCatalog: PromptCatalogValues = PROMPT_CATALOG,
+): ChatMessage[] => {
   const normalizedCompressedPages = normalizeCompressedPages(compressedPages);
   const messages: ChatMessage[] = [
-    { role: 'system', content: PROMPT_CATALOG.teacher.system },
-    { role: 'system', content: PROMPT_CATALOG.teacher.languagePolicy },
-    { role: 'system', content: PROMPT_CATALOG.teacher.contextBoundary },
-    ...buildCompressedContextMessages(normalizedCompressedPages),
-    { role: 'system', content: buildCurrentPageContext(page) },
+    ...toSystemMessage(promptCatalog.teacher.system),
+    ...toSystemMessage(promptCatalog.teacher.languagePolicy),
+    ...toSystemMessage(promptCatalog.teacher.contextBoundary),
+    ...buildCompressedContextMessages(normalizedCompressedPages, promptCatalog),
+    ...toSystemMessage(buildCurrentPageContext(page, promptCatalog)),
     ...toPageMessages(page),
   ];
   const latest = messages.at(-1);
@@ -80,11 +83,16 @@ export const buildTeacherMessages = ({
   return messages;
 };
 
-export const buildResumeTeacherMessages = ({
-  page,
-  contextPage,
-  compressedPages = [],
-}: TeacherPromptInput & { contextPage: PageSnapshot }): ChatMessage[] => {
+export const buildResumeTeacherMessages = (
+  {
+    page,
+    contextPage,
+    compressedPages = [],
+  }: TeacherPromptInput & {
+    contextPage: PageSnapshot;
+  },
+  promptCatalog: PromptCatalogValues = PROMPT_CATALOG,
+): ChatMessage[] => {
   const targetMessages = toPageMessages(page);
   const normalizedCompressedPages = normalizeCompressedPages([
     ...compressedPages,
@@ -95,40 +103,42 @@ export const buildResumeTeacherMessages = ({
     },
   ]);
   const messages: ChatMessage[] = [
-    { role: 'system', content: PROMPT_CATALOG.teacher.system },
-    { role: 'system', content: PROMPT_CATALOG.teacher.languagePolicy },
-    { role: 'system', content: PROMPT_CATALOG.teacher.resume },
-    { role: 'system', content: PROMPT_CATALOG.teacher.contextBoundary },
-    ...buildCompressedContextMessages(normalizedCompressedPages),
-    {
-      role: 'system',
-      content: buildResumePageContext(page, 'targetPage'),
-    },
+    ...toSystemMessage(promptCatalog.teacher.system),
+    ...toSystemMessage(promptCatalog.teacher.languagePolicy),
+    ...toSystemMessage(promptCatalog.teacher.resume),
+    ...toSystemMessage(promptCatalog.teacher.contextBoundary),
+    ...buildCompressedContextMessages(normalizedCompressedPages, promptCatalog),
+    ...toSystemMessage(
+      buildResumePageContext(page, 'targetPage', promptCatalog),
+    ),
     ...targetMessages,
   ];
 
   return messages;
 };
 
-export const buildMaintenanceTeacherMessages = ({
-  page,
-  userText,
-  maintenanceKind,
-  compressedPages = [],
-}: TeacherPromptInput & {
-  maintenanceKind: 'edit' | 'append';
-}): ChatMessage[] => {
-  const action = PROMPT_CATALOG.teacher.maintenanceAction[maintenanceKind];
+export const buildMaintenanceTeacherMessages = (
+  {
+    page,
+    userText,
+    maintenanceKind,
+    compressedPages = [],
+  }: TeacherPromptInput & {
+    maintenanceKind: 'edit' | 'append';
+  },
+  promptCatalog: PromptCatalogValues = PROMPT_CATALOG,
+): ChatMessage[] => {
+  const action = promptCatalog.teacher.maintenanceAction[maintenanceKind];
   const normalizedCompressedPages = normalizeCompressedPages(compressedPages);
 
   return [
-    { role: 'system', content: PROMPT_CATALOG.teacher.system },
-    { role: 'system', content: PROMPT_CATALOG.teacher.languagePolicy },
-    { role: 'system', content: PROMPT_CATALOG.teacher.maintenance },
-    { role: 'system', content: action },
-    { role: 'system', content: PROMPT_CATALOG.teacher.contextBoundary },
-    ...buildCompressedContextMessages(normalizedCompressedPages),
-    { role: 'system', content: buildCurrentPageContext(page) },
+    ...toSystemMessage(promptCatalog.teacher.system),
+    ...toSystemMessage(promptCatalog.teacher.languagePolicy),
+    ...toSystemMessage(promptCatalog.teacher.maintenance),
+    ...toSystemMessage(action),
+    ...toSystemMessage(promptCatalog.teacher.contextBoundary),
+    ...buildCompressedContextMessages(normalizedCompressedPages, promptCatalog),
+    ...toSystemMessage(buildCurrentPageContext(page, promptCatalog)),
     ...toPageMessages(page),
     { role: 'user', content: userText },
   ];
@@ -136,20 +146,27 @@ export const buildMaintenanceTeacherMessages = ({
 
 export const composeTeacherMessages = (
   input: TeacherPromptInput,
+  promptCatalog: PromptCatalogValues = PROMPT_CATALOG,
 ): ChatMessage[] => {
   if (input.maintenanceKind) {
-    return buildMaintenanceTeacherMessages({
-      ...input,
-      maintenanceKind: input.maintenanceKind,
-    });
+    return buildMaintenanceTeacherMessages(
+      {
+        ...input,
+        maintenanceKind: input.maintenanceKind,
+      },
+      promptCatalog,
+    );
   }
 
   if (input.contextPage) {
-    return buildResumeTeacherMessages({
-      ...input,
-      contextPage: input.contextPage,
-    });
+    return buildResumeTeacherMessages(
+      {
+        ...input,
+        contextPage: input.contextPage,
+      },
+      promptCatalog,
+    );
   }
 
-  return buildTeacherMessages(input);
+  return buildTeacherMessages(input, promptCatalog);
 };
