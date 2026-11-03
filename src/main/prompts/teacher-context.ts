@@ -16,10 +16,16 @@ export const renderPromptTemplate = (
     return values[key] ?? placeholder;
   });
 
+export const escapePromptData = (value: string) =>
+  value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+
 export const buildCurrentPageContext = (page: PageSnapshot) =>
   renderPromptTemplate(PROMPT_CATALOG.teacher.context.currentPage, {
-    title: page.title,
-    body: page.body,
+    title: escapePromptData(page.title),
+    body: escapePromptData(page.body),
   });
 
 export const buildResumePageContext = (
@@ -27,8 +33,8 @@ export const buildResumePageContext = (
   kind: 'closedPage' | 'targetPage',
 ) =>
   renderPromptTemplate(PROMPT_CATALOG.teacher.context[kind], {
-    title: page.title,
-    body: page.body,
+    title: escapePromptData(page.title),
+    body: escapePromptData(page.body),
   });
 
 const toChatMessage = (message: PageMessageSnapshot): ChatMessage | null => {

@@ -6,4 +6,8 @@ export {
   composeTeacherMessages,
   type TeacherPromptInput,
 } from './teacher-messages.ts';
-export type { ChatMessage, ChatRole } from './teacher-context.ts';
+export {
+  escapePromptData,
+  type ChatMessage,
+  type ChatRole,
+} from './teacher-context.ts';
