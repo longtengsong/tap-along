@@ -1,6 +1,5 @@
 import type { AppErrorCode } from '../../shared/errors.ts';
-import type { PageMessageSnapshot, PageSnapshot } from '../../shared/pages.ts';
-import { PROMPT_CATALOG } from '../prompts/index.ts';
+import { composeTeacherMessages } from '../prompts/index.ts';
 import { buildChatCompletionsUrl } from './provider-connection.ts';
 import type {
   ProviderConfigService,
@@ -9,12 +8,6 @@ import type {
 import type { TeacherGenerator, TeacherGeneratorInput } from './teacher.ts';
 
 type FetchLike = typeof fetch;
-type ChatRole = 'system' | 'user' | 'assistant';
-
-interface ChatMessage {
-  role: ChatRole;
-  content: string;
-}
 
 interface TeacherStreamOptions {
   configService: Pick<ProviderConfigService, 'resolveActive'>;
@@ -65,114 +58,6 @@ const providerErrorCodeForStatus = (status: number): AppErrorCode => {
   }
 
   return 'PROVIDER_REQUEST_FAILED';
-};
-
-const renderPromptTemplate = (
-  template: string,
-  values: Record<string, string>,
-) =>
-  template.replace(/\{\{([^}]+)\}\}/g, (placeholder, key: string) => {
-    return values[key] ?? placeholder;
-  });
-
-const buildPageContext = (page: PageSnapshot) =>
-  renderPromptTemplate(PROMPT_CATALOG.teacher.context.currentPage, {
-    title: page.title,
-    body: page.body,
-  });
-
-const buildResumePageContext = (
-  page: PageSnapshot,
-  kind: 'closedPage' | 'targetPage',
-) =>
-  renderPromptTemplate(PROMPT_CATALOG.teacher.context[kind], {
-    title: page.title,
-    body: page.body,
-  });
-
-const toChatMessage = (message: PageMessageSnapshot): ChatMessage | null => {
-  if (!message.text.trim()) {
-    return null;
-  }
-
-  return {
-    role: message.role === 'teacher' ? 'assistant' : 'user',
-    content: message.text,
-  };
-};
-
-const toPageMessages = (page: PageSnapshot) =>
-  page.messages
-    .map(toChatMessage)
-    .filter((message): message is ChatMessage => message !== null);
-
-export const buildTeacherMessages = ({
-  page,
-  userText,
-}: TeacherGeneratorInput): ChatMessage[] => {
-  const messages: ChatMessage[] = [
-    { role: 'system', content: PROMPT_CATALOG.teacher.system },
-    { role: 'system', content: buildPageContext(page) },
-    ...toPageMessages(page),
-  ];
-  const latest = messages.at(-1);
-
-  if (latest?.role !== 'user' || latest.content !== userText) {
-    messages.push({ role: 'user', content: userText });
-  }
-
-  return messages;
-};
-
-export const buildResumeTeacherMessages = ({
-  page,
-  contextPage,
-  userText,
-}: TeacherGeneratorInput & { contextPage: PageSnapshot }): ChatMessage[] => {
-  const contextMessages = toPageMessages(contextPage);
-  const targetMessages = toPageMessages(page);
-  const messages: ChatMessage[] = [
-    { role: 'system', content: PROMPT_CATALOG.teacher.system },
-    { role: 'system', content: PROMPT_CATALOG.teacher.resume },
-    {
-      role: 'system',
-      content: buildResumePageContext(contextPage, 'closedPage'),
-    },
-    ...contextMessages,
-    {
-      role: 'system',
-      content: buildResumePageContext(page, 'targetPage'),
-    },
-    ...targetMessages,
-  ];
-
-  if (
-    !contextMessages.some((message) => message.role === 'user') &&
-    !targetMessages.some((message) => message.role === 'user')
-  ) {
-    messages.push({ role: 'user', content: userText });
-  }
-
-  return messages;
-};
-
-export const buildMaintenanceTeacherMessages = ({
-  page,
-  userText,
-  maintenanceKind,
-}: TeacherGeneratorInput & {
-  maintenanceKind: 'edit' | 'append';
-}): ChatMessage[] => {
-  const action = PROMPT_CATALOG.teacher.maintenanceAction[maintenanceKind];
-
-  return [
-    { role: 'system', content: PROMPT_CATALOG.teacher.system },
-    { role: 'system', content: PROMPT_CATALOG.teacher.maintenance },
-    { role: 'system', content: action },
-    { role: 'system', content: buildPageContext(page) },
-    ...toPageMessages(page),
-    { role: 'user', content: userText },
-  ];
 };
 
 const parseSseBlock = (block: string): { done: boolean; content?: string } => {
@@ -283,17 +168,7 @@ const streamProviderReply = async function* (
   }
 
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  const messages = input.maintenanceKind
-    ? buildMaintenanceTeacherMessages({
-        ...input,
-        maintenanceKind: input.maintenanceKind,
-      })
-    : input.contextPage
-      ? buildResumeTeacherMessages({
-          ...input,
-          contextPage: input.contextPage,
-        })
-      : buildTeacherMessages(input);
+  const messages = composeTeacherMessages(input);
 
   try {
     let response: Awaited<ReturnType<FetchLike>>;

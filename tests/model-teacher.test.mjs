@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createModelAwareTeacherStream } from '../src/main/services/model-teacher.ts';
 import {
   buildMaintenanceTeacherMessages,
   buildResumeTeacherMessages,
   buildTeacherMessages,
-  createModelAwareTeacherStream,
-} from '../src/main/services/model-teacher.ts';
-import { PROMPT_CATALOG } from '../src/main/prompts/index.ts';
+  PROMPT_CATALOG,
+} from '../src/main/prompts/index.ts';
 
 const providerConfig = {
   id: 'custom',

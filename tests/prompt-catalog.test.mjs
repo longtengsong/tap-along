@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { PROMPT_CATALOG, PROMPT_VERSION } from '../src/main/prompts/index.ts';
 import {
+  PROMPT_CATALOG,
+  PROMPT_VERSION,
   buildMaintenanceTeacherMessages,
   buildResumeTeacherMessages,
   buildTeacherMessages,
-} from '../src/main/services/model-teacher.ts';
+  composeTeacherMessages,
+} from '../src/main/prompts/index.ts';
 
 const promptPage = {
   id: 1,
@@ -114,6 +116,42 @@ test('Prompt 迁移后应保持既有消息内容指纹', () => {
       },
     ]),
     '69d250c1c6dbbb879b9ab15b1ad444b609af74b2878014992c313b18ec31ca15',
+  );
+});
+
+test('模式组装入口应保持现有模式优先级', () => {
+  const input = {
+    page: targetPage,
+    contextPage,
+    userText: '目标页想法。',
+    replyLanguage: 'zh-CN',
+  };
+
+  assert.deepEqual(
+    composeTeacherMessages(input),
+    buildResumeTeacherMessages(input),
+  );
+  assert.deepEqual(
+    composeTeacherMessages({
+      ...input,
+      userText: '修改后的想法。',
+      maintenanceKind: 'edit',
+    }),
+    buildMaintenanceTeacherMessages({
+      ...input,
+      userText: '修改后的想法。',
+      maintenanceKind: 'edit',
+    }),
+  );
+  assert.deepEqual(
+    composeTeacherMessages({
+      page: promptPage,
+      userText: '当前想法。',
+    }),
+    buildTeacherMessages({
+      page: promptPage,
+      userText: '当前想法。',
+    }),
   );
 });
 
