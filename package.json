@@ -22,6 +22,7 @@
     "test": "node --test --experimental-test-coverage --test-coverage-include=\"src/main/db/**/*.ts\" --test-coverage-include=\"src/main/ipc/**/*.ts\" --test-coverage-include=\"src/main/prompts/**/*.ts\" --test-coverage-include=\"src/main/services/**/*.ts\" --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 --test-reporter=./tests/reporters/chinese-reporter.mjs \"tests/**/*.test.mjs\"",
     "test:prompts": "node --test --test-reporter=./tests/reporters/chinese-reporter.mjs \"tests/prompt-evaluation.test.mjs\"",
     "test:unit": "node --test --test-reporter=./tests/reporters/chinese-reporter.mjs \"tests/**/*.test.mjs\"",
+    "eval:prompts": "node tools/prompts/eval-live.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devEngines": {
