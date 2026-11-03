@@ -6,11 +6,7 @@ import {
   buildTeacherMessages,
   createModelAwareTeacherStream,
 } from '../src/main/services/model-teacher.ts';
-import {
-  TEACHER_MAINTENANCE_PROMPT,
-  TEACHER_RESUME_PROMPT,
-  TEACHER_SYSTEM_PROMPT,
-} from '../src/main/services/teacher-prompt.ts';
+import { PROMPT_CATALOG } from '../src/main/prompts/index.ts';
 
 const providerConfig = {
   id: 'custom',
@@ -101,7 +97,7 @@ test('模型消息应包含页面上下文、历史角色和最新一次用户�
 
   assert.deepEqual(messages[0], {
     role: 'system',
-    content: TEACHER_SYSTEM_PROMPT,
+    content: PROMPT_CATALOG.teacher.system,
   });
   assert.match(messages[1].content, /注意力与带宽/);
   assert.match(messages[1].content, /注意力是一种有限资源/);
@@ -159,11 +155,11 @@ test('跨页模型消息应依次包含上下文页、目标页和真实用户�
 
   assert.deepEqual(messages[0], {
     role: 'system',
-    content: TEACHER_SYSTEM_PROMPT,
+    content: PROMPT_CATALOG.teacher.system,
   });
   assert.deepEqual(messages[1], {
     role: 'system',
-    content: TEACHER_RESUME_PROMPT,
+    content: PROMPT_CATALOG.teacher.resume,
   });
   assert.match(messages[2].content, /recently closed context page/);
   assert.match(messages[2].content, /有限的注意力/);
@@ -207,11 +203,11 @@ test('维护模型消息应区分编辑和补一句并保留最新用户内容',
 
   assert.deepEqual(editMessages[0], {
     role: 'system',
-    content: TEACHER_SYSTEM_PROMPT,
+    content: PROMPT_CATALOG.teacher.system,
   });
   assert.deepEqual(editMessages[1], {
     role: 'system',
-    content: TEACHER_MAINTENANCE_PROMPT,
+    content: PROMPT_CATALOG.teacher.maintenance,
   });
   assert.match(editMessages[2].content, /edited the current note/);
   assert.match(editMessages[3].content, /注意力与带宽/);
@@ -271,7 +267,7 @@ test('已配置供应商应通过 SSE 流式返回模型增量内容', async () 
   const requestBody = JSON.parse(requestOptions.body);
   assert.equal(requestBody.model, 'reading-model');
   assert.equal(requestBody.stream, true);
-  assert.equal(requestBody.messages[0].content, TEACHER_SYSTEM_PROMPT);
+  assert.equal(requestBody.messages[0].content, PROMPT_CATALOG.teacher.system);
   assert.match(requestBody.messages[1].content, /注意力与带宽/);
   assert.deepEqual(requestBody.messages.at(-1), {
     role: 'user',
@@ -377,7 +373,7 @@ test('跨页回问应调用激活模型并发送双页 Prompt', async () => {
     ['两页之间'],
   );
   const requestBody = JSON.parse(requestOptions.body);
-  assert.equal(requestBody.messages[1].content, TEACHER_RESUME_PROMPT);
+  assert.equal(requestBody.messages[1].content, PROMPT_CATALOG.teacher.resume);
   assert.match(JSON.stringify(requestBody.messages), /上下文页想法/);
   assert.match(JSON.stringify(requestBody.messages), /目标页想法/);
   assert.equal(requestOptions.body.includes(providerConfig.apiKey), false);
@@ -424,7 +420,7 @@ test('编辑和补一句维护流程都应调用激活模型', async () => {
   assert.equal(requestBodies.length, 2);
   assert.equal(
     requestBodies[0].messages[1].content,
-    TEACHER_MAINTENANCE_PROMPT,
+    PROMPT_CATALOG.teacher.maintenance,
   );
   assert.match(requestBodies[0].messages[2].content, /edited the current note/);
   assert.match(requestBodies[1].messages[2].content, /appended a new thought/);

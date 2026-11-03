@@ -1,4 +1,5 @@
 import type { ProviderConnectionResult } from '../../shared/providers.ts';
+import { PROMPT_CATALOG } from '../prompts/index.ts';
 import type {
   ProviderConfigService,
   ProviderRuntimeConfig,
@@ -38,7 +39,12 @@ export class ProviderConnectionTester {
           },
           body: JSON.stringify({
             model: config.model,
-            messages: [{ role: 'user', content: 'Reply with OK.' }],
+            messages: [
+              {
+                role: 'user',
+                content: PROMPT_CATALOG.provider.connectionTest,
+              },
+            ],
             max_tokens: 1,
             stream: false,
           }),

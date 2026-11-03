@@ -6,11 +6,7 @@ import {
   findRecentLanguage,
   resolveMockReplyLanguage,
 } from '../src/shared/conversation-language.ts';
-import {
-  TEACHER_MAINTENANCE_PROMPT,
-  TEACHER_RESUME_PROMPT,
-  TEACHER_SYSTEM_PROMPT,
-} from '../src/main/services/teacher-prompt.ts';
+import { PROMPT_CATALOG } from '../src/main/prompts/index.ts';
 
 test('语言检测应识别中文、英文、其他文字和无语言信号', () => {
   assert.equal(detectLatestLanguage('这个问题怎么理解？'), 'zh');
@@ -44,16 +40,28 @@ test('关键词提取应保留各语言的自然词序', () => {
 });
 
 test('真实模型 Prompt 应要求跟随最新用户语言并中文优先', () => {
-  assert.match(TEACHER_SYSTEM_PROMPT, /asking one concise, genuine/);
-  assert.match(TEACHER_SYSTEM_PROMPT, /Do not summarize, explain concepts/);
-  assert.match(TEACHER_SYSTEM_PROMPT, /latest user message/);
-  assert.match(TEACHER_SYSTEM_PROMPT, /both Chinese and English/);
-  assert.match(TEACHER_SYSTEM_PROMPT, /respond in Chinese/);
-  assert.match(TEACHER_SYSTEM_PROMPT, /overrides the language/);
-  assert.match(TEACHER_SYSTEM_PROMPT, /Do not use the application UI language/);
-  assert.match(TEACHER_RESUME_PROMPT, /recently closed context page/);
-  assert.match(TEACHER_RESUME_PROMPT, /most recent meaningful user-authored/);
-  assert.match(TEACHER_MAINTENANCE_PROMPT, /action is an edit/);
-  assert.match(TEACHER_MAINTENANCE_PROMPT, /action is an append/);
-  assert.match(TEACHER_MAINTENANCE_PROMPT, /latest meaningful user-authored/);
+  assert.match(PROMPT_CATALOG.teacher.system, /asking one concise, genuine/);
+  assert.match(
+    PROMPT_CATALOG.teacher.system,
+    /Do not summarize, explain concepts/,
+  );
+  assert.match(PROMPT_CATALOG.teacher.system, /latest user message/);
+  assert.match(PROMPT_CATALOG.teacher.system, /both Chinese and English/);
+  assert.match(PROMPT_CATALOG.teacher.system, /respond in Chinese/);
+  assert.match(PROMPT_CATALOG.teacher.system, /overrides the language/);
+  assert.match(
+    PROMPT_CATALOG.teacher.system,
+    /Do not use the application UI language/,
+  );
+  assert.match(PROMPT_CATALOG.teacher.resume, /recently closed context page/);
+  assert.match(
+    PROMPT_CATALOG.teacher.resume,
+    /most recent meaningful user-authored/,
+  );
+  assert.match(PROMPT_CATALOG.teacher.maintenance, /action is an edit/);
+  assert.match(PROMPT_CATALOG.teacher.maintenance, /action is an append/);
+  assert.match(
+    PROMPT_CATALOG.teacher.maintenance,
+    /latest meaningful user-authored/,
+  );
 });
