@@ -55,7 +55,7 @@ test('真实模型 Prompt 应要求跟随最新用户语言并中文优先', () 
     PROMPT_CATALOG.teacher.languagePolicy,
     /Do not use the application UI language/,
   );
-  assert.match(PROMPT_CATALOG.teacher.resume, /recently closed context page/);
+  assert.match(PROMPT_CATALOG.teacher.resume, /body-only compressed context/);
   assert.doesNotMatch(PROMPT_CATALOG.teacher.resume, /respond in Chinese/);
   assert.match(PROMPT_CATALOG.teacher.maintenance, /action is an edit/);
   assert.match(PROMPT_CATALOG.teacher.maintenance, /action is an append/);

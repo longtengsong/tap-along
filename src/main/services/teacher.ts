@@ -16,6 +16,7 @@ import {
 } from '../../shared/conversation-language.ts';
 import { translateFixedMessage } from '../../i18n/fixed-messages.ts';
 import type { PagesRepository } from '../db/pages.ts';
+import type { CompressedPagePrompt } from '../prompts/index.ts';
 import { getTeacherFailureCode } from './model-teacher.ts';
 
 export interface TeacherGeneratorInput {
@@ -23,6 +24,7 @@ export interface TeacherGeneratorInput {
   userText: string;
   replyLanguage: ReplyLanguage;
   contextPage?: PageSnapshot;
+  compressedPages?: CompressedPagePrompt[];
   maintenanceKind?: 'edit' | 'append';
   signal?: AbortSignal;
 }
@@ -43,6 +45,15 @@ type TeacherEventEmitter = (
 interface ActiveTeacherRequest {
   controller: AbortController;
 }
+
+type TeacherRepository = Pick<
+  PagesRepository,
+  | 'beginTeacherTurn'
+  | 'completeTeacherTurn'
+  | 'findById'
+  | 'appendTeacherPrompt'
+> &
+  Partial<Pick<PagesRepository, 'listClosedDescendantBodies'>>;
 
 const wait = (duration: number) =>
   new Promise((resolve) => setTimeout(resolve, duration));
@@ -270,27 +281,32 @@ export const createMockTeacherStream: TeacherGenerator = async function* ({
 
 export class TeacherService {
   private readonly activeRequests = new Map<string, ActiveTeacherRequest>();
-  private readonly repository: Pick<
-    PagesRepository,
-    | 'beginTeacherTurn'
-    | 'completeTeacherTurn'
-    | 'findById'
-    | 'appendTeacherPrompt'
-  >;
+  private readonly repository: TeacherRepository;
   private readonly generate: TeacherGenerator;
 
   constructor(
-    repository: Pick<
-      PagesRepository,
-      | 'beginTeacherTurn'
-      | 'completeTeacherTurn'
-      | 'findById'
-      | 'appendTeacherPrompt'
-    >,
+    repository: TeacherRepository,
     generate: TeacherGenerator = createMockTeacherStream,
   ) {
     this.repository = repository;
     this.generate = generate;
+  }
+
+  private getCompressedPages(
+    pageId: number,
+    includeSelf: boolean,
+    fallback?: PageSnapshot,
+  ): CompressedPagePrompt[] {
+    const pages =
+      this.repository.listClosedDescendantBodies?.(pageId, includeSelf) ?? [];
+
+    if (pages.length > 0) {
+      return pages;
+    }
+
+    return fallback
+      ? [{ pageId: fallback.id, body: fallback.body, depth: 0 }]
+      : [];
   }
 
   cancel(payload: unknown): TeacherCancelResult {
@@ -368,6 +384,21 @@ export class TeacherService {
       };
     }
 
+    let compressedPages: CompressedPagePrompt[];
+
+    try {
+      compressedPages = this.getCompressedPages(page.id, false);
+    } catch (error) {
+      console.error('读取已合上后代页面失败：', error);
+      return {
+        result: {
+          ok: false,
+          requestId: input.requestId,
+          errorCode: 'TEACHER_NO_RESPONSE',
+        },
+      };
+    }
+
     const active: ActiveTeacherRequest = { controller: new AbortController() };
     this.activeRequests.set(input.requestId, active);
     const completion = this.streamResponse(
@@ -375,6 +406,7 @@ export class TeacherService {
       input,
       emit,
       active.controller.signal,
+      compressedPages,
     ).finally(() => {
       if (this.activeRequests.get(input.requestId) === active) {
         this.activeRequests.delete(input.requestId);
@@ -466,6 +498,25 @@ export class TeacherService {
       };
     }
 
+    let compressedPages: CompressedPagePrompt[];
+
+    try {
+      compressedPages = this.getCompressedPages(
+        contextPage.id,
+        true,
+        contextPage,
+      );
+    } catch (error) {
+      console.error('读取跨页后代正文失败：', error);
+      return {
+        result: {
+          ok: false,
+          requestId: input.requestId,
+          errorCode: 'TEACHER_NO_RESPONSE',
+        },
+      };
+    }
+
     const active: ActiveTeacherRequest = { controller: new AbortController() };
     this.activeRequests.set(input.requestId, active);
     const completion = this.streamResume(
@@ -474,6 +525,7 @@ export class TeacherService {
       input,
       emit,
       active.controller.signal,
+      compressedPages,
     ).finally(() => {
       if (this.activeRequests.get(input.requestId) === active) {
         this.activeRequests.delete(input.requestId);
@@ -553,6 +605,21 @@ export class TeacherService {
       };
     }
 
+    let compressedPages: CompressedPagePrompt[];
+
+    try {
+      compressedPages = this.getCompressedPages(page.id, false);
+    } catch (error) {
+      console.error('读取维护页后代正文失败：', error);
+      return {
+        result: {
+          ok: false,
+          requestId: input.requestId,
+          errorCode: 'TEACHER_NO_RESPONSE',
+        },
+      };
+    }
+
     const previousUserTexts = page.messages
       .filter((message) => message.role === 'user')
       .map((message) => message.text);
@@ -569,6 +636,7 @@ export class TeacherService {
       replyLanguage,
       emit,
       active.controller.signal,
+      compressedPages,
     ).finally(() => {
       if (this.activeRequests.get(input.requestId) === active) {
         this.activeRequests.delete(input.requestId);
@@ -587,6 +655,7 @@ export class TeacherService {
     replyLanguage: ReplyLanguage,
     emit: TeacherEventEmitter,
     signal: AbortSignal,
+    compressedPages: CompressedPagePrompt[],
   ): Promise<TeacherDoneEvent> {
     let reply = '';
 
@@ -596,6 +665,7 @@ export class TeacherService {
         page,
         userText: input.triggerText,
         replyLanguage,
+        compressedPages,
         maintenanceKind: input.kind,
         signal,
       })) {
@@ -663,19 +733,17 @@ export class TeacherService {
     input: TeacherResumePayload,
     emit: TeacherEventEmitter,
     signal: AbortSignal,
+    compressedPages: CompressedPagePrompt[],
   ): Promise<TeacherDoneEvent> {
     let reply = '';
-    const contextUserTexts = contextPage.messages
-      .filter((message) => message.role === 'user')
-      .map((message) => message.text);
     const targetUserTexts = targetPage.messages
       .filter((message) => message.role === 'user')
       .map((message) => message.text);
-    const latestUserText = contextUserTexts.at(-1) ?? contextPage.body;
+    const latestUserText = targetUserTexts.at(-1) ?? targetPage.body;
     const replyLanguage = resolveMockReplyLanguage(latestUserText, [
       targetPage.body,
-      ...targetUserTexts,
-      ...contextUserTexts.slice(0, -1),
+      ...targetUserTexts.slice(0, -1),
+      ...compressedPages.map((page) => page.body).reverse(),
     ]);
 
     try {
@@ -685,6 +753,7 @@ export class TeacherService {
         contextPage,
         userText: latestUserText,
         replyLanguage,
+        compressedPages,
         signal,
       })) {
         throwIfCancelled(signal);
@@ -750,6 +819,7 @@ export class TeacherService {
     input: TeacherAskPayload,
     emit: TeacherEventEmitter,
     signal: AbortSignal,
+    compressedPages: CompressedPagePrompt[],
   ): Promise<TeacherDoneEvent> {
     let reply = '';
     const previousUserTexts = page.messages
@@ -769,6 +839,7 @@ export class TeacherService {
         page,
         userText: input.userText,
         replyLanguage,
+        compressedPages,
         signal,
       })) {
         throwIfCancelled(signal);

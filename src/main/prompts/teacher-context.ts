@@ -8,6 +8,12 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface CompressedPagePrompt {
+  pageId: number;
+  body: string;
+  depth: number;
+}
+
 export const renderPromptTemplate = (
   template: string,
   values: Record<string, string>,
@@ -30,11 +36,20 @@ export const buildCurrentPageContext = (page: PageSnapshot) =>
 
 export const buildResumePageContext = (
   page: PageSnapshot,
-  kind: 'closedPage' | 'targetPage',
+  kind: 'targetPage',
 ) =>
   renderPromptTemplate(PROMPT_CATALOG.teacher.context[kind], {
     title: escapePromptData(page.title),
     body: escapePromptData(page.body),
+  });
+
+export const buildCompressedPageContext = ({
+  body,
+  depth,
+}: CompressedPagePrompt) =>
+  renderPromptTemplate(PROMPT_CATALOG.teacher.context.closedPage, {
+    depth: String(depth),
+    body: escapePromptData(body),
   });
 
 const toChatMessage = (message: PageMessageSnapshot): ChatMessage | null => {

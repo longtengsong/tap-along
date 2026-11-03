@@ -10,4 +10,5 @@ export {
   escapePromptData,
   type ChatMessage,
   type ChatRole,
+  type CompressedPagePrompt,
 } from './teacher-context.ts';

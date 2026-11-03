@@ -1,5 +1,5 @@
 {
-  "promptVersion": "teacher-v1.2.0",
+  "promptVersion": "teacher-v1.3.0",
   "pages": {
     "attention": {
       "id": 1,
@@ -48,6 +48,22 @@
           "role": "user",
           "text": "上下文中的最后一个想法。",
           "requestId": "c1"
+        }
+      ]
+    },
+    "deep": {
+      "id": 7,
+      "title": "更深一层的注意力",
+      "body": "更深一层的已合上正文。",
+      "source": "更早一页",
+      "status": "closed",
+      "parseStatus": "done",
+      "teachingRoundCount": 1,
+      "messages": [
+        {
+          "role": "user",
+          "text": "这段讨论历史不能发送。",
+          "requestId": "d1"
         }
       ]
     },
@@ -276,8 +292,20 @@
       "mode": "resume",
       "page": "target",
       "contextPage": "closed",
+      "compressedPages": [
+        {
+          "pageId": 3,
+          "body": "注意力需要主动分配。",
+          "depth": 0
+        },
+        {
+          "pageId": 7,
+          "body": "更深一层的已合上正文。",
+          "depth": 1
+        }
+      ],
       "userText": "Target page thought.",
-      "messageDigest": "cd87f64dbccb748fac98f8d507382ce3778a199b5e9d8997a78dbba4ecd5333d",
+      "messageDigest": "512c4083ff82e9f410199b99ffe288b58697fcc1237f58876d17b6f842faa81a",
       "expected": {
         "language": "en",
         "requiredTerms": ["attention"]

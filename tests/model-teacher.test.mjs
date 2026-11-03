@@ -138,7 +138,7 @@ test('模型消息应包含页面上下文、历史角色和最新一次用户�
   assert.equal(withoutEmptyMessages.length, 5);
 });
 
-test('跨页模型消息应依次包含上下文页、目标页和真实用户语言内容', () => {
+test('跨页模型消息应只包含上下文正文、目标页和目标页真实对谈', () => {
   const contextPage = {
     ...createPage([
       { role: 'user', text: '上下文页里的最后想法。' },
@@ -178,16 +178,24 @@ test('跨页模型消息应依次包含上下文页、目标页和真实用户�
     role: 'system',
     content: PROMPT_CATALOG.teacher.contextBoundary,
   });
-  assert.match(messages[4].content, /role="closed_context"/);
-  assert.match(messages[4].content, /有限的注意力/);
-  assert.match(messages[4].content, /注意力需要主动分配/);
-  assert.deepEqual(messages.slice(5, 7), [
-    { role: 'user', content: '上下文页里的最后想法。' },
-    { role: 'assistant', content: '上下文页里的老师问题？' },
-  ]);
-  assert.match(messages[7].content, /role="target"/);
-  assert.match(messages[7].content, /注意力与任务/);
-  assert.match(messages[7].content, /任务会牵引注意力/);
+  assert.deepEqual(messages[4], {
+    role: 'system',
+    content: PROMPT_CATALOG.teacher.compressedContextPolicy,
+  });
+  assert.match(messages[5].content, /role="closed_context" depth="0"/);
+  assert.doesNotMatch(messages[5].content, /有限的注意力/);
+  assert.match(messages[5].content, /注意力需要主动分配/);
+  assert.match(messages[6].content, /role="target"/);
+  assert.match(messages[6].content, /注意力与任务/);
+  assert.match(messages[6].content, /任务会牵引注意力/);
+  assert.equal(
+    JSON.stringify(messages).includes('上下文页里的最后想法。'),
+    false,
+  );
+  assert.equal(
+    JSON.stringify(messages).includes('上下文页里的老师问题？'),
+    false,
+  );
   assert.deepEqual(messages.at(-1), {
     role: 'user',
     content: '目标页里的当前想法。',
@@ -199,10 +207,10 @@ test('跨页模型消息应依次包含上下文页、目标页和真实用户�
     userText: '仅有正文时的上下文。',
     replyLanguage: 'zh-CN',
   });
-  assert.deepEqual(withoutUserMessages.at(-1), {
-    role: 'user',
-    content: '仅有正文时的上下文。',
-  });
+  assert.equal(
+    JSON.stringify(withoutUserMessages).includes('仅有正文时的上下文。'),
+    false,
+  );
 });
 
 test('维护模型消息应区分编辑和补一句并保留最新用户内容', () => {
@@ -376,7 +384,7 @@ test('未配置激活供应商时问答、跨页回问和维护都应回退本�
   assert.equal(fallbackCalls.length, 3);
 });
 
-test('跨页回问应调用激活模型并发送双页 Prompt', async () => {
+test('跨页回问应调用激活模型并只发送上下文页正文', async () => {
   let requestOptions;
   const fallbackCalls = [];
   const generator = createGenerator({
@@ -408,7 +416,8 @@ test('跨页回问应调用激活模型并发送双页 Prompt', async () => {
   );
   const requestBody = JSON.parse(requestOptions.body);
   assert.equal(requestBody.messages[2].content, PROMPT_CATALOG.teacher.resume);
-  assert.match(JSON.stringify(requestBody.messages), /上下文页想法/);
+  assert.match(JSON.stringify(requestBody.messages), /注意力是一种有限资源/);
+  assert.doesNotMatch(JSON.stringify(requestBody.messages), /上下文页想法/);
   assert.match(JSON.stringify(requestBody.messages), /目标页想法/);
   assert.equal(requestOptions.body.includes(providerConfig.apiKey), false);
   assert.equal(fallbackCalls.length, 0);

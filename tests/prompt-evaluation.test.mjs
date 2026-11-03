@@ -30,6 +30,7 @@ const buildMessages = (testCase) => {
       ? fixture.pages[testCase.contextPage]
       : undefined,
     userText: testCase.userText,
+    compressedPages: testCase.compressedPages,
     maintenanceKind,
   });
 };
@@ -75,12 +76,24 @@ test('每个评测场景应构造正确的 Prompt 数据边界和模式', async 
 
       assert.equal(boundaryCount, 1);
       assert.equal(languageCount, 1);
-      assert.equal(pageBlocks.length, testCase.mode === 'resume' ? 2 : 1);
+      assert.equal(
+        pageBlocks.length,
+        1 +
+          (testCase.compressedPages?.length ??
+            (testCase.mode === 'resume' ? 1 : 0)),
+      );
       assert.equal(digest(messages), testCase.messageDigest);
 
       if (testCase.mode === 'resume') {
         assert.match(pageBlocks[0].content, /role="closed_context"/);
-        assert.match(pageBlocks[1].content, /role="target"/);
+        assert.match(pageBlocks.at(-1).content, /role="target"/);
+        assert.equal(
+          pageBlocks
+            .slice(0, -1)
+            .every((block) => block.content.includes('role="closed_context"')),
+          true,
+        );
+        assert.doesNotMatch(serialized, /这段讨论历史不能发送/);
         assert.ok(
           messages.some(
             (message) => message.content === PROMPT_CATALOG.teacher.resume,

@@ -214,6 +214,136 @@ test('跨页回问应使用激活模型生成问题并保留目标页轮次', as
   assert.equal(events.at(-1).ok, true);
 });
 
+test('多层页叠应在后续请求中持续携带后代正文且不发送讨论', async (t) => {
+  const encoder = new TextEncoder();
+  const requestBodies = [];
+  const generator = createModelAwareTeacherStream({
+    configService: {
+      resolveActive: async () => ({
+        ok: true,
+        config: {
+          id: 'custom',
+          baseUrl: 'https://models.example.com/v1',
+          model: 'reading-model',
+          apiKey: 'sk-lineage-private-key',
+        },
+      }),
+    },
+    fallback: async function* () {
+      yield '不应使用本地回退';
+    },
+    fetchImpl: async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return {
+        ok: true,
+        status: 200,
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              encoder.encode(
+                'data: {"choices":[{"delta":{"content":"模型问题？"}}]}\n\n',
+              ),
+            );
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+            controller.close();
+          },
+        }),
+      };
+    },
+  });
+  const {
+    page: pageA,
+    repository,
+    service,
+  } = await createTeacherFixture(t, generator);
+  const pageB = repository.create(
+    'B 的正文。',
+    'B 来源秘密',
+    undefined,
+    pageA.id,
+  );
+  repository.beginTeacherTurn(pageB.id, 'B 用户讨论秘密。', 'b-user');
+  repository.completeTeacherTurn(pageB.id, 'B 老师讨论秘密？', false, 'b-user');
+  const pageC = repository.create(
+    'C 的正文。',
+    'C 来源秘密',
+    undefined,
+    pageB.id,
+  );
+  repository.beginTeacherTurn(pageC.id, 'C 用户讨论秘密。', 'c-user');
+  repository.completeTeacherTurn(pageC.id, 'C 老师讨论秘密？', false, 'c-user');
+  repository.closePage(pageC.id, 'close-lineage-c');
+  repository.closePage(pageB.id, 'close-lineage-b');
+
+  const resume = service.startResume(
+    {
+      targetPageId: pageA.id,
+      contextPageId: pageB.id,
+      requestId: 'lineage-resume',
+    },
+    () => {},
+  );
+  await resume.completion;
+
+  const ask = service.start(
+    {
+      pageId: pageA.id,
+      userText: '继续讨论 A。',
+      requestId: 'lineage-ask',
+    },
+    () => {},
+  );
+  await ask.completion;
+
+  const edit = service.startMaintenance(
+    {
+      pageId: pageA.id,
+      kind: 'edit',
+      triggerText: 'A 的修改内容。',
+      requestId: 'lineage-edit',
+    },
+    () => {},
+  );
+  await edit.completion;
+
+  const append = service.startMaintenance(
+    {
+      pageId: pageA.id,
+      kind: 'append',
+      triggerText: 'A 的补充内容。',
+      requestId: 'lineage-append',
+    },
+    () => {},
+  );
+  await append.completion;
+
+  assert.equal(requestBodies.length, 4);
+
+  for (const requestBody of requestBodies) {
+    const serialized = JSON.stringify(requestBody.messages);
+    const compressedBlocks = requestBody.messages.filter((message) =>
+      message.content.startsWith('<study_page role="closed_context"'),
+    );
+
+    assert.equal(compressedBlocks.length, 2);
+    assert.match(serialized, /B 的正文/);
+    assert.match(serialized, /C 的正文/);
+    assert.doesNotMatch(serialized, /B 用户讨论秘密/);
+    assert.doesNotMatch(serialized, /B 老师讨论秘密/);
+    assert.doesNotMatch(serialized, /C 用户讨论秘密/);
+    assert.doesNotMatch(serialized, /C 老师讨论秘密/);
+    assert.doesNotMatch(serialized, /B 来源秘密/);
+    assert.doesNotMatch(serialized, /C 来源秘密/);
+    assert.equal(
+      requestBody.messages.filter(
+        (message) =>
+          message.content === PROMPT_CATALOG.teacher.compressedContextPolicy,
+      ).length,
+      1,
+    );
+  }
+});
+
 test('编辑和补一句维护应使用激活模型并持久化回应', async (t) => {
   const cases = [
     {
@@ -861,9 +991,9 @@ test('跨页回问应使用已合上页上下文并写入目标页', async (t) =
   assert.equal(done.ok, true);
   assert.match(
     done.reply,
-    /In "Attention is", you wrote about "Attention is a limited resource"/,
+    /你刚才在“Attention is”里写到“Attention is a limited resource”/,
   );
-  assert.doesNotMatch(done.reply, /你刚才在/);
+  assert.doesNotMatch(done.reply, /In "Attention is"/);
 
   const target = repository.findById(page.id);
   assert.equal(target.teachingRoundCount, 0);
@@ -1076,7 +1206,7 @@ test('跨页回问应处理数据库读取和写入异常', async (t) => {
   assert.equal(done.errorCode, 'TEACHER_NO_RESPONSE');
 });
 
-test('跨页回问应把两页最近用户内容传给生成器', async (t) => {
+test('跨页回问应把目标页用户内容和上下文页正文传给生成器', async (t) => {
   let receivedInput;
   const { page, repository, service } = await createTeacherFixture(
     t,
@@ -1105,8 +1235,11 @@ test('跨页回问应把两页最近用户内容传给生成器', async (t) => {
   await outcome.completion;
 
   assert.equal(receivedInput.contextPage.id, contextPage.id);
-  assert.equal(receivedInput.userText, 'Latest English context thought.');
-  assert.equal(receivedInput.replyLanguage, 'en');
+  assert.equal(receivedInput.userText, '目标页的中文补充。');
+  assert.equal(receivedInput.replyLanguage, 'zh-CN');
+  assert.deepEqual(receivedInput.compressedPages, [
+    { pageId: contextPage.id, body: '另一个页边。', depth: 0 },
+  ]);
   assert.ok(
     receivedInput.page.messages.some(
       (message) => message.text === '目标页的中文补充。',
