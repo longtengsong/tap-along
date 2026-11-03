@@ -13,6 +13,7 @@ const emit = defineEmits<{
   backToEdit: [];
   retrySave: [];
   retryTeacher: [];
+  openSettings: [];
 }>();
 </script>
 
@@ -29,6 +30,7 @@ const emit = defineEmits<{
       v-else-if="overlay === 'teacher-no-response'"
       :message="errorMessage"
       @retry="emit('retryTeacher')"
+      @open-settings="emit('openSettings')"
     />
   </Transition>
 </template>

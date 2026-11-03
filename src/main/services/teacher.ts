@@ -14,6 +14,7 @@ import {
 } from '../../shared/conversation-language.ts';
 import { translateFixedMessage } from '../../i18n/fixed-messages.ts';
 import type { PagesRepository } from '../db/pages.ts';
+import { getTeacherFailureCode } from './model-teacher.ts';
 
 export interface TeacherGeneratorInput {
   page: PageSnapshot;
@@ -574,7 +575,7 @@ export class TeacherService {
         ok: false,
         pageId: page.id,
         requestId: input.requestId,
-        errorCode: 'TEACHER_NO_RESPONSE',
+        errorCode: getTeacherFailureCode(error),
       };
       emit(failedEvent);
       return failedEvent;
@@ -649,7 +650,7 @@ export class TeacherService {
         ok: false,
         pageId: targetPage.id,
         requestId: input.requestId,
-        errorCode: 'TEACHER_NO_RESPONSE',
+        errorCode: getTeacherFailureCode(error),
       };
       emit(failedEvent);
       return failedEvent;
@@ -722,7 +723,7 @@ export class TeacherService {
         ok: false,
         pageId: input.pageId,
         requestId: input.requestId,
-        errorCode: 'TEACHER_NO_RESPONSE',
+        errorCode: getTeacherFailureCode(error),
       };
       emit(failedEvent);
       return failedEvent;

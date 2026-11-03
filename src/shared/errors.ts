@@ -23,6 +23,7 @@ export const APP_ERROR_CODES = [
   'PROVIDER_RATE_LIMITED',
   'PROVIDER_NETWORK_ERROR',
   'PROVIDER_TIMEOUT',
+  'PROVIDER_REQUEST_FAILED',
   'PROVIDER_TEST_FAILED',
   'UNKNOWN_ERROR',
 ] as const;
@@ -54,6 +55,7 @@ export const ERROR_MESSAGE_KEYS = {
   PROVIDER_RATE_LIMITED: 'errors.providerRateLimited',
   PROVIDER_NETWORK_ERROR: 'errors.providerNetworkError',
   PROVIDER_TIMEOUT: 'errors.providerTimeout',
+  PROVIDER_REQUEST_FAILED: 'errors.providerRequestFailed',
   PROVIDER_TEST_FAILED: 'errors.providerTestFailed',
   UNKNOWN_ERROR: 'errors.unknown',
 } as const satisfies Record<AppErrorCode, string>;

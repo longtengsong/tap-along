@@ -107,11 +107,13 @@
     "providerRateLimited": "Too many requests. Try again later.",
     "providerNetworkError": "Could not reach the model service. Check the network and base URL.",
     "providerTimeout": "The model service timed out. Try again.",
+    "providerRequestFailed": "The model service could not complete this request. Check the provider settings or try again.",
     "providerTestFailed": "The model connection test failed.",
     "teacherNoResponse": "The teacher didn't respond. Try again?",
     "stackTooDeep": "The stack is getting deep. Close one page before continuing?",
     "saveFailed": "Couldn't save.",
     "retry": "Try again",
+    "openModelSettings": "Open model settings",
     "unknown": "Something went wrong. Please try again."
   },
   "settings": {

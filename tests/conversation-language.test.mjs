@@ -7,6 +7,7 @@ import {
   resolveMockReplyLanguage,
 } from '../src/shared/conversation-language.ts';
 import {
+  TEACHER_MAINTENANCE_PROMPT,
   TEACHER_RESUME_PROMPT,
   TEACHER_SYSTEM_PROMPT,
 } from '../src/main/services/teacher-prompt.ts';
@@ -52,4 +53,7 @@ test('真实模型 Prompt 应要求跟随最新用户语言并中文优先', () 
   assert.match(TEACHER_SYSTEM_PROMPT, /Do not use the application UI language/);
   assert.match(TEACHER_RESUME_PROMPT, /recently closed context page/);
   assert.match(TEACHER_RESUME_PROMPT, /most recent meaningful user-authored/);
+  assert.match(TEACHER_MAINTENANCE_PROMPT, /action is an edit/);
+  assert.match(TEACHER_MAINTENANCE_PROMPT, /action is an append/);
+  assert.match(TEACHER_MAINTENANCE_PROMPT, /latest meaningful user-authored/);
 });

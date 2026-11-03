@@ -107,11 +107,13 @@
     "providerRateLimited": "请求过于频繁，请稍后再试。",
     "providerNetworkError": "无法连接到模型服务，请检查网络和 Base URL。",
     "providerTimeout": "连接模型服务超时，请稍后重试。",
+    "providerRequestFailed": "模型服务未能完成本次请求，请检查供应商设置或稍后重试。",
     "providerTestFailed": "模型连接测试失败。",
     "teacherNoResponse": "老师暂时没应声，要再试一次吗？",
     "stackTooDeep": "页叠得有点深了，先合上一页再继续？",
     "saveFailed": "没送进去。",
     "retry": "再试一次",
+    "openModelSettings": "打开模型设置",
     "unknown": "刚刚没有处理好，请再试一次。"
   },
   "settings": {

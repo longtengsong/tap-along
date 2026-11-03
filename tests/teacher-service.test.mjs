@@ -14,7 +14,14 @@ import {
   createOpeningTeacherMessage,
   createMockTeacherStream,
 } from '../src/main/services/teacher.ts';
-import { createModelAwareTeacherStream } from '../src/main/services/model-teacher.ts';
+import {
+  createModelAwareTeacherStream,
+  ProviderRequestError,
+} from '../src/main/services/model-teacher.ts';
+import {
+  TEACHER_MAINTENANCE_PROMPT,
+  TEACHER_RESUME_PROMPT,
+} from '../src/main/services/teacher-prompt.ts';
 
 const createTeacherFixture = async (t, generator) => {
   const directory = await mkdtemp(path.join(tmpdir(), 'tap-along-teacher-'));
@@ -137,6 +144,187 @@ test('普通问答应使用激活模型流并只持久化一次完整回复', as
   assert.equal(teacherMessages[0].requestId, 'model-request');
 });
 
+test('跨页回问应使用激活模型生成问题并保留目标页轮次', async (t) => {
+  const encoder = new TextEncoder();
+  let requestOptions;
+  const generator = createModelAwareTeacherStream({
+    configService: {
+      resolveActive: async () => ({
+        ok: true,
+        config: {
+          id: 'custom',
+          baseUrl: 'https://models.example.com/v1',
+          model: 'reading-model',
+          apiKey: 'sk-resume-private-key',
+        },
+      }),
+    },
+    fallback: async function* () {
+      yield '不应使用本地回退';
+    },
+    fetchImpl: async (_url, options) => {
+      requestOptions = options;
+      return {
+        ok: true,
+        status: 200,
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              encoder.encode(
+                'data: {"choices":[{"delta":{"content":"两页之间有什么联系？"}}]}\n\n',
+              ),
+            );
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+            controller.close();
+          },
+        }),
+      };
+    },
+  });
+  const { page, repository, service } = await createTeacherFixture(
+    t,
+    generator,
+  );
+  const contextPage = repository.create('注意力需要主动分配。', '上一页课程');
+  repository.closePage(contextPage.id, 'close-model-context');
+  const events = [];
+  const outcome = service.startResume(
+    {
+      targetPageId: page.id,
+      contextPageId: contextPage.id,
+      requestId: 'model-resume',
+    },
+    (event) => events.push(event),
+  );
+  const done = await outcome.completion;
+
+  assert.equal(done.ok, true);
+  assert.equal(done.reply, '两页之间有什么联系？');
+  const requestBody = JSON.parse(requestOptions.body);
+  assert.equal(requestBody.messages[1].content, TEACHER_RESUME_PROMPT);
+  assert.match(JSON.stringify(requestBody.messages), /注意力需要主动分配/);
+  assert.match(JSON.stringify(requestBody.messages), /注意力像带宽/);
+  assert.equal(requestOptions.body.includes('sk-resume-private-key'), false);
+
+  const savedTarget = repository.findById(page.id);
+  const teacherMessages = savedTarget.messages.filter(
+    (message) => message.role === 'teacher',
+  );
+  assert.equal(savedTarget.teachingRoundCount, 0);
+  assert.equal(teacherMessages.length, 1);
+  assert.equal(teacherMessages[0].text, '两页之间有什么联系？');
+  assert.equal(teacherMessages[0].requestId, 'model-resume');
+  assert.equal(events.at(-1).ok, true);
+});
+
+test('编辑和补一句维护应使用激活模型并持久化回应', async (t) => {
+  const cases = [
+    {
+      kind: 'edit',
+      triggerText: '修改后的中文想法。',
+      prepare: (repository, pageId) =>
+        repository.editText(pageId, '修改后的中文想法。', 'model-edit-source'),
+      action: /edited the current note/,
+      content: /修改后的中文想法/,
+    },
+    {
+      kind: 'append',
+      triggerText: 'This is an appended English thought.',
+      prepare: (repository, pageId) =>
+        repository.appendText(
+          pageId,
+          'This is an appended English thought.',
+          'model-append-source',
+        ),
+      action: /appended a new thought/,
+      content: /appended English thought/,
+    },
+  ];
+
+  for (const scenario of cases) {
+    await t.test(scenario.kind, async (t) => {
+      const encoder = new TextEncoder();
+      let requestOptions;
+      const generator = createModelAwareTeacherStream({
+        configService: {
+          resolveActive: async () => ({
+            ok: true,
+            config: {
+              id: 'custom',
+              baseUrl: 'https://models.example.com/v1',
+              model: 'reading-model',
+              apiKey: `sk-maintenance-${scenario.kind}`,
+            },
+          }),
+        },
+        fallback: async function* () {
+          yield '不应使用本地回退';
+        },
+        fetchImpl: async (_url, options) => {
+          requestOptions = options;
+          return {
+            ok: true,
+            status: 200,
+            body: new ReadableStream({
+              start(controller) {
+                controller.enqueue(
+                  encoder.encode(
+                    'data: {"choices":[{"delta":{"content":"维护后的模型问题？"}}]}\n\n',
+                  ),
+                );
+                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                controller.close();
+              },
+            }),
+          };
+        },
+      });
+      const { page, repository, service } = await createTeacherFixture(
+        t,
+        generator,
+      );
+      scenario.prepare(repository, page.id);
+      const events = [];
+      const outcome = service.startMaintenance(
+        {
+          pageId: page.id,
+          kind: scenario.kind,
+          triggerText: scenario.triggerText,
+          requestId: `model-maintenance-${scenario.kind}`,
+        },
+        (event) => events.push(event),
+      );
+      const done = await outcome.completion;
+
+      assert.equal(done.ok, true);
+      assert.equal(done.reply, '维护后的模型问题？');
+      const requestBody = JSON.parse(requestOptions.body);
+      assert.equal(requestBody.messages[1].content, TEACHER_MAINTENANCE_PROMPT);
+      assert.match(requestBody.messages[2].content, scenario.action);
+      assert.match(JSON.stringify(requestBody.messages), scenario.content);
+      assert.deepEqual(requestBody.messages.at(-1), {
+        role: 'user',
+        content: scenario.triggerText,
+      });
+      assert.equal(
+        requestOptions.body.includes(`sk-maintenance-${scenario.kind}`),
+        false,
+      );
+
+      const savedPage = repository.findById(page.id);
+      const teacherMessages = savedPage.messages.filter(
+        (message) =>
+          message.role === 'teacher' &&
+          message.requestId === `model-maintenance-${scenario.kind}`,
+      );
+      assert.equal(savedPage.teachingRoundCount, 0);
+      assert.equal(teacherMessages.length, 1);
+      assert.equal(teacherMessages[0].text, '维护后的模型问题？');
+      assert.equal(events.at(-1).ok, true);
+    });
+  }
+});
+
 test('相同请求编号不应启动重复老师回应', async (t) => {
   let calls = 0;
   const { page, repository, service } = await createTeacherFixture(
@@ -186,6 +374,78 @@ test('老师生成失败时应保留用户消息并发送失败事件', async (t
   assert.equal(savedPage.messages.length, 1);
   assert.equal(savedPage.messages[0].text, '保留这一句。');
   assert.equal(savedPage.teachingRoundCount, 0);
+});
+
+test('老师服务应向界面传递受控的模型错误码', async (t) => {
+  t.mock.method(console, 'error', () => {});
+
+  await t.test('普通问答', async (t) => {
+    const errorCode = 'PROVIDER_UNAUTHORIZED';
+    const { page, repository, service } = await createTeacherFixture(
+      t,
+      async function* () {
+        yield '';
+        throw new ProviderRequestError(errorCode);
+      },
+    );
+    const outcome = service.start(
+      { pageId: page.id, userText: '无效密钥测试。', requestId: 'auth-error' },
+      () => {},
+    );
+    const done = await outcome.completion;
+
+    assert.equal(done.errorCode, errorCode);
+    assert.equal(repository.findById(page.id).messages.length, 1);
+  });
+
+  await t.test('跨页回问', async (t) => {
+    const errorCode = 'PROVIDER_RATE_LIMITED';
+    const { page, repository, service } = await createTeacherFixture(
+      t,
+      async function* () {
+        yield '';
+        throw new ProviderRequestError(errorCode);
+      },
+    );
+    const contextPage = repository.create('上下文页。', '');
+    repository.closePage(contextPage.id, 'close-error-context');
+    const outcome = service.startResume(
+      {
+        targetPageId: page.id,
+        contextPageId: contextPage.id,
+        requestId: 'resume-rate-limit',
+      },
+      () => {},
+    );
+    const done = await outcome.completion;
+
+    assert.equal(done.errorCode, errorCode);
+    assert.equal(repository.findById(page.id).messages.length, 0);
+  });
+
+  await t.test('维护回应', async (t) => {
+    const errorCode = 'PROVIDER_REQUEST_FAILED';
+    const { page, repository, service } = await createTeacherFixture(
+      t,
+      async function* () {
+        yield '';
+        throw new ProviderRequestError(errorCode);
+      },
+    );
+    const outcome = service.startMaintenance(
+      {
+        pageId: page.id,
+        kind: 'append',
+        triggerText: '补充内容。',
+        requestId: 'maintenance-request-error',
+      },
+      () => {},
+    );
+    const done = await outcome.completion;
+
+    assert.equal(done.errorCode, errorCode);
+    assert.equal(repository.findById(page.id).teachingRoundCount, 0);
+  });
 });
 
 test('老师空流应返回失败且不增加轮次', async (t) => {

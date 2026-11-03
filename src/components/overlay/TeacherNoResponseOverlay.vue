@@ -11,15 +11,21 @@ const { t } = useI18n();
 
 const emit = defineEmits<{
   retry: [];
+  openSettings: [];
 }>();
 </script>
 
 <template>
   <BaseOverlay>
     <p class="overlay-copy">{{ message }}</p>
-    <AppButton size="small" @click="emit('retry')">
-      {{ t('errors.retry') }}
-    </AppButton>
+    <div class="overlay-actions">
+      <AppButton variant="ghost" @click="emit('openSettings')">
+        {{ t('errors.openModelSettings') }}
+      </AppButton>
+      <AppButton size="small" @click="emit('retry')">
+        {{ t('errors.retry') }}
+      </AppButton>
+    </div>
   </BaseOverlay>
 </template>
 
@@ -30,5 +36,12 @@ const emit = defineEmits<{
   font-size: 14.5px;
   line-height: 1.7;
   letter-spacing: 0.06em;
+}
+
+.overlay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
 }
 </style>

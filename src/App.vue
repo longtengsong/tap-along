@@ -45,6 +45,10 @@ const submitComposer = () => {
 
   void sendReply();
 };
+
+const openModelSettings = () => {
+  settingsOpen.value = true;
+};
 </script>
 
 <template>
@@ -103,6 +107,7 @@ const submitComposer = () => {
       @back-to-edit="dismissOverlay"
       @retry-save="retrySave"
       @retry-teacher="retryTeacher"
+      @open-settings="openModelSettings"
     />
 
     <SettingsDialog :open="settingsOpen" @close="settingsOpen = false" />

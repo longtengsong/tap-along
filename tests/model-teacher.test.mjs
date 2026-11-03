@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  buildMaintenanceTeacherMessages,
+  buildResumeTeacherMessages,
   buildTeacherMessages,
   createModelAwareTeacherStream,
 } from '../src/main/services/model-teacher.ts';
-import { TEACHER_SYSTEM_PROMPT } from '../src/main/services/teacher-prompt.ts';
+import {
+  TEACHER_MAINTENANCE_PROMPT,
+  TEACHER_RESUME_PROMPT,
+  TEACHER_SYSTEM_PROMPT,
+} from '../src/main/services/teacher-prompt.ts';
 
 const providerConfig = {
   id: 'custom',
@@ -33,6 +39,14 @@ const collect = async (generator) => {
 
   return chunks;
 };
+
+const assertProviderError = (promise, errorCode) =>
+  assert.rejects(promise, (error) => {
+    assert.equal(error.name, 'ProviderRequestError');
+    assert.equal(error.errorCode, errorCode);
+    assert.equal(error.message.includes(providerConfig.apiKey), false);
+    return true;
+  });
 
 const createStreamBody = (parts) => {
   const encoder = new TextEncoder();
@@ -119,6 +133,106 @@ test('模型消息应包含页面上下文、历史角色和最新一次用户�
   assert.equal(withoutEmptyMessages.length, 3);
 });
 
+test('跨页模型消息应依次包含上下文页、目标页和真实用户语言内容', () => {
+  const contextPage = {
+    ...createPage([
+      { role: 'user', text: '上下文页里的最后想法。' },
+      { role: 'teacher', text: '上下文页里的老师问题？' },
+    ]),
+    id: 2,
+    title: '有限的注意力',
+    body: '注意力需要主动分配。',
+    status: 'closed',
+  };
+  const targetPage = {
+    ...createPage([{ role: 'user', text: '目标页里的当前想法。' }]),
+    id: 3,
+    title: '注意力与任务',
+    body: '任务会牵引注意力。',
+  };
+  const messages = buildResumeTeacherMessages({
+    page: targetPage,
+    contextPage,
+    userText: '上下文页里的最后想法。',
+    replyLanguage: 'zh-CN',
+  });
+
+  assert.deepEqual(messages[0], {
+    role: 'system',
+    content: TEACHER_SYSTEM_PROMPT,
+  });
+  assert.deepEqual(messages[1], {
+    role: 'system',
+    content: TEACHER_RESUME_PROMPT,
+  });
+  assert.match(messages[2].content, /recently closed context page/);
+  assert.match(messages[2].content, /有限的注意力/);
+  assert.match(messages[2].content, /注意力需要主动分配/);
+  assert.deepEqual(messages.slice(3, 5), [
+    { role: 'user', content: '上下文页里的最后想法。' },
+    { role: 'assistant', content: '上下文页里的老师问题？' },
+  ]);
+  assert.match(messages[5].content, /current target page/);
+  assert.match(messages[5].content, /注意力与任务/);
+  assert.match(messages[5].content, /任务会牵引注意力/);
+  assert.deepEqual(messages.at(-1), {
+    role: 'user',
+    content: '目标页里的当前想法。',
+  });
+
+  const withoutUserMessages = buildResumeTeacherMessages({
+    page: { ...targetPage, messages: [] },
+    contextPage: { ...contextPage, messages: [] },
+    userText: '仅有正文时的上下文。',
+    replyLanguage: 'zh-CN',
+  });
+  assert.deepEqual(withoutUserMessages.at(-1), {
+    role: 'user',
+    content: '仅有正文时的上下文。',
+  });
+});
+
+test('维护模型消息应区分编辑和补一句并保留最新用户内容', () => {
+  const page = createPage([
+    { role: 'user', text: '之前的想法。' },
+    { role: 'teacher', text: '之前的老师问题？' },
+    { role: 'maintenance', text: '', content: '新补充的想法。' },
+  ]);
+  const editMessages = buildMaintenanceTeacherMessages({
+    page,
+    userText: '修改后的完整想法。',
+    replyLanguage: 'zh-CN',
+    maintenanceKind: 'edit',
+  });
+
+  assert.deepEqual(editMessages[0], {
+    role: 'system',
+    content: TEACHER_SYSTEM_PROMPT,
+  });
+  assert.deepEqual(editMessages[1], {
+    role: 'system',
+    content: TEACHER_MAINTENANCE_PROMPT,
+  });
+  assert.match(editMessages[2].content, /edited the current note/);
+  assert.match(editMessages[3].content, /注意力与带宽/);
+  assert.deepEqual(editMessages.at(-1), {
+    role: 'user',
+    content: '修改后的完整想法。',
+  });
+
+  const appendMessages = buildMaintenanceTeacherMessages({
+    page,
+    userText: '新补充的想法。',
+    replyLanguage: 'zh-CN',
+    maintenanceKind: 'append',
+  });
+  assert.match(appendMessages[2].content, /appended a new thought/);
+  assert.deepEqual(appendMessages.at(-1), {
+    role: 'user',
+    content: '新补充的想法。',
+  });
+});
+
 test('已配置供应商应通过 SSE 流式返回模型增量内容', async () => {
   let requestUrl = '';
   let requestOptions;
@@ -184,7 +298,7 @@ test('流式解析应处理没有末尾空行的最后一个事件', async () =>
   assert.deepEqual(chunks, ['最后一段']);
 });
 
-test('未配置激活供应商时普通问答应回退本地老师', async () => {
+test('未配置激活供应商时问答、跨页回问和维护都应回退本地老师', async () => {
   let configCalls = 0;
   const fallbackCalls = [];
   const generator = createGenerator({
@@ -206,43 +320,127 @@ test('未配置激活供应商时普通问答应回退本地老师', async () =>
   );
 
   assert.deepEqual(chunks, ['本地老师回应']);
-  assert.equal(configCalls, 1);
-  assert.equal(fallbackCalls.length, 1);
+  assert.deepEqual(
+    await collect(
+      generator({
+        page: createPage(),
+        contextPage: createPage(),
+        userText: '继续。',
+        replyLanguage: 'zh-CN',
+      }),
+    ),
+    ['本地老师回应'],
+  );
+  assert.deepEqual(
+    await collect(
+      generator({
+        page: createPage(),
+        userText: '维护后的内容。',
+        replyLanguage: 'zh-CN',
+        maintenanceKind: 'append',
+      }),
+    ),
+    ['本地老师回应'],
+  );
+  assert.equal(configCalls, 3);
+  assert.equal(fallbackCalls.length, 3);
 });
 
-test('跨页回问和维护流程应继续使用本地老师且不读取模型配置', async () => {
+test('跨页回问应调用激活模型并发送双页 Prompt', async () => {
+  let requestOptions;
   const fallbackCalls = [];
   const generator = createGenerator({
-    resolveActive: async () => {
-      throw new Error('不应读取模型配置');
-    },
     fallbackCalls,
+    fetchImpl: async (_url, options) => {
+      requestOptions = options;
+      return createSseResponse([
+        'data: {"choices":[{"delta":{"content":"两页之间"}}]}\n\n',
+        'data: [DONE]\n\n',
+      ]);
+    },
   });
-  const baseInput = {
-    page: createPage(),
-    userText: '继续。',
-    replyLanguage: 'zh-CN',
+  const contextPage = {
+    ...createPage([{ role: 'user', text: '上下文页想法。' }]),
+    id: 2,
+    status: 'closed',
   };
 
   assert.deepEqual(
     await collect(
       generator({
-        ...baseInput,
-        contextPage: createPage(),
+        page: createPage([{ role: 'user', text: '目标页想法。' }]),
+        contextPage,
+        userText: '上下文页想法。',
+        replyLanguage: 'zh-CN',
       }),
     ),
-    ['本地老师回应'],
+    ['两页之间'],
+  );
+  const requestBody = JSON.parse(requestOptions.body);
+  assert.equal(requestBody.messages[1].content, TEACHER_RESUME_PROMPT);
+  assert.match(JSON.stringify(requestBody.messages), /上下文页想法/);
+  assert.match(JSON.stringify(requestBody.messages), /目标页想法/);
+  assert.equal(requestOptions.body.includes(providerConfig.apiKey), false);
+  assert.equal(fallbackCalls.length, 0);
+});
+
+test('编辑和补一句维护流程都应调用激活模型', async () => {
+  const requestBodies = [];
+  const fallbackCalls = [];
+  const generator = createGenerator({
+    fallbackCalls,
+    fetchImpl: async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return createSseResponse([
+        'data: {"choices":[{"delta":{"content":"维护问题？"}}]}\n\n',
+        'data: [DONE]\n\n',
+      ]);
+    },
+  });
+  const page = createPage([{ role: 'user', text: '原有想法。' }]);
+
+  assert.deepEqual(
+    await collect(
+      generator({
+        page,
+        userText: '修改后的想法。',
+        replyLanguage: 'zh-CN',
+        maintenanceKind: 'edit',
+      }),
+    ),
+    ['维护问题？'],
   );
   assert.deepEqual(
     await collect(
       generator({
-        ...baseInput,
-        maintenanceKind: 'edit',
+        page,
+        userText: '补充的英文 English thought。',
+        replyLanguage: 'zh-CN',
+        maintenanceKind: 'append',
       }),
     ),
-    ['本地老师回应'],
+    ['维护问题？'],
   );
-  assert.equal(fallbackCalls.length, 2);
+  assert.equal(requestBodies.length, 2);
+  assert.equal(
+    requestBodies[0].messages[1].content,
+    TEACHER_MAINTENANCE_PROMPT,
+  );
+  assert.match(requestBodies[0].messages[2].content, /edited the current note/);
+  assert.match(requestBodies[1].messages[2].content, /appended a new thought/);
+  assert.deepEqual(requestBodies[0].messages.at(-1), {
+    role: 'user',
+    content: '修改后的想法。',
+  });
+  assert.deepEqual(requestBodies[1].messages.at(-1), {
+    role: 'user',
+    content: '补充的英文 English thought。',
+  });
+  assert.equal(
+    JSON.stringify(requestBodies).includes(providerConfig.apiKey),
+    false,
+  );
+  assert.equal(fallbackCalls.length, 0);
 });
 
 test('模型配置异常应终止生成而不是静默回退', async () => {
@@ -261,34 +459,47 @@ test('模型配置异常应终止生成而不是静默回退', async () => {
         replyLanguage: 'zh-CN',
       }),
     ),
-    /模型供应商配置不可用/,
+    (error) => {
+      assert.equal(error.errorCode, 'CONFIG_FAILED');
+      return true;
+    },
   );
 });
 
 test('模型服务错误和异常响应应拒绝生成', async (t) => {
-  await t.test('HTTP 鉴权失败', async () => {
-    const generator = createGenerator({
-      fetchImpl: async () => createSseResponse([], 401),
-    });
+  for (const [status, errorCode] of [
+    [401, 'PROVIDER_UNAUTHORIZED'],
+    [403, 'PROVIDER_UNAUTHORIZED'],
+    [400, 'MODEL_UNAVAILABLE'],
+    [404, 'MODEL_UNAVAILABLE'],
+    [408, 'PROVIDER_TIMEOUT'],
+    [429, 'PROVIDER_RATE_LIMITED'],
+    [500, 'PROVIDER_REQUEST_FAILED'],
+  ]) {
+    await t.test(`HTTP ${status}`, async () => {
+      const generator = createGenerator({
+        fetchImpl: async () => createSseResponse([], status),
+      });
 
-    await assert.rejects(
-      collect(
-        generator({
-          page: createPage(),
-          userText: '继续。',
-          replyLanguage: 'zh-CN',
-        }),
-      ),
-      /模型服务请求失败/,
-    );
-  });
+      await assertProviderError(
+        collect(
+          generator({
+            page: createPage(),
+            userText: '继续。',
+            replyLanguage: 'zh-CN',
+          }),
+        ),
+        errorCode,
+      );
+    });
+  }
 
   await t.test('缺少响应体', async () => {
     const generator = createGenerator({
       fetchImpl: async () => ({ ok: true, status: 200, body: null }),
     });
 
-    await assert.rejects(
+    await assertProviderError(
       collect(
         generator({
           page: createPage(),
@@ -296,7 +507,7 @@ test('模型服务错误和异常响应应拒绝生成', async (t) => {
           replyLanguage: 'zh-CN',
         }),
       ),
-      /未返回流式响应/,
+      'PROVIDER_REQUEST_FAILED',
     );
   });
 
@@ -307,7 +518,7 @@ test('模型服务错误和异常响应应拒绝生成', async (t) => {
       },
     });
 
-    await assert.rejects(
+    await assertProviderError(
       collect(
         generator({
           page: createPage(),
@@ -315,7 +526,7 @@ test('模型服务错误和异常响应应拒绝生成', async (t) => {
           replyLanguage: 'zh-CN',
         }),
       ),
-      /network failed/,
+      'PROVIDER_NETWORK_ERROR',
     );
   });
 
@@ -329,7 +540,7 @@ test('模型服务错误和异常响应应拒绝生成', async (t) => {
         fetchImpl: async () => createSseResponse([invalidData]),
       });
 
-      await assert.rejects(
+      await assertProviderError(
         collect(
           generator({
             page: createPage(),
@@ -337,6 +548,7 @@ test('模型服务错误和异常响应应拒绝生成', async (t) => {
             replyLanguage: 'zh-CN',
           }),
         ),
+        'PROVIDER_REQUEST_FAILED',
       );
     });
   }
@@ -359,7 +571,7 @@ test('模型流式请求超时时应中止连接', async () => {
       }),
   });
 
-  await assert.rejects(
+  await assertProviderError(
     collect(
       generator({
         page: createPage(),
@@ -367,6 +579,6 @@ test('模型流式请求超时时应中止连接', async () => {
         replyLanguage: 'zh-CN',
       }),
     ),
-    /stream aborted/,
+    'PROVIDER_TIMEOUT',
   );
 });

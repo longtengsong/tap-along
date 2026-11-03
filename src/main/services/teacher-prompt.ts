@@ -27,3 +27,19 @@ Always use the language of the most recent meaningful user-authored content
 across the context page and the target page. If that content contains both
 Chinese and English, use Chinese. Do not use the application UI language.
 `.trim();
+
+export const TEACHER_MAINTENANCE_PROMPT = `
+The user has just updated the current page.
+
+If the action is an edit, ask about what became clearer, what remains ambiguous,
+or what assumption changed in the revised note. If the action is an append,
+ask how the newly added thought connects to the existing note. Do not praise the
+edit or comment on the act of editing.
+
+Ask exactly one concise question grounded in the updated page. Do not summarize,
+explain concepts, praise the user, or give advice.
+
+Use the language of the latest meaningful user-authored content. If that content
+contains both Chinese and English, use Chinese. Do not use the application UI
+language.
+`.trim();
