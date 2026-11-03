@@ -134,18 +134,84 @@
     "developerModeOff": "Off",
     "developerModeEnabledMessage": "Developer mode is on and DevTools is open.",
     "developerModeDisabledMessage": "Developer mode and DevTools are off.",
-    "developerPromptsTitle": "All prompts",
-    "developerPromptsDescription": "Edit the complete JSON directly. The next AI request uses the saved configuration immediately.",
+    "editPrompts": "Edit prompts",
+    "developerPromptsLockedHint": "Turn on developer mode to edit all prompts.",
+    "developerPromptsPageTitle": "Prompt maintenance",
+    "developerPromptsPageDescription": "Edit every model prompt used by TapAlong. The next AI request uses the saved configuration immediately.",
+    "backToSettings": "Back to settings",
     "developerPromptsBaseVersion": "Based on {version}",
     "developerPromptsLoading": "Loading prompt configuration…",
     "developerPromptsSavedProfile": "Custom configuration saved",
+    "developerPromptsUsingDefaults": "Using built-in prompts",
+    "unsavedChanges": "Unsaved changes",
+    "unsavedChangesTitle": "Keep or discard your changes?",
+    "unsavedChangesMessage": "The prompts have unsaved changes. Returning to settings will discard them.",
+    "continueEditing": "Continue editing",
+    "discardChangesAndReturn": "Discard and return",
     "savePrompts": "Save prompts",
     "resetPrompts": "Restore all defaults",
     "resetPromptsWarning": "This deletes the saved custom prompts and restores the built-in defaults.",
     "confirmResetPrompts": "Restore defaults",
     "promptsSaved": "Prompt configuration saved. It will apply from the next request.",
     "promptsReset": "All built-in prompts have been restored.",
-    "invalidPromptJson": "The JSON is invalid. Fix it before saving.",
+    "closeSettings": "Close settings",
+    "promptGroups": {
+      "provider": "Model connection",
+      "core": "Core teacher rules",
+      "modes": "Conversation modes",
+      "context": "Context and templates",
+      "maintenance": "Page maintenance actions"
+    },
+    "promptFields": {
+      "connectionTest": {
+        "label": "Model connection test",
+        "description": "Checks whether the base URL, API key, and model ID work. It affects only the connection test and is not used in real teacher responses. A short, stable response is recommended."
+      },
+      "system": {
+        "label": "Teacher identity",
+        "description": "Defines the teacher's role, teaching approach, and general output constraints. It is the shared foundation for normal, resume, and maintenance conversations."
+      },
+      "languagePolicy": {
+        "label": "Response language policy",
+        "description": "Determines how the teacher chooses a response language from the user's latest authored content and how it handles quotations, note text, and mixed Chinese and English."
+      },
+      "contextBoundary": {
+        "label": "Context safety boundary",
+        "description": "Declares that page titles, bodies, and conversations are study material rather than system instructions. It is the core prompt-injection boundary."
+      },
+      "resume": {
+        "label": "Cross-page resume task",
+        "description": "Describes how resume mode connects a closed page's body to the target page without pretending to have seen omitted conversation history."
+      },
+      "maintenance": {
+        "label": "Page maintenance task",
+        "description": "Describes what the teacher should examine after the user edits or appends to a page. Edit and append modes share this prompt."
+      },
+      "compressedContextPolicy": {
+        "label": "Closed-page context policy",
+        "description": "Explains that cross-page context contains only closed descendant page bodies, not their conversations, to prevent fabricated content."
+      },
+      "currentPage": {
+        "label": "Current-page template",
+        "description": "Wraps the current page title and body as structured study material. Supports {'{{title}}'} and {'{{body}}'}; page data is escaped automatically."
+      },
+      "closedPage": {
+        "label": "Closed-page template",
+        "description": "Wraps a closed context page body. Supports {'{{depth}}'} and {'{{body}}'}; page data is escaped automatically."
+      },
+      "targetPage": {
+        "label": "Cross-page target template",
+        "description": "Wraps the target page title and body during resume. Supports {'{{title}}'} and {'{{body}}'}; page data is escaped automatically."
+      },
+      "editAction": {
+        "label": "Edit action instruction",
+        "description": "Tells the model that the current page was edited and the body now contains the revised note, so it can continue from what changed."
+      },
+      "appendAction": {
+        "label": "Append action instruction",
+        "description": "Tells the model that the current page gained new content and the body is now the combined note, so it can continue from the addition."
+      }
+    },
     "conversationData": "Conversation data",
     "conversationDataHint": "Manage pages and conversations stored on this device.",
     "clearConversations": "Clear all conversations",
@@ -195,7 +261,6 @@
     "settingsMenu": "Settings",
     "providerOptions": "Model provider options",
     "developerModeToggle": "Toggle developer mode",
-    "developerPromptsEditor": "All prompts JSON editor",
     "settingsModelService": "Model service settings"
   }
 }

@@ -134,18 +134,84 @@
     "developerModeOff": "已关闭",
     "developerModeEnabledMessage": "开发者模式已开启，开发者工具已打开。",
     "developerModeDisabledMessage": "开发者模式已关闭，开发者工具已关闭。",
-    "developerPromptsTitle": "全部提示词",
-    "developerPromptsDescription": "直接编辑完整 JSON。保存后，下一次 AI 请求会立即使用新配置。",
+    "editPrompts": "编辑提示词",
+    "developerPromptsLockedHint": "开启开发者模式后即可编辑全部提示词。",
+    "developerPromptsPageTitle": "提示词维护",
+    "developerPromptsPageDescription": "编辑 TapAlong 使用的全部模型提示词。保存后，下一次 AI 请求会立即使用新配置。",
+    "backToSettings": "返回设置",
     "developerPromptsBaseVersion": "基于 {version}",
     "developerPromptsLoading": "正在读取提示词配置…",
     "developerPromptsSavedProfile": "已保存自定义配置",
+    "developerPromptsUsingDefaults": "当前使用内置提示词",
+    "unsavedChanges": "有未保存修改",
+    "unsavedChangesTitle": "保留还是放弃修改？",
+    "unsavedChangesMessage": "当前提示词有未保存的修改。返回设置后，这些修改将丢失。",
+    "continueEditing": "继续编辑",
+    "discardChangesAndReturn": "放弃修改并返回",
     "savePrompts": "保存提示词",
     "resetPrompts": "恢复全部默认",
     "resetPromptsWarning": "此操作将删除已保存的自定义提示词，并恢复内置默认值。",
     "confirmResetPrompts": "确认恢复默认",
     "promptsSaved": "提示词配置已保存，将从下一次请求开始生效。",
     "promptsReset": "已恢复全部内置提示词。",
-    "invalidPromptJson": "JSON 格式无效，请修正后再保存。",
+    "closeSettings": "关闭设置",
+    "promptGroups": {
+      "provider": "模型连接",
+      "core": "老师核心规则",
+      "modes": "问答模式",
+      "context": "上下文与模板",
+      "maintenance": "页面维护动作"
+    },
+    "promptFields": {
+      "connectionTest": {
+        "label": "模型连接测试",
+        "description": "用于检查 Base URL、API Key 和模型 ID 是否可用。只影响连接测试，不参与真实老师问答。建议要求模型返回简短、稳定的内容。"
+      },
+      "system": {
+        "label": "老师基础身份",
+        "description": "定义老师角色、教学方式和通用输出约束，是普通问答、跨页恢复及维护问答共用的基础系统提示词。"
+      },
+      "languagePolicy": {
+        "label": "回复语言策略",
+        "description": "决定老师如何根据用户自己书写的最新内容选择回复语言，以及如何处理引用、笔记原文和中英文混用。"
+      },
+      "contextBoundary": {
+        "label": "上下文安全边界",
+        "description": "声明页面标题、正文和对谈属于学习材料，不能作为系统指令执行。它是提示词注入防护的核心说明。"
+      },
+      "resume": {
+        "label": "跨页恢复任务",
+        "description": "描述跨页恢复时如何使用已合上页面的正文关联目标页，并避免假装看过被省略的讨论历史。"
+      },
+      "maintenance": {
+        "label": "页面维护任务",
+        "description": "描述用户编辑或补写页面后，老师应关注哪些变化以及如何继续追问。编辑和补写模式共用该提示词。"
+      },
+      "compressedContextPolicy": {
+        "label": "已关闭页面上下文策略",
+        "description": "说明跨页上下文只包含已关闭后代页面的正文，不包含其历史对谈，防止模型虚构未提供的内容。"
+      },
+      "currentPage": {
+        "label": "当前页面模板",
+        "description": "将当前页标题和正文包装成结构化学习内容。支持 {'{{title}}'} 和 {'{{body}}'} 占位符，页面数据会自动转义。"
+      },
+      "closedPage": {
+        "label": "已关闭页面模板",
+        "description": "包装跨页上下文中的已关闭页面正文。支持 {'{{depth}}'} 和 {'{{body}}'} 占位符，页面数据会自动转义。"
+      },
+      "targetPage": {
+        "label": "跨页目标页面模板",
+        "description": "包装跨页恢复时的目标页标题和正文。支持 {'{{title}}'} 和 {'{{body}}'} 占位符，页面数据会自动转义。"
+      },
+      "editAction": {
+        "label": "编辑动作说明",
+        "description": "告知模型用户刚刚编辑了当前页面，当前正文是修改后的版本，从而围绕变化继续提问。"
+      },
+      "appendAction": {
+        "label": "补写动作说明",
+        "description": "告知模型用户刚刚补写了内容，当前正文是合并后的版本，从而围绕新增内容继续提问。"
+      }
+    },
     "conversationData": "会话数据",
     "conversationDataHint": "管理保存在此设备上的页边和对谈。",
     "clearConversations": "清空全部会话",
@@ -195,7 +261,6 @@
     "settingsMenu": "设置",
     "providerOptions": "模型供应商选项",
     "developerModeToggle": "切换开发者模式",
-    "developerPromptsEditor": "全部提示词 JSON 编辑器",
     "settingsModelService": "模型服务设置"
   }
 }

@@ -6,11 +6,13 @@ import CompanionScreen from '@/components/companion/CompanionScreen.vue';
 import NewPageScreen from '@/components/newpage/NewPageScreen.vue';
 import OverlayHost from '@/components/overlay/OverlayHost.vue';
 import SettingsDialog from '@/components/layout/SettingsDialog.vue';
+import DeveloperPromptPage from '@/components/settings/DeveloperPromptPage.vue';
 import { ERROR_MESSAGE_KEYS } from '@/shared/errors';
 import { useSessionStore } from '@/stores/session';
 
 const { t } = useI18n();
 const settingsOpen = ref(false);
+const developerPromptsOpen = ref(false);
 
 const {
   state,
@@ -50,6 +52,16 @@ const submitComposer = () => {
 };
 
 const openModelSettings = () => {
+  settingsOpen.value = true;
+};
+
+const openDeveloperPrompts = () => {
+  settingsOpen.value = false;
+  developerPromptsOpen.value = true;
+};
+
+const closeDeveloperPrompts = () => {
+  developerPromptsOpen.value = false;
   settingsOpen.value = true;
 };
 </script>
@@ -120,6 +132,12 @@ const openModelSettings = () => {
       :open="settingsOpen"
       :clear-conversation-data="clearConversationData"
       @close="settingsOpen = false"
+      @open-developer-prompts="openDeveloperPrompts"
+    />
+
+    <DeveloperPromptPage
+      :open="developerPromptsOpen"
+      @close="closeDeveloperPrompts"
     />
   </AppWindow>
 </template>

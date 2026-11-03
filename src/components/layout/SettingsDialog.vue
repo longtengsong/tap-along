@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { developerPromptsApi } from '@/api/developer-prompts';
 import { providerApi } from '@/api/providers';
 import { settingsApi } from '@/api/settings';
 import AppButton from '@/components/ui/AppButton.vue';
@@ -9,7 +8,6 @@ import { setLocale } from '@/i18n';
 import type { SupportedLocale } from '@/i18n/locale';
 import { ERROR_MESSAGE_KEYS, type AppErrorCode } from '@/shared/errors';
 import type { PageClearAllResult } from '@/shared/pages';
-import type { PromptCatalogValues } from '@/shared/prompts';
 import type {
   ModelProviderId,
   ModelProviderState,
@@ -24,6 +22,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: [];
+  openDeveloperPrompts: [];
 }>();
 
 const { locale, t } = useI18n();
@@ -45,15 +44,6 @@ const developerModeLoading = ref(false);
 const developerModeSaving = ref(false);
 const developerModeMessage = ref('');
 const developerModeError = ref('');
-const developerPromptsText = ref('');
-const developerPromptsBaseVersion = ref('');
-const developerPromptsHasSavedProfile = ref(false);
-const developerPromptsLoading = ref(false);
-const developerPromptsSaving = ref(false);
-const developerPromptsResetting = ref(false);
-const developerPromptsConfirmResetting = ref(false);
-const developerPromptsMessage = ref('');
-const developerPromptsError = ref('');
 let providerSelectionInitialized = false;
 const providerForm = reactive({
   name: '',
@@ -71,9 +61,7 @@ const selectedProvider = computed(
 );
 
 const close = () => {
-  if (!dataClearing.value) {
-    emit('close');
-  }
+  emit('close');
 };
 
 const selectLocale = (nextLocale: SupportedLocale) => {
@@ -130,111 +118,6 @@ const loadProviders = async () => {
   }
 };
 
-const clearDeveloperPrompts = () => {
-  developerPromptsText.value = '';
-  developerPromptsBaseVersion.value = '';
-  developerPromptsHasSavedProfile.value = false;
-  developerPromptsConfirmResetting.value = false;
-  developerPromptsMessage.value = '';
-  developerPromptsError.value = '';
-};
-
-const applyDeveloperPrompts = (
-  result: Awaited<ReturnType<typeof developerPromptsApi.get>>,
-) => {
-  if (!result.ok || !result.prompts) {
-    developerPromptsError.value = t(
-      ERROR_MESSAGE_KEYS[result.errorCode ?? 'UNKNOWN_ERROR'],
-    );
-    return false;
-  }
-
-  developerPromptsText.value = JSON.stringify(result.prompts, null, 2);
-  developerPromptsBaseVersion.value = result.basePromptVersion ?? '';
-  developerPromptsHasSavedProfile.value = result.hasSavedProfile === true;
-  developerPromptsConfirmResetting.value = false;
-  return true;
-};
-
-const loadDeveloperPrompts = async () => {
-  developerPromptsLoading.value = true;
-  developerPromptsError.value = '';
-
-  try {
-    applyDeveloperPrompts(await developerPromptsApi.get());
-  } catch {
-    developerPromptsError.value = t(ERROR_MESSAGE_KEYS.CONFIG_FAILED);
-  } finally {
-    developerPromptsLoading.value = false;
-  }
-};
-
-const saveDeveloperPrompts = async () => {
-  if (developerPromptsSaving.value || developerPromptsResetting.value) {
-    return;
-  }
-
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(developerPromptsText.value);
-  } catch {
-    developerPromptsMessage.value = '';
-    developerPromptsError.value = t('settings.invalidPromptJson');
-    return;
-  }
-
-  developerPromptsSaving.value = true;
-  developerPromptsMessage.value = '';
-  developerPromptsError.value = '';
-
-  try {
-    const result = await developerPromptsApi.save(
-      parsed as PromptCatalogValues,
-    );
-
-    if (applyDeveloperPrompts(result)) {
-      developerPromptsMessage.value = t('settings.promptsSaved');
-    }
-  } catch {
-    developerPromptsError.value = t(ERROR_MESSAGE_KEYS.CONFIG_FAILED);
-  } finally {
-    developerPromptsSaving.value = false;
-  }
-};
-
-const requestResetDeveloperPrompts = () => {
-  developerPromptsMessage.value = '';
-  developerPromptsError.value = '';
-  developerPromptsConfirmResetting.value = true;
-};
-
-const cancelResetDeveloperPrompts = () => {
-  developerPromptsConfirmResetting.value = false;
-};
-
-const resetDeveloperPrompts = async () => {
-  if (developerPromptsSaving.value || developerPromptsResetting.value) {
-    return;
-  }
-
-  developerPromptsResetting.value = true;
-  developerPromptsMessage.value = '';
-  developerPromptsError.value = '';
-
-  try {
-    const result = await developerPromptsApi.reset();
-
-    if (applyDeveloperPrompts(result)) {
-      developerPromptsMessage.value = t('settings.promptsReset');
-    }
-  } catch {
-    developerPromptsError.value = t(ERROR_MESSAGE_KEYS.CONFIG_FAILED);
-  } finally {
-    developerPromptsResetting.value = false;
-  }
-};
-
 const loadDeveloperMode = async () => {
   developerModeLoading.value = true;
   developerModeError.value = '';
@@ -244,11 +127,6 @@ const loadDeveloperMode = async () => {
 
     if (result.ok && result.enabled !== undefined) {
       developerMode.value = result.enabled;
-      if (result.enabled) {
-        await loadDeveloperPrompts();
-      } else {
-        clearDeveloperPrompts();
-      }
     } else {
       developerModeError.value = t(
         ERROR_MESSAGE_KEYS[result.errorCode ?? 'UNKNOWN_ERROR'],
@@ -285,11 +163,6 @@ const toggleDeveloperMode = async () => {
     developerModeMessage.value = result.enabled
       ? t('settings.developerModeEnabledMessage')
       : t('settings.developerModeDisabledMessage');
-    if (result.enabled) {
-      await loadDeveloperPrompts();
-    } else {
-      clearDeveloperPrompts();
-    }
   } catch {
     developerModeError.value = t(ERROR_MESSAGE_KEYS.CONFIG_FAILED);
   } finally {
@@ -482,7 +355,6 @@ watch(
     dataError.value = '';
     developerModeMessage.value = '';
     developerModeError.value = '';
-    clearDeveloperPrompts();
     document.removeEventListener('keydown', handleKeydown);
     previousFocus?.focus();
   },
@@ -607,102 +479,16 @@ onBeforeUnmount(() => {
             {{ developerModeMessage }}
           </p>
 
-          <div v-if="developerMode" class="developer-prompts">
-            <div class="developer-prompts__heading">
-              <div>
-                <strong>{{ t('settings.developerPromptsTitle') }}</strong>
-                <p>{{ t('settings.developerPromptsDescription') }}</p>
-              </div>
-              <span v-if="developerPromptsBaseVersion">
-                {{
-                  t('settings.developerPromptsBaseVersion', {
-                    version: developerPromptsBaseVersion,
-                  })
-                }}
-              </span>
-            </div>
-
-            <p v-if="developerPromptsLoading" class="provider-feedback">
-              {{ t('settings.developerPromptsLoading') }}
-            </p>
-            <template v-else>
-              <span
-                v-if="developerPromptsHasSavedProfile"
-                class="developer-prompts__saved"
-              >
-                {{ t('settings.developerPromptsSavedProfile') }}
-              </span>
-              <textarea
-                v-model="developerPromptsText"
-                class="developer-prompts__editor"
-                :aria-label="t('a11y.developerPromptsEditor')"
-                spellcheck="false"
-              ></textarea>
-
-              <div class="developer-prompts__actions">
-                <AppButton
-                  size="small"
-                  :disabled="
-                    developerPromptsSaving || developerPromptsResetting
-                  "
-                  @click="saveDeveloperPrompts"
-                >
-                  {{ t('settings.savePrompts') }}
-                </AppButton>
-                <AppButton
-                  v-if="!developerPromptsConfirmResetting"
-                  variant="text"
-                  :disabled="
-                    developerPromptsSaving || developerPromptsResetting
-                  "
-                  @click="requestResetDeveloperPrompts"
-                >
-                  {{ t('settings.resetPrompts') }}
-                </AppButton>
-              </div>
-
-              <div
-                v-if="developerPromptsConfirmResetting"
-                class="settings-data__confirm"
-              >
-                <p>{{ t('settings.resetPromptsWarning') }}</p>
-                <div class="settings-data__actions">
-                  <AppButton
-                    variant="ghost"
-                    :disabled="developerPromptsResetting"
-                    @click="cancelResetDeveloperPrompts"
-                  >
-                    {{ t('common.cancel') }}
-                  </AppButton>
-                  <AppButton
-                    variant="danger"
-                    :disabled="developerPromptsResetting"
-                    @click="resetDeveloperPrompts"
-                  >
-                    {{
-                      developerPromptsResetting
-                        ? t('common.loading')
-                        : t('settings.confirmResetPrompts')
-                    }}
-                  </AppButton>
-                </div>
-              </div>
-
-              <p
-                v-if="developerPromptsError"
-                class="provider-error"
-                role="alert"
-              >
-                {{ developerPromptsError }}
-              </p>
-              <p
-                v-if="developerPromptsMessage"
-                class="provider-feedback"
-                role="status"
-              >
-                {{ developerPromptsMessage }}
-              </p>
-            </template>
+          <div class="developer-mode__tools">
+            <AppButton
+              v-if="developerMode"
+              variant="ghost"
+              size="small"
+              @click="emit('openDeveloperPrompts')"
+            >
+              {{ t('settings.editPrompts') }}
+            </AppButton>
+            <span v-else>{{ t('settings.developerPromptsLockedHint') }}</span>
           </div>
         </section>
 
@@ -940,6 +726,12 @@ onBeforeUnmount(() => {
           <h3>{{ t('settings.privacy') }}</h3>
           <p>{{ t('settings.privacyText') }}</p>
         </section>
+
+        <div class="settings-panel__footer">
+          <AppButton variant="ghost" @click="close">
+            {{ t('settings.closeSettings') }}
+          </AppButton>
+        </div>
       </section>
     </div>
   </Transition>
@@ -1144,10 +936,19 @@ onBeforeUnmount(() => {
 }
 
 .settings-panel__header {
+  position: sticky;
+  top: 0;
+  z-index: 4;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
+  margin: -4px -4px 0;
+  padding: 4px 4px 14px;
+  background: linear-gradient(
+    rgb(255 254 250 / 98%) 78%,
+    rgb(255 254 250 / 0%)
+  );
 }
 
 .settings-panel__eyebrow {
@@ -1360,74 +1161,16 @@ onBeforeUnmount(() => {
   transform: translateX(12px);
 }
 
-.developer-prompts {
-  margin-top: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--line-soft);
-  border-radius: 12px;
-  background: rgb(255 254 250 / 58%);
-}
-
-.developer-prompts__heading {
+.developer-mode__tools {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: center;
+  margin-top: 10px;
 }
 
-.developer-prompts__heading strong {
-  color: var(--ink-soft);
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.developer-prompts__heading p {
-  margin: 5px 0 0;
+.developer-mode__tools > span {
   color: var(--ink-faint);
   font-size: 10.5px;
-  line-height: 1.6;
-}
-
-.developer-prompts__heading > span,
-.developer-prompts__saved {
-  flex: none;
-  color: var(--moss);
-  font-size: 10px;
-  white-space: nowrap;
-}
-
-.developer-prompts__saved {
-  display: inline-block;
-  margin-top: 10px;
-}
-
-.developer-prompts__editor {
-  width: 100%;
-  min-height: 280px;
-  margin-top: 10px;
-  padding: 12px;
-  resize: vertical;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: rgb(255 254 250 / 82%);
-  color: var(--ink);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 10.5px;
   line-height: 1.55;
-  tab-size: 2;
-}
-
-.developer-prompts__editor:focus-visible {
-  outline: 2px solid var(--moss);
-  outline-offset: 2px;
-}
-
-.developer-prompts__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  margin-top: 10px;
 }
 
 .settings-data {
@@ -1494,6 +1237,14 @@ onBeforeUnmount(() => {
   color: var(--ink-soft);
   font-size: 11.5px;
   line-height: 1.7;
+}
+
+.settings-panel__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line-soft);
 }
 
 .settings-enter-active,
