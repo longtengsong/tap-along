@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.7.0",
   "description": "A reading companion that helps new thoughts connect with earlier ones.",
   "keywords": [],
   "license": "MIT",
@@ -24,9 +25,6 @@
     "test:unit": "node --test --test-reporter=./tests/reporters/chinese-reporter.mjs \"tests/**/*.test.mjs\"",
     "eval:prompts": "node tools/prompts/eval-live.mjs",
     "typecheck": "tsc --noEmit"
-  },
-  "devEngines": {
-    "packageManager": "pnpm@11.21.0"
   },
   "peerDependencies": {
     "electron-winstaller": "^5.4.0"
