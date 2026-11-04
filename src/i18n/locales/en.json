@@ -266,6 +266,8 @@
     "privacyText": "Your thoughts are sent to a cloud-based companion to generate responses.",
     "modelService": "Model service",
     "modelServiceHint": "Choose a provider and configure your own API key.",
+    "demoNotice": "You're in demo mode — replies are fixed samples. Configure a model to leave it.",
+    "demoNoticeAction": "Set up a model",
     "provider": "Provider",
     "model": "Model ID",
     "modelPlaceholder": "For example, deepseek-chat",

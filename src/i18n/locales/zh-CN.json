@@ -266,6 +266,8 @@
     "privacyText": "念头会发送到云端伴读那里，用于生成回应。",
     "modelService": "模型服务",
     "modelServiceHint": "选择供应商并配置你自己的 API Key。",
+    "demoNotice": "当前是演示模式，伴读只会用固定话术。配置模型后自动退出。",
+    "demoNoticeAction": "去配置模型",
     "provider": "供应商",
     "model": "模型 ID",
     "modelPlaceholder": "例如 deepseek-chat",

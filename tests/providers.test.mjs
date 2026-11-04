@@ -151,6 +151,34 @@ test('供应商 Key 应按供应商隔离保存和清除', async () => {
   assert.equal(custom.model, 'local-model');
 });
 
+test('首次配置供应商应自动激活，避免配置完仍停留在演示模式', async () => {
+  const { service } = createFixture();
+
+  const first = await service.save({
+    id: 'custom',
+    name: 'Local',
+    model: 'local-model',
+    baseUrl: 'http://localhost:11434/v1',
+    apiKey: 'local-key',
+  });
+
+  assert.equal(first.ok, true);
+  assert.equal(first.state.activeProvider, 'custom');
+  assert.equal(
+    first.state.providers.find((provider) => provider.id === 'custom').active,
+    true,
+  );
+
+  const second = await service.save({
+    id: 'deepseek',
+    model: 'deepseek-chat',
+    apiKey: 'deepseek-key',
+  });
+
+  assert.equal(second.ok, true);
+  assert.equal(second.state.activeProvider, 'custom');
+});
+
 test('可以切换激活供应商且重启读取保持一致', async () => {
   const { cipher, service, store } = createFixture();
   await service.save({

@@ -46,7 +46,7 @@ const emit = defineEmits<{
         :aria-label="t('a11y.demoMode')"
         @click="emit('settings')"
       >
-        {{ t('onboarding.demoLabel') }}
+        {{ t('onboarding.demoLabel') }} · {{ t('onboarding.configure') }}
       </button>
       <button
         v-if="archiveVisible"
@@ -119,9 +119,18 @@ const emit = defineEmits<{
 }
 
 .app-bar__action--demo {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--moss-soft);
   color: var(--moss);
   font-size: 10.5px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
+}
+
+.app-bar__action--demo:hover {
+  border-color: var(--moss);
+  color: var(--moss);
 }
 
 .app-bar__action:focus-visible {

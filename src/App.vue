@@ -264,10 +264,12 @@ onMounted(async () => {
 
     <SettingsDialog
       :open="settingsOpen"
+      :demo-mode="demoMode"
       :clear-conversation-data="clearConversationData"
       @close="closeSettings"
       @open-developer-prompts="openDeveloperPrompts"
       @developer-mode-changed="applyDeveloperMode"
+      @provider-changed="refreshProviderState"
     />
 
     <DeveloperPromptPage

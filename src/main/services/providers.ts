@@ -227,6 +227,15 @@ export class ProviderConfigService {
             : (input.value.baseUrl ?? '').trim(),
         ...(encryptedApiKey ? { encryptedApiKey } : {}),
       };
+
+      // 当前激活供应商还没有 Key 时，保存后自动激活刚配置的这一项。
+      // 否则用户配置完仍会停在演示模式，看起来像“保存没生效”。
+      const activeProvider = settings.providers[settings.activeProvider];
+
+      if (!activeProvider?.encryptedApiKey) {
+        settings.activeProvider = input.value.id;
+      }
+
       this.store.write(settings);
 
       return { ok: true, state: await this.buildState(settings) };

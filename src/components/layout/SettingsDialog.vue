@@ -19,6 +19,7 @@ import type {
 
 const props = defineProps<{
   open: boolean;
+  demoMode?: boolean;
   clearConversationData: () => Promise<PageClearAllResult>;
 }>();
 
@@ -26,10 +27,12 @@ const emit = defineEmits<{
   close: [];
   openDeveloperPrompts: [];
   developerModeChanged: [enabled: boolean];
+  providerChanged: [];
 }>();
 
 const { locale, t } = useI18n();
 const dialog = ref<HTMLElement | null>(null);
+const modelSection = ref<HTMLElement | null>(null);
 const activeLocale = computed(() => locale.value as SupportedLocale);
 const providerState = ref<ModelProviderState | null>(null);
 const selectedProviderId = ref<ModelProviderId>('deepseek');
@@ -68,6 +71,24 @@ const selectedProvider = computed(
 
 const close = () => {
   emit('close');
+};
+
+const scrollToModel = () => {
+  const panel = dialog.value;
+  const section = modelSection.value;
+
+  if (!panel || !section) {
+    return;
+  }
+
+  panel.scrollTo({
+    top:
+      section.getBoundingClientRect().top -
+      panel.getBoundingClientRect().top +
+      panel.scrollTop -
+      18,
+    behavior: 'smooth',
+  });
 };
 
 const selectLocale = (nextLocale: SupportedLocale) => {
@@ -204,6 +225,7 @@ const saveProvider = async () => {
 
     applyProviderState(result.state);
     providerForm.apiKey = '';
+    emit('providerChanged');
     providerMessage.value = t('settings.configSaved');
   } catch {
     showProviderError('CONFIG_FAILED');
@@ -229,6 +251,7 @@ const clearProviderKey = async () => {
     }
 
     applyProviderState(result.state);
+    emit('providerChanged');
     providerMessage.value = t('settings.keyCleared');
   } catch {
     showProviderError('CONFIG_FAILED');
@@ -254,6 +277,7 @@ const setActiveProvider = async () => {
     }
 
     applyProviderState(result.state);
+    emit('providerChanged');
     providerMessage.value = t('settings.providerActivated');
   } catch {
     showProviderError('CONFIG_FAILED');
@@ -432,6 +456,17 @@ onBeforeUnmount(() => {
           </button>
         </header>
 
+        <div v-if="demoMode" class="demo-banner">
+          <p>{{ t('settings.demoNotice') }}</p>
+          <button
+            class="demo-banner__action"
+            type="button"
+            @click="scrollToModel"
+          >
+            {{ t('settings.demoNoticeAction') }}
+          </button>
+        </div>
+
         <section class="settings-section" aria-labelledby="settings-language">
           <div class="settings-section__heading">
             <h3 id="settings-language">{{ t('settings.uiLanguage') }}</h3>
@@ -533,7 +568,11 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
-        <section class="settings-section" aria-labelledby="settings-model">
+        <section
+          ref="modelSection"
+          class="settings-section"
+          aria-labelledby="settings-model"
+        >
           <div class="settings-section__heading">
             <h3 id="settings-model">{{ t('settings.modelService') }}</h3>
             <span>{{ t('settings.modelServiceHint') }}</span>
@@ -831,6 +870,43 @@ onBeforeUnmount(() => {
     0 1px 0 rgb(255 255 255 / 80%) inset,
     0 24px 60px -28px rgb(44 35 23 / 45%);
   outline: none;
+}
+
+.demo-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--moss-soft);
+}
+
+.demo-banner p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.demo-banner__action {
+  flex: 0 0 auto;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--moss);
+  font: inherit;
+  font-size: 11.5px;
+  white-space: nowrap;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.demo-banner__action:hover {
+  color: var(--ink);
 }
 
 .provider-options {
