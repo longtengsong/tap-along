@@ -32,6 +32,12 @@ test('初始化数据库时应启用 WAL、页边表及索引', async (t) => {
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'pages'",
     )
     .get();
+  const ftsTable = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'pages_fts'",
+    )
+    .get();
+  const userVersion = db.prepare('PRAGMA user_version').get().user_version;
   const indexes = db
     .prepare(
       "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'pages'",
@@ -46,6 +52,8 @@ test('初始化数据库时应启用 WAL、页边表及索引', async (t) => {
   assert.equal(journalMode.journal_mode, 'wal', '数据库应使用 WAL 模式');
   assert.equal(foreignKeys.foreign_keys, 1, '应启用外键约束');
   assert.equal(table.name, 'pages', '应创建 pages 表');
+  assert.equal(ftsTable.name, 'pages_fts', '应创建 FTS 索引表');
+  assert.equal(userVersion, 1, '应记录 FTS 索引版本');
   assert.deepEqual(
     new Set(indexes),
     new Set(['idx_pages_parent', 'idx_pages_status', 'idx_pages_updated']),
@@ -61,6 +69,7 @@ test('初始化数据库时应启用 WAL、页边表及索引', async (t) => {
       'source',
       'parse_status',
       'companion_log',
+      'guidance',
       'page_status',
       'teaching_round_count',
       'created_at',
@@ -106,10 +115,45 @@ test('旧数据库应幂等迁移页面父级字段并保留数据', async (t) =
   t.after(() => closeDatabase(secondConnection));
 
   assert.ok(columns.includes('parent_page_id'));
+  assert.ok(columns.includes('guidance'));
   assert.equal(page.body, '旧数据库中的页边。');
   assert.equal(page.parent_page_id, null);
   assert.equal(
     secondConnection.prepare('SELECT COUNT(*) AS count FROM pages').get().count,
+    1,
+  );
+  assert.equal(
+    secondConnection
+      .prepare(
+        'SELECT COUNT(*) AS count FROM pages_fts WHERE pages_fts MATCH ?',
+      )
+      .get('"旧数据库"').count,
+    1,
+  );
+  assert.equal(
+    secondConnection.prepare('PRAGMA user_version').get().user_version,
+    1,
+  );
+});
+
+test('FTS 行数与页面数不一致时应自动重建', async (t) => {
+  const databasePath = await createDatabasePath(t);
+  const firstConnection = openDatabase(databasePath);
+  firstConnection
+    .prepare('INSERT INTO pages (body, source) VALUES (?, ?)')
+    .run('需要重建索引的页边。', '课程');
+  firstConnection.exec('DELETE FROM pages_fts');
+  closeDatabase(firstConnection);
+
+  const secondConnection = openDatabase(databasePath);
+  t.after(() => closeDatabase(secondConnection));
+
+  assert.equal(
+    secondConnection
+      .prepare(
+        'SELECT COUNT(*) AS count FROM pages_fts WHERE pages_fts MATCH ?',
+      )
+      .get('"重建索引"').count,
     1,
   );
 });
@@ -174,8 +218,16 @@ test('应在内存数据库中完成初始化', (t) => {
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'pages'",
     )
     .get();
+  const ftsTable = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'pages_fts'",
+    )
+    .get();
+  const userVersion = db.prepare('PRAGMA user_version').get().user_version;
 
   assert.equal(table.name, 'pages', '内存数据库也应创建 pages 表');
+  assert.equal(ftsTable.name, 'pages_fts', '内存数据库也应创建 FTS 表');
+  assert.equal(userVersion, 1, '内存数据库也应记录 FTS 版本');
 });
 
 test('数据库文件损坏时应抛出初始化错误', async (t) => {

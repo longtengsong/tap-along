@@ -1,3 +1,6 @@
+import type { GuidanceView } from '@/shared/guidance';
+import type { TeacherSource } from '@/shared/search';
+
 export type PageStatus = 'reading' | 'closed' | 'saving' | 'failed';
 
 export type MessageRole = 'teacher' | 'user' | 'maintenance';
@@ -12,6 +15,9 @@ export interface TalkMessage {
   text: string;
   suggestClose?: boolean;
   requestId?: string;
+  mode?: 'reflect' | 'answer';
+  sources?: TeacherSource[];
+  citationStatus?: 'cited' | 'uncited';
 }
 
 export interface PageRecord {
@@ -22,6 +28,9 @@ export interface PageRecord {
   status: PageStatus;
   messages: TalkMessage[];
   teacherTurn: number;
+  guidance?: GuidanceView;
+  guidanceError?: string;
+  pendingGuidanceRefresh?: boolean;
   editing: boolean;
   editDraft: string;
   historyOpen: boolean;

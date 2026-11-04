@@ -1,6 +1,10 @@
 import type { AppErrorCode } from './errors.ts';
+import type { BackupBridge } from './backup.ts';
+import type { GuidanceBridge, GuidanceView } from './guidance.ts';
 import type { DeveloperPromptsBridge } from './prompts.ts';
 import type { ProviderBridge } from './providers.ts';
+import type { SearchBridge, TeacherSource } from './search.ts';
+import type { ShellBridge } from './shell.ts';
 import type { SettingsBridge } from './settings.ts';
 
 export type PageLifecycleStatus = 'reading' | 'closed';
@@ -13,16 +17,24 @@ export type PageActionType =
   | 'edited_note'
   | 'appended_note'
   | 'end'
-  | 'reopened';
+  | 'reopened'
+  | 'forked';
 
 export interface PageMessageSnapshot {
   role: PageMessageRole;
   text: string;
   actionType?: PageActionType;
   content?: string;
+  /**
+   * 分叉锚点记录指向的新页编号。
+   * 父页日志中的 forked 记录用它把子页正文定位到用户真正另起一页的时刻。
+   */
+  childPageId?: number;
   suggestClose?: boolean;
   requestId?: string;
   createdAt?: number;
+  mode?: 'answer';
+  sources?: TeacherSource[];
 }
 
 export interface PageSnapshot {
@@ -34,6 +46,7 @@ export interface PageSnapshot {
   parseStatus: ParseStatus;
   teachingRoundCount: number;
   messages: PageMessageSnapshot[];
+  guidance?: GuidanceView;
 }
 
 export interface SavePagePayload {
@@ -85,6 +98,7 @@ export const PAGE_CHANNELS = {
   save: 'pages:save',
   get: 'pages:get',
   list: 'pages:list',
+  listClosed: 'pages:list-closed',
   append: 'pages:append',
   edit: 'pages:edit',
   close: 'pages:close',
@@ -130,6 +144,9 @@ export interface TeacherDoneEvent {
   suggestClose?: boolean;
   errorCode?: AppErrorCode;
   cancelled?: boolean;
+  mode?: 'reflect' | 'answer';
+  sources?: TeacherSource[];
+  citationStatus?: 'cited' | 'uncited';
 }
 
 export interface TeacherCancelPayload {
@@ -175,10 +192,18 @@ export const TEACHER_CHANNELS = {
 } as const;
 
 export interface TapAlongBridge
-  extends ProviderBridge, SettingsBridge, DeveloperPromptsBridge {
+  extends
+    ProviderBridge,
+    BackupBridge,
+    SettingsBridge,
+    DeveloperPromptsBridge,
+    GuidanceBridge,
+    SearchBridge,
+    ShellBridge {
   savePage?: (payload: SavePagePayload) => Promise<PageOperationResult>;
   getPage?: (pageId: number) => Promise<PageOperationResult>;
   listPages?: (payload: ListPagesPayload) => Promise<PageListResult>;
+  listClosedPages?: (payload: ListPagesPayload) => Promise<PageListResult>;
   editPage?: (payload: EditPagePayload) => Promise<PageOperationResult>;
   appendPage?: (payload: AppendPagePayload) => Promise<PageOperationResult>;
   closePage?: (payload: ClosePagePayload) => Promise<PageOperationResult>;

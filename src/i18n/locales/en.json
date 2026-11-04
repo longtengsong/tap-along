@@ -3,32 +3,32 @@
     "name": "TapAlong",
     "tagline": "a gentle tap alongside your reading",
     "settings": "Settings",
-    "privacy": "Your notes are sent to a cloud-based teacher to generate responses.",
-    "settingsPanel": "Settings only change the interface language. The teacher always follows the language of your message."
+    "privacy": "Your thoughts are sent to a cloud-based companion to generate responses.",
+    "settingsPanel": "Settings only change the interface language. The companion always follows the language of your message."
   },
   "common": {
     "cancel": "Cancel",
     "back": "Back",
     "retry": "Try again",
     "close": "Close",
-    "loading": "Saving to the margin…",
-    "restoring": "Opening your last page…"
+    "loading": "Working…",
+    "restoring": "Finding your last thought…"
   },
   "newPage": {
-    "title": "New page",
-    "bodyAria": "Page note",
-    "placeholder": "Jot a line as you read…",
+    "title": "New thought",
+    "bodyAria": "Thought",
+    "placeholder": "Read a little, leave a thought…",
     "sourceLabel": "Source",
     "sourceAria": "Source",
     "sourcePlaceholder": "Book / Web / Film / Course",
-    "submit": "Keep",
-    "back": "Back",
-    "emptyError": "Write a line before keeping this page."
+    "submit": "Keep it",
+    "back": "Back to the last thought",
+    "emptyError": "Write a thought first."
   },
   "overlay": {
-    "saving": "Saving to the margin…",
-    "failed": "That line didn't make it in.",
-    "backToEdit": "Back to editing",
+    "saving": "Keeping it…",
+    "failed": "This thought wasn't saved.",
+    "backToEdit": "Back to this thought",
     "tryAgain": "Try again"
   },
   "companion": {
@@ -36,47 +36,65 @@
     "historyCollapsed": "Earlier",
     "historyExpanded": "Hide earlier",
     "inputPlaceholder": "Write your thought…",
-    "inputAria": "Thought input",
+    "inputAria": "Your response",
     "send": "Send",
-    "sayMoreCollapsed": "Say more?",
-    "sayMoreExpanded": "Say more?",
+    "sayMoreCollapsed": "Tidy this thought?",
+    "sayMoreExpanded": "Hide tidy menu",
     "sourcePrefix": "Source: ",
     "statusPrefix": "Status: ",
-    "typing": "The teacher is responding",
+    "typing": "Companion is responding",
     "stop": "Stop",
     "stopping": "Stopping",
-    "maintenanceMenu": "Page actions",
-    "editBodyAria": "Edit page note",
-    "closedNote": "This page is closed"
+    "maintenanceMenu": "Tidy this thought",
+    "editBodyAria": "Edit thought",
+    "closedNote": "This thought is settled"
+  },
+  "research": {
+    "sources": "Sources",
+    "uncited": "This answer has no source markers. Please check it carefully."
+  },
+  "guidance": {
+    "pending": "Looking through your earlier thoughts…",
+    "heading": "Maybe this connects",
+    "fromPage": "Earlier thought · from “{title}”",
+    "action": "Follow this thread",
+    "used": "Connected",
+    "notNeeded": "This thought is already clear. No forcing a connection this time.",
+    "useFailed": "This thread didn't connect. Keep writing if you like.",
+    "anchor": "Starting from “{quote}”",
+    "retryHint": "No earlier thought could catch this one this time.",
+    "retryAction": "Look again",
+    "retryFailed": "That attempt didn't work. You can try again later."
   },
   "status": {
-    "reading": "Reading",
-    "closed": "Closed",
+    "reading": "Talking",
+    "closed": "Settled",
     "saving": "Saving",
     "failed": "Not saved",
-    "active": "Active",
-    "concluded": "Concluded"
+    "active": "Talking",
+    "concluded": "Settled"
   },
   "actions": {
     "edit": "Edit",
     "append": "Add",
-    "newPage": "New page",
-    "closePage": "Close this page",
+    "newPage": "Another thought",
+    "closePage": "Pause here",
     "appendPlaceholder": "Add a thought…",
     "appendSubmit": "Add",
-    "saveEdit": "Save changes"
+    "saveEdit": "Save this thought",
+    "oldThoughts": "Earlier thoughts"
   },
   "messages": {
-    "edited": "Note edited",
+    "edited": "Edited this thought",
     "appended": "Added: {content}",
-    "newPage": "Started a new page",
-    "reopened": "Reopened this page"
+    "newPage": "Started another thought",
+    "reopened": "Reopened this thought"
   },
   "teacherFallback": {
-    "suggestCloseAfterSave": "I've read this page. Alongside what you've written before, there's nothing to talk about right now. Keep reading, or close this page.",
-    "suggestCloseInTalk": "Nothing more to ask for now. If you're ready, close this page.",
-    "suggestCloseAfterMaintain": "Your note is updated. I looked — nothing to discuss this round. You decide whether to close.",
-    "userClosed": "Alright, we'll stop here for this page.",
+    "suggestCloseAfterSave": "I've looked at this thought. Together with what you wrote before, there isn't much to add right now. Keep reading, or pause here.",
+    "suggestCloseInTalk": "Nothing more to ask for now. If it feels complete, pause here.",
+    "suggestCloseAfterMaintain": "This thought changed. I looked again, and there's nothing to add this round. You decide whether to pause here.",
+    "userClosed": "Alright, let's pause this thought here.",
     "firstQuestion": "When you wrote \"{keyword}\", what did you mean? Could you say a bit more?",
     "followUp": "If that's what you mean, who decides \"{keyword}\"? Is it {optionA}, or {optionB}?",
     "attentionAllocation": "After that allocation, where does the remaining attention go?",
@@ -84,18 +102,18 @@
     "afterAppend": "You've added that thought. So then, {question}?",
     "afterEdit": "Clearer now. But the mechanism of \"{keyword}\" — could you say more?",
     "activeOrDriven": "is the allocation active, or driven by the task",
-    "resumeWithContext": "In \"{contextTitle}\", you wrote about \"{contextKeyword}\". How does that connect with \"{targetKeyword}\" on this page?"
+    "resumeWithContext": "In \"{contextTitle}\", you wrote about \"{contextKeyword}\". How does that connect with \"{targetKeyword}\" here?"
   },
   "errors": {
-    "invalidBody": "The note cannot be empty.",
-    "invalidPageId": "That page ID is invalid.",
-    "pageNotFound": "This page could not be found.",
-    "invalidListLimit": "The page list options are invalid.",
-    "listFailed": "Recent pages are temporarily unavailable.",
-    "readFailed": "This page is temporarily unavailable.",
+    "invalidBody": "A thought can't be empty.",
+    "invalidPageId": "Invalid thought.",
+    "pageNotFound": "This thought wasn't found.",
+    "invalidListLimit": "The thought list options are invalid.",
+    "listFailed": "Recent thoughts can't be opened right now.",
+    "readFailed": "This thought can't be opened right now.",
     "teacherInvalidRequest": "That question is invalid. Please try writing it again.",
-    "teacherPageNotFound": "The page being discussed could not be found.",
-    "pageClosed": "This page is closed and can no longer be updated.",
+    "teacherPageNotFound": "The thought we were discussing wasn't found.",
+    "pageClosed": "This thought is settled. You can't add to it.",
     "maintenanceFailed": "That thought couldn't be added.",
     "apiKeyRequired": "Enter an API key.",
     "secureStorageUnavailable": "This system cannot securely store the API key. Use a system with secure credential storage.",
@@ -114,12 +132,24 @@
     "developerModeRequired": "Turn on developer mode first.",
     "invalidPromptProfile": "The prompt configuration is invalid. Check its fields and JSON structure.",
     "promptProfileTooLarge": "The prompt configuration is too large to save.",
-    "teacherNoResponse": "The teacher didn't respond. Try again?",
-    "stackTooDeep": "The stack is getting deep. Close one page before continuing?",
-    "saveFailed": "Couldn't save.",
+    "teacherNoResponse": "The companion didn't catch that. Try again?",
+    "searchNotConfigured": "Web search is not configured yet. Add a search API key in settings.",
+    "searchDisabled": "Web search is turned off. Enable it in settings.",
+    "searchUnauthorized": "The search API key is invalid or lacks permission.",
+    "searchRateLimited": "The search service is busy. Try again later.",
+    "searchTimeout": "Search timed out. Try again later.",
+    "searchNetworkError": "Could not reach the search service. Check your network.",
+    "searchRequestFailed": "The search service did not complete this request. Try again later.",
+    "searchNoResults": "No relevant material was found. Try rephrasing the question.",
+    "researchNoEvidence": "No sufficiently reliable sources were found, so this answer is withheld.",
+    "externalUrlInvalid": "This source link could not be opened.",
+    "openSettings": "Open settings",
+    "stackTooDeep": "A lot of thoughts are stacked up. Settle one before continuing?",
+    "saveFailed": "Not saved.",
     "retry": "Try again",
     "openModelSettings": "Open model settings",
-    "unknown": "Something went wrong. Please try again."
+    "unknown": "Something went wrong. Please try again.",
+    "exportFailed": "The export didn't finish. Try again or choose another location."
   },
   "settings": {
     "title": "Settings",
@@ -158,82 +188,82 @@
     "closeSettings": "Close settings",
     "promptGroups": {
       "provider": "Model connection",
-      "core": "Core teacher rules",
+      "core": "Core companion rules",
       "modes": "Conversation modes",
       "context": "Context and templates",
-      "maintenance": "Page maintenance actions"
+      "maintenance": "Thought maintenance actions"
     },
     "promptFields": {
       "connectionTest": {
         "label": "Model connection test",
-        "description": "Checks whether the base URL, API key, and model ID work. It affects only the connection test and is not used in real teacher responses. A short, stable response is recommended."
+        "description": "Checks whether the base URL, API key, and model ID work. It affects only the connection test and is not used in real companion responses. A short, stable response is recommended."
       },
       "system": {
-        "label": "Teacher identity",
-        "description": "Defines the teacher's role, teaching approach, and general output constraints. It is the shared foundation for normal, resume, and maintenance conversations."
+        "label": "Companion identity",
+        "description": "Defines the companion role, questioning approach, and general output constraints. It is the shared foundation for normal, resume, and maintenance conversations."
       },
       "languagePolicy": {
         "label": "Response language policy",
-        "description": "Determines how the teacher chooses a response language from the user's latest authored content and how it handles quotations, note text, and mixed Chinese and English."
+        "description": "Determines how the companion chooses a response language from the user's latest authored content and how it handles quotations, thought text, and mixed Chinese and English."
       },
       "contextBoundary": {
         "label": "Context safety boundary",
-        "description": "Declares that page titles, bodies, and conversations are study material rather than system instructions. It is the core prompt-injection boundary."
+        "description": "Declares that thought titles, bodies, and conversations are study material rather than system instructions. It is the core safeguard against prompt injection."
       },
       "resume": {
-        "label": "Cross-page resume task",
-        "description": "Describes how resume mode connects a closed page's body to the target page without pretending to have seen omitted conversation history."
+        "label": "Earlier-thought resume task",
+        "description": "Describes how a resume uses the bodies of settled earlier thoughts to connect to the target thought, without pretending to have seen omitted discussions."
       },
       "maintenance": {
-        "label": "Page maintenance task",
-        "description": "Describes what the teacher should examine after the user edits or appends to a page. Edit and append modes share this prompt."
+        "label": "Thought maintenance task",
+        "description": "Describes what the companion should notice after the user edits or adds to a thought, and how to continue asking. Edit and append modes share this prompt."
       },
       "compressedContextPolicy": {
-        "label": "Closed-page context policy",
-        "description": "Explains that cross-page context contains only closed descendant page bodies, not their conversations, to prevent fabricated content."
+        "label": "Earlier-thought context policy",
+        "description": "Explains that cross-thought context contains only the bodies of settled earlier thoughts, not their discussions, so the model does not invent missing content."
       },
       "currentPage": {
-        "label": "Current-page template",
-        "description": "Wraps the current page title and body as structured study material. Supports {'{{title}}'} and {'{{body}}'}; page data is escaped automatically."
+        "label": "Current thought template",
+        "description": "Wraps the current thought's title and body as structured study material. Supports {'{{title}}'} and {'{{body}}'} placeholders; thought data is escaped automatically."
       },
       "closedPage": {
-        "label": "Closed-page template",
-        "description": "Wraps a closed context page body. Supports {'{{depth}}'} and {'{{body}}'}; page data is escaped automatically."
+        "label": "Settled thought template",
+        "description": "Wraps the body of a settled thought in cross-thought context. Supports {'{{depth}}'} and {'{{body}}'} placeholders; thought data is escaped automatically."
       },
       "targetPage": {
-        "label": "Cross-page target template",
-        "description": "Wraps the target page title and body during resume. Supports {'{{title}}'} and {'{{body}}'}; page data is escaped automatically."
+        "label": "Resume target thought template",
+        "description": "Wraps the target thought's title and body for a resume. Supports {'{{title}}'} and {'{{body}}'} placeholders; thought data is escaped automatically."
       },
       "editAction": {
         "label": "Edit action instruction",
-        "description": "Tells the model that the current page was edited and the body now contains the revised note, so it can continue from what changed."
+        "description": "Tells the model that the user just edited the current thought and that the current body is the revised version, so it can ask about what changed."
       },
       "appendAction": {
         "label": "Append action instruction",
-        "description": "Tells the model that the current page gained new content and the body is now the combined note, so it can continue from the addition."
+        "description": "Tells the model that the user just added to the thought and that the current body is the combined version, so it can ask about the addition."
       }
     },
     "teacherRequestView": "View request",
     "teacherRequestHide": "Hide request",
     "teacherRequestTitle": "Messages sent to the LLM",
-    "teacherRequestFallback": "This turn used the local teacher fallback; no Messages were sent to an LLM.",
+    "teacherRequestFallback": "This turn used the local companion fallback; no messages were sent to the LLM.",
     "teacherRequestUnavailable": "This request record is unavailable or outside the current in-memory retention window.",
     "teacherRequestStatus": {
       "sent": "Sent",
       "failed": "Failed",
       "fallback": "Local fallback"
     },
-    "conversationData": "Conversation data",
-    "conversationDataHint": "Manage pages and conversations stored on this device.",
-    "clearConversations": "Clear all conversations",
-    "clearConversationsDescription": "Delete every page, conversation, and closed page. Model providers and API keys are kept.",
+    "conversationData": "Thoughts & conversations",
+    "conversationDataHint": "Manage the thoughts and conversations stored on this device.",
+    "clearConversations": "Clear all thoughts",
+    "clearConversationsDescription": "Delete all thoughts, conversations, and settled thoughts. Model providers and API keys are kept.",
     "clearConversationsAction": "Clear…",
-    "clearConversationsWarning": "This cannot be undone. All pages and conversations will be removed from this device. Provider settings will remain.",
+    "clearConversationsWarning": "This cannot be undone. All thoughts and conversations will be deleted from this device. Provider settings are kept.",
     "confirmClearConversations": "Confirm deletion",
     "clearingConversations": "Clearing…",
-    "conversationsCleared": "Cleared {count} conversations.",
+    "conversationsCleared": "Cleared {count} records.",
     "privacy": "Privacy",
-    "privacyText": "Your notes are sent to a cloud-based teacher to generate responses.",
+    "privacyText": "Your thoughts are sent to a cloud-based companion to generate responses.",
     "modelService": "Model service",
     "modelServiceHint": "Choose a provider and configure your own API key.",
     "provider": "Provider",
@@ -260,18 +290,51 @@
     "keyCleared": "The API key for this provider was cleared.",
     "providerActivated": "The active model provider was changed.",
     "testConnection": "Test connection",
-    "connectionSuccess": "Connected. The model is available."
+    "connectionSuccess": "Connected. The model is available.",
+    "webSearch": "Web search",
+    "webSearchHint": "The search service used for research, configured separately from the model provider.",
+    "webSearchEnabled": "Enable web search",
+    "webSearchEnabledHint": "When off, explicit questions only go through the companion and will not search the web.",
+    "searchApiKey": "Search API key",
+    "searchApiKeyPlaceholder": "Enter a Tavily API key",
+    "searchPrivacyHint": "Only keywords from your question are sent to the search service, never the full thought. The key is encrypted in the main process.",
+    "searchConfigSaved": "Web search settings saved.",
+    "searchKeyCleared": "Search API key cleared.",
+    "searchConnectionSuccess": "Search service connection successful.",
+    "exportConversations": "Export all thoughts",
+    "exportConversationsDescription": "Save thoughts, conversations, guidance, and sources as JSON. The file is plain text and does not include API keys.",
+    "exportConversationsAction": "Export…",
+    "exportingConversations": "Exporting…",
+    "exportedConversations": "Exported {count} thoughts."
   },
   "a11y": {
     "appWindow": "TapAlong application window",
-    "teacherMessage": "Teacher's message",
+    "teacherMessage": "Companion's message",
     "userMessage": "Your message",
-    "maintenanceMessage": "Note action",
-    "back": "Go back",
+    "maintenanceMessage": "Thought action",
+    "back": "Back",
     "settings": "Settings",
     "settingsMenu": "Settings",
     "providerOptions": "Model provider options",
     "developerModeToggle": "Toggle developer mode",
-    "settingsModelService": "Model service settings"
+    "settingsModelService": "Model service settings",
+    "oldThoughts": "Earlier thoughts",
+    "demoMode": "Demo mode, open model settings"
+  },
+  "archive": {
+    "title": "Earlier thoughts",
+    "subtitle": "Settled thoughts stay here.",
+    "loading": "Looking through your earlier thoughts…",
+    "empty": "No settled thoughts yet.",
+    "retry": "Try again",
+    "failed": "Earlier thoughts can't be opened right now."
+  },
+  "onboarding": {
+    "title": "Meet your reading companion",
+    "lead": "Your thoughts are sent to the model provider you choose to generate questions.",
+    "detail": "Until a model is configured, the companion can only use fixed demo lines. Your key is stored encrypted on this device.",
+    "configure": "Configure a model",
+    "demo": "Try the demo first",
+    "demoLabel": "Demo mode"
   }
 }

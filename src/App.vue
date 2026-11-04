@@ -1,20 +1,28 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { providerApi } from '@/api/providers';
 import { settingsApi } from '@/api/settings';
 import AppWindow from '@/components/layout/AppWindow.vue';
 import CompanionScreen from '@/components/companion/CompanionScreen.vue';
+import ArchiveScreen from '@/components/archive/ArchiveScreen.vue';
+import FirstRunScreen from '@/components/onboarding/FirstRunScreen.vue';
 import NewPageScreen from '@/components/newpage/NewPageScreen.vue';
 import OverlayHost from '@/components/overlay/OverlayHost.vue';
 import SettingsDialog from '@/components/layout/SettingsDialog.vue';
 import DeveloperPromptPage from '@/components/settings/DeveloperPromptPage.vue';
 import { ERROR_MESSAGE_KEYS } from '@/shared/errors';
+import { isDemoMode, shouldShowFirstRun } from '@/shared/onboarding';
 import { useSessionStore } from '@/stores/session';
 
 const { t } = useI18n();
 const settingsOpen = ref(false);
 const developerPromptsOpen = ref(false);
 const developerMode = ref(false);
+const providerCheckDone = ref(false);
+const hasConfiguredProvider = ref(false);
+const onboardingDone = ref(false);
+const ONBOARDING_STORAGE_KEY = 'tap-along:onboarding-done';
 
 const {
   state,
@@ -23,6 +31,8 @@ const {
   stackIsDeep,
   submitNewPage,
   sendReply,
+  useGuidanceSuggestion,
+  retryGuidance,
   submitAppend,
   startEditing,
   cancelEditing,
@@ -30,6 +40,10 @@ const {
   startAppending,
   startNewPage,
   closeCurrentPage,
+  openArchive,
+  openArchivedPage,
+  closeArchive,
+  retryArchive,
   goBack,
   toggleHistory,
   retrySave,
@@ -44,6 +58,25 @@ const overlayErrorMessage = computed(() =>
   t(ERROR_MESSAGE_KEYS[state.errorCode ?? 'UNKNOWN_ERROR']),
 );
 
+const archiveErrorMessage = computed(() =>
+  state.archiveError ? t('archive.failed') : '',
+);
+
+const demoMode = computed(() =>
+  isDemoMode({
+    providerCheckDone: providerCheckDone.value,
+    hasConfiguredProvider: hasConfiguredProvider.value,
+  }),
+);
+
+const showFirstRun = computed(() =>
+  shouldShowFirstRun({
+    providerCheckDone: providerCheckDone.value,
+    hasConfiguredProvider: hasConfiguredProvider.value,
+    onboardingDone: onboardingDone.value,
+  }),
+);
+
 const submitComposer = () => {
   if (state.composerMode === 'append') {
     void submitAppend();
@@ -51,6 +84,60 @@ const submitComposer = () => {
   }
 
   void sendReply();
+};
+
+const readOnboardingDone = () => {
+  try {
+    return localStorage.getItem(ONBOARDING_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
+const markOnboardingDone = () => {
+  onboardingDone.value = true;
+
+  try {
+    localStorage.setItem(ONBOARDING_STORAGE_KEY, '1');
+  } catch {
+    // 本地标记失败不阻断使用；下次可能再次显示首用页。
+  }
+};
+
+const refreshProviderState = async () => {
+  try {
+    const result = await providerApi.list();
+    const active = result.ok
+      ? result.state?.providers.find((provider) => provider.active)
+      : undefined;
+
+    hasConfiguredProvider.value = result.ok
+      ? active?.configured === true
+      : true;
+  } catch {
+    // 读取失败不拦截用户，也不误报为未配置。
+    hasConfiguredProvider.value = true;
+  } finally {
+    providerCheckDone.value = true;
+
+    if (hasConfiguredProvider.value) {
+      markOnboardingDone();
+    }
+  }
+};
+
+const chooseDemo = () => {
+  markOnboardingDone();
+};
+
+const configureFromFirstRun = () => {
+  markOnboardingDone();
+  settingsOpen.value = true;
+};
+
+const closeSettings = async () => {
+  settingsOpen.value = false;
+  await refreshProviderState();
 };
 
 const openModelSettings = () => {
@@ -72,12 +159,19 @@ const applyDeveloperMode = (enabled: boolean) => {
 };
 
 onMounted(async () => {
-  try {
-    const result = await settingsApi.getDeveloperMode();
-    developerMode.value = result.ok && result.enabled === true;
-  } catch {
-    developerMode.value = false;
-  }
+  onboardingDone.value = readOnboardingDone();
+
+  await Promise.all([
+    (async () => {
+      try {
+        const result = await settingsApi.getDeveloperMode();
+        developerMode.value = result.ok && result.enabled === true;
+      } catch {
+        developerMode.value = false;
+      }
+    })(),
+    refreshProviderState(),
+  ]);
 });
 </script>
 
@@ -93,18 +187,37 @@ onMounted(async () => {
       <p>{{ t('common.restoring') }}</p>
     </div>
 
+    <FirstRunScreen
+      v-else-if="showFirstRun"
+      @configure="configureFromFirstRun"
+      @demo="chooseDemo"
+    />
+
     <Transition v-else name="screen-switch" mode="out-in">
+      <ArchiveScreen
+        v-if="state.view === 'archive'"
+        :pages="state.archivePages"
+        :loading="state.archiveLoading"
+        :error="archiveErrorMessage"
+        :demo-mode="demoMode"
+        @back="closeArchive"
+        @open="openArchivedPage"
+        @retry="retryArchive"
+        @settings="settingsOpen = true"
+      />
       <NewPageScreen
-        v-if="state.view === 'new'"
+        v-else-if="state.view === 'new'"
         :body="state.draft.body"
         :source="state.draft.source"
         :can-back="canGoBack"
+        :demo-mode="demoMode"
         :deep="stackIsDeep"
         :error="state.draftError ? t(state.draftError) : ''"
         @update:body="state.draft.body = $event"
         @update:source="state.draft.source = $event"
         @submit="submitNewPage"
         @back="goBack"
+        @archive="openArchive"
         @settings="settingsOpen = true"
       />
       <CompanionScreen
@@ -113,12 +226,15 @@ onMounted(async () => {
         :page="currentPage"
         :typing="state.typing"
         :can-back="canGoBack"
+        :archive-visible="!state.archiveDetailOpen"
+        :demo-mode="demoMode"
         :composer-mode="state.composerMode"
         :reply-draft="state.replyDraft"
         :say-more-open="state.sayMoreOpen"
         :can-cancel="canCancelTeacher"
         :cancelling="state.cancelling"
         @back="goBack"
+        @archive="openArchive"
         @settings="settingsOpen = true"
         @update-edit-draft="currentPage.editDraft = $event"
         @save-edit="saveEditing"
@@ -127,6 +243,8 @@ onMounted(async () => {
         @update-reply-draft="state.replyDraft = $event"
         @submit-reply="submitComposer"
         @cancel-teacher="cancelTeacher"
+        @use-guidance="useGuidanceSuggestion"
+        @retry-guidance="retryGuidance"
         @toggle-say-more="state.sayMoreOpen = !state.sayMoreOpen"
         @edit="startEditing"
         @append="startAppending"
@@ -147,7 +265,7 @@ onMounted(async () => {
     <SettingsDialog
       :open="settingsOpen"
       :clear-conversation-data="clearConversationData"
-      @close="settingsOpen = false"
+      @close="closeSettings"
       @open-developer-prompts="openDeveloperPrompts"
       @developer-mode-changed="applyDeveloperMode"
     />

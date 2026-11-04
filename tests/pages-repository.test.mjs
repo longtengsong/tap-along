@@ -215,6 +215,60 @@ test('最近在读页应按更新时间和编号排序并排除已合上页', as
   );
 });
 
+test('备份列表应包含全部页并按更新时间和编号排序', async (t) => {
+  const { db, repository } = await createRepository(t);
+  const first = repository.create('第一页', '');
+  const second = repository.create('第二页', '');
+  const closed = repository.create('已收住页', '');
+
+  db.prepare(
+    `UPDATE pages
+     SET updated_at = '2030-01-01 00:00:00'
+     WHERE id = ?`,
+  ).run(first.id);
+  db.prepare(
+    `UPDATE pages
+     SET page_status = 'closed', updated_at = '2031-01-01 00:00:00'
+     WHERE id = ?`,
+  ).run(closed.id);
+
+  assert.deepEqual(
+    repository.listAll().map((page) => page.id),
+    [closed.id, first.id, second.id],
+  );
+});
+
+test('旧念头列表只返回已收住页并按更新时间和编号排序', async (t) => {
+  const { db, repository } = await createRepository(t);
+  const reading = repository.create('还在聊的念头', '');
+  const firstClosed = repository.create('较早收住的念头', '');
+  const secondClosed = repository.create('最近收住的念头', '');
+
+  db.prepare(
+    `UPDATE pages
+     SET page_status = 'closed', updated_at = '2030-01-01 00:00:00'
+     WHERE id = ?`,
+  ).run(firstClosed.id);
+  db.prepare(
+    `UPDATE pages
+     SET page_status = 'closed', updated_at = '2031-01-01 00:00:00'
+     WHERE id = ?`,
+  ).run(secondClosed.id);
+
+  assert.deepEqual(
+    repository.listClosed(10).map((page) => page.id),
+    [secondClosed.id, firstClosed.id],
+  );
+  assert.deepEqual(
+    repository.listClosed(1).map((page) => page.id),
+    [secondClosed.id],
+  );
+  assert.equal(
+    repository.listClosed(10).some((page) => page.id === reading.id),
+    false,
+  );
+});
+
 test('补一句应在事务中更新正文并写入结构化维护记录', async (t) => {
   const { repository } = await createRepository(t);
   const page = repository.create('原始笔记。', '课程');
@@ -395,14 +449,47 @@ test('页面仓储应持久化父子关系并查询已合上后代正文', async
   repository.closePage(pageB.id, 'close-b');
 
   assert.deepEqual(repository.listClosedDescendantBodies(pageB.id, true), [
-    { pageId: pageB.id, body: 'B 的正文。', depth: 0 },
-    { pageId: pageC.id, body: 'C 的正文。', depth: 1 },
+    { pageId: pageB.id, body: 'B 的正文。', depth: 0, rootPageId: pageB.id },
+    { pageId: pageC.id, body: 'C 的正文。', depth: 1, rootPageId: pageB.id },
   ]);
   assert.deepEqual(repository.listClosedDescendantBodies(pageA.id), [
-    { pageId: pageB.id, body: 'B 的正文。', depth: 1 },
-    { pageId: pageC.id, body: 'C 的正文。', depth: 2 },
+    { pageId: pageB.id, body: 'B 的正文。', depth: 1, rootPageId: pageB.id },
+    { pageId: pageC.id, body: 'C 的正文。', depth: 2, rootPageId: pageB.id },
   ]);
   assert.deepEqual(repository.listClosedDescendantBodies(pageC.id), []);
+});
+
+test('另起一页应在父页日志末尾写入分叉锚点记录', async (t) => {
+  const { repository } = await createRepository(t);
+  const pageA = repository.create('A 的正文。', '');
+  repository.beginTeacherTurn(pageA.id, 'A 的旧想法。', 'ask-a-1');
+
+  const pageB = repository.create('B 的正文。', '', undefined, pageA.id);
+  const pageC = repository.create('C 的正文。', '', undefined, pageA.id);
+
+  const parent = repository.findById(pageA.id);
+
+  assert.deepEqual(
+    parent.messages.map((message) => message.actionType ?? message.role),
+    ['user', 'forked', 'forked'],
+  );
+  assert.deepEqual(parent.messages[1], {
+    role: 'maintenance',
+    text: '',
+    actionType: 'forked',
+    childPageId: pageB.id,
+    requestId: `fork-${pageB.id}`,
+    createdAt: parent.messages[1].createdAt,
+  });
+  assert.equal(parent.messages[2].childPageId, pageC.id);
+  assert.equal(parent.teachingRoundCount, 0, '分叉不应改变父页教学轮次');
+  assert.equal(parent.body, 'A 的正文。', '分叉不应改变父页正文');
+
+  assert.equal(
+    repository.findById(pageB.id).messages.length,
+    0,
+    '子页自身不应写入分叉记录',
+  );
 });
 
 test('后代正文链应排除未合上页并按深度和页面编号排序', async (t) => {
@@ -432,9 +519,24 @@ test('后代正文链应排除未合上页并按深度和页面编号排序', as
   repository.closePage(firstChild.id, 'close-first');
 
   assert.deepEqual(repository.listClosedDescendantBodies(root.id), [
-    { pageId: firstChild.id, body: '第一子页正文。', depth: 1 },
-    { pageId: secondChild.id, body: '第二子页正文。', depth: 1 },
-    { pageId: grandchild.id, body: '孙页正文。', depth: 2 },
+    {
+      pageId: firstChild.id,
+      body: '第一子页正文。',
+      depth: 1,
+      rootPageId: firstChild.id,
+    },
+    {
+      pageId: secondChild.id,
+      body: '第二子页正文。',
+      depth: 1,
+      rootPageId: secondChild.id,
+    },
+    {
+      pageId: grandchild.id,
+      body: '孙页正文。',
+      depth: 2,
+      rootPageId: firstChild.id,
+    },
   ]);
 });
 
@@ -470,8 +572,8 @@ test('应用重启后页面父子关系和正文链应保持可查询', async (t
   });
 
   assert.deepEqual(repository.listClosedDescendantBodies(pageA.id), [
-    { pageId: pageB.id, body: 'B 正文。', depth: 1 },
-    { pageId: pageC.id, body: 'C 正文。', depth: 2 },
+    { pageId: pageB.id, body: 'B 正文。', depth: 1, rootPageId: pageB.id },
+    { pageId: pageC.id, body: 'C 正文。', depth: 2, rootPageId: pageB.id },
   ]);
 });
 

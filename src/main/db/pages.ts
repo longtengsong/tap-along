@@ -1,4 +1,9 @@
+import { createHash } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
+import type { GuidanceUseResult, GuidanceView } from '../../shared/guidance.ts';
+import { parseGuidanceView } from '../../shared/guidance.ts';
+import type { TeacherSource } from '../../shared/search.ts';
+import { isSafeExternalUrl } from '../../shared/shell.ts';
 import type {
   PageActionType,
   PageLifecycleStatus,
@@ -15,8 +20,32 @@ interface PageRow {
   source: string | null;
   parse_status: ParseStatus;
   companion_log: string | null;
+  guidance: string | null;
   page_status: PageLifecycleStatus;
   teaching_round_count: number;
+}
+
+export interface RetrievalPage {
+  id: number;
+  title: string;
+  body: string;
+  source: string;
+  updatedAt: string;
+}
+
+interface RetrievalPageRow {
+  id: number;
+  edge_title: string | null;
+  body: string;
+  source: string | null;
+  updated_at: string;
+}
+
+export interface GuidanceFinalizeOptions {
+  removeOpening: boolean;
+  expectedBody: string;
+  allowUserMessages?: boolean;
+  expectedMessageCount?: number;
 }
 
 interface OpeningMessage {
@@ -28,12 +57,19 @@ export interface ClosedDescendantBody {
   pageId: number;
   body: string;
   depth: number;
+  /**
+   * 该页面所在分叉分支的根页编号：
+   * 查询页的直接子页（includeSelf 时为查询页自身）。
+   * 目标页日志里的 forked 记录按这个编号定位插入位置。
+   */
+  rootPageId: number;
 }
 
 interface ClosedDescendantBodyRow {
   page_id: number;
   body: string;
   depth: number;
+  root_id: number;
 }
 
 const MESSAGE_ROLES = new Set<PageMessageRole>([
@@ -47,6 +83,7 @@ const ACTION_TYPES = new Set<PageActionType>([
   'appended_note',
   'end',
   'reopened',
+  'forked',
 ]);
 
 const PAGE_STATUSES = new Set<PageLifecycleStatus>(['reading', 'closed']);
@@ -61,6 +98,55 @@ const PARSE_STATUSES = new Set<ParseStatus>([
 export const deriveFallbackTitle = (body: string) => {
   const firstLine = body.split(/\r?\n/, 1)[0]?.trim() ?? '';
   return firstLine.slice(0, 12) || '未命名';
+};
+
+const parseSources = (value: unknown): TeacherSource[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const seen = new Set<number>();
+  const sources = value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      return [];
+    }
+
+    const { index, title, url, domain, publishedAt } = entry as Record<
+      string,
+      unknown
+    >;
+
+    if (
+      typeof index !== 'number' ||
+      !Number.isInteger(index) ||
+      index <= 0 ||
+      seen.has(index) ||
+      typeof title !== 'string' ||
+      !title.trim() ||
+      !isSafeExternalUrl(url) ||
+      typeof domain !== 'string' ||
+      !domain.trim() ||
+      (publishedAt !== undefined && typeof publishedAt !== 'string')
+    ) {
+      return [];
+    }
+
+    seen.add(index);
+
+    return [
+      {
+        index,
+        title: title.trim().slice(0, 300),
+        url,
+        domain: domain.trim().slice(0, 120),
+        ...(typeof publishedAt === 'string'
+          ? { publishedAt: publishedAt.slice(0, 40) }
+          : {}),
+      },
+    ];
+  });
+
+  return sources.length > 0 ? sources.slice(0, 10) : undefined;
 };
 
 const parseMessages = (rawLog: string | null): PageMessageSnapshot[] => {
@@ -96,6 +182,8 @@ const parseMessages = (rawLog: string | null): PageMessageSnapshot[] => {
         return [];
       }
 
+      const sources = parseSources(entry.sources);
+
       return [
         {
           role: entry.role as PageMessageRole,
@@ -103,6 +191,12 @@ const parseMessages = (rawLog: string | null): PageMessageSnapshot[] => {
           ...(actionType ? { actionType } : {}),
           ...('content' in entry && typeof entry.content === 'string'
             ? { content: entry.content }
+            : {}),
+          ...('childPageId' in entry &&
+          typeof entry.childPageId === 'number' &&
+          Number.isInteger(entry.childPageId) &&
+          entry.childPageId > 0
+            ? { childPageId: entry.childPageId }
             : {}),
           ...(('suggest_close' in entry && entry.suggest_close === true) ||
           ('suggestClose' in entry && entry.suggestClose === true)
@@ -114,6 +208,8 @@ const parseMessages = (rawLog: string | null): PageMessageSnapshot[] => {
           ...('createdAt' in entry && typeof entry.createdAt === 'number'
             ? { createdAt: entry.createdAt }
             : {}),
+          ...(entry.mode === 'answer' ? { mode: 'answer' as const } : {}),
+          ...(sources ? { sources } : {}),
         },
       ];
     });
@@ -122,28 +218,49 @@ const parseMessages = (rawLog: string | null): PageMessageSnapshot[] => {
   }
 };
 
-const mapPageRow = (row: PageRow): PageSnapshot => ({
-  id: row.id,
-  title: row.edge_title?.trim() || deriveFallbackTitle(row.body),
-  body: row.body,
-  source: row.source ?? '',
-  status: PAGE_STATUSES.has(row.page_status) ? row.page_status : 'reading',
-  parseStatus: PARSE_STATUSES.has(row.parse_status)
-    ? row.parse_status
-    : 'pending',
-  teachingRoundCount: row.teaching_round_count,
-  messages: parseMessages(row.companion_log),
-});
+const mapPageRow = (row: PageRow): PageSnapshot => {
+  const guidance = parseGuidanceView(row.guidance);
+
+  return {
+    id: row.id,
+    title: row.edge_title?.trim() || deriveFallbackTitle(row.body),
+    body: row.body,
+    source: row.source ?? '',
+    status: PAGE_STATUSES.has(row.page_status) ? row.page_status : 'reading',
+    parseStatus: PARSE_STATUSES.has(row.parse_status)
+      ? row.parse_status
+      : 'pending',
+    teachingRoundCount: row.teaching_round_count,
+    messages: parseMessages(row.companion_log),
+    ...(guidance ? { guidance } : {}),
+  };
+};
+
+const hashPageBody = (body: string) =>
+  createHash('sha256').update(body).digest('hex');
+
+export const escapeLikeTerm = (term: string) =>
+  term.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
 
 export class PagesRepository {
   private readonly insertStatement;
   private readonly findStatement;
   private readonly listRecentReadingStatement;
+  private readonly listClosedStatement;
+  private readonly listAllStatement;
   private readonly updateLogStatement;
   private readonly updateLogAndRoundStatement;
   private readonly updateBodyAndLogStatement;
   private readonly updateEditedBodyStatement;
+  private readonly updateGuidanceStatement;
+  private readonly updateGuidanceAndLogStatement;
+  private readonly listRetrievalStatement;
+  private readonly insertFtsStatement;
+  private readonly deleteFtsStatement;
+  private readonly searchFtsStatement;
+  private readonly searchLikeStatement;
   private readonly closeWithLogStatement;
+  private readonly appendLogStatement;
   private readonly db: DatabaseSync;
 
   constructor(db: DatabaseSync) {
@@ -166,6 +283,7 @@ export class PagesRepository {
         source,
         parse_status,
         companion_log,
+        guidance,
         page_status,
         teaching_round_count
       FROM pages
@@ -179,12 +297,45 @@ export class PagesRepository {
         source,
         parse_status,
         companion_log,
+        guidance,
         page_status,
         teaching_round_count
       FROM pages
       WHERE page_status = 'reading'
       ORDER BY updated_at DESC, id DESC
       LIMIT ?
+    `);
+
+    this.listClosedStatement = this.db.prepare(`
+      SELECT
+        id,
+        edge_title,
+        body,
+        source,
+        parse_status,
+        companion_log,
+        guidance,
+        page_status,
+        teaching_round_count
+      FROM pages
+      WHERE page_status = 'closed'
+      ORDER BY updated_at DESC, id DESC
+      LIMIT ?
+    `);
+
+    this.listAllStatement = this.db.prepare(`
+      SELECT
+        id,
+        edge_title,
+        body,
+        source,
+        parse_status,
+        companion_log,
+        guidance,
+        page_status,
+        teaching_round_count
+      FROM pages
+      ORDER BY updated_at DESC, id DESC
     `);
     this.updateLogStatement = this.db.prepare(`
       UPDATE pages
@@ -198,7 +349,10 @@ export class PagesRepository {
     `);
     this.updateBodyAndLogStatement = this.db.prepare(`
       UPDATE pages
-      SET body = ?, companion_log = ?, updated_at = CURRENT_TIMESTAMP
+      SET body = ?,
+          companion_log = ?,
+          guidance = NULL,
+          updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
     this.updateEditedBodyStatement = this.db.prepare(`
@@ -207,14 +361,75 @@ export class PagesRepository {
           edge_title = NULL,
           parse_status = 'pending',
           companion_log = ?,
+          guidance = NULL,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
+    `);
+    this.updateGuidanceStatement = this.db.prepare(`
+      UPDATE pages
+      SET guidance = ?
+      WHERE id = ?
+    `);
+    this.updateGuidanceAndLogStatement = this.db.prepare(`
+      UPDATE pages
+      SET guidance = ?, companion_log = ?
+      WHERE id = ?
+    `);
+    this.listRetrievalStatement = this.db.prepare(`
+      SELECT
+        id,
+        edge_title,
+        body,
+        source,
+        updated_at
+      FROM pages
+      WHERE id != ?
+      ORDER BY updated_at DESC, id DESC
+      LIMIT ?
+    `);
+    this.insertFtsStatement = this.db.prepare(`
+      INSERT INTO pages_fts(rowid, body, source)
+      VALUES (?, ?, ?)
+    `);
+    this.deleteFtsStatement = this.db.prepare(`
+      DELETE FROM pages_fts WHERE rowid = ?
+    `);
+    this.searchFtsStatement = this.db.prepare(`
+      SELECT
+        pages.id,
+        pages.edge_title,
+        pages.body,
+        pages.source,
+        pages.updated_at
+      FROM pages_fts
+      JOIN pages ON pages.id = pages_fts.rowid
+      WHERE pages_fts MATCH ? AND pages.id != ?
+      ORDER BY bm25(pages_fts)
+      LIMIT ?
+    `);
+    this.searchLikeStatement = this.db.prepare(`
+      SELECT
+        id,
+        edge_title,
+        body,
+        source,
+        updated_at
+      FROM pages
+      WHERE id != ?
+        AND body LIKE ? ESCAPE '\\'
+      ORDER BY updated_at DESC, id DESC
+      LIMIT ?
     `);
     this.closeWithLogStatement = this.db.prepare(`
       UPDATE pages
       SET page_status = 'closed',
           companion_log = ?,
           updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    this.appendLogStatement = this.db.prepare(`
+      UPDATE pages
+      SET companion_log = ?
       WHERE id = ?
     `);
   }
@@ -232,6 +447,7 @@ export class PagesRepository {
         source || null,
       );
       const pageId = Number(result.lastInsertRowid);
+      this.insertFtsStatement.run(pageId, body, source || '');
 
       if (openingMessage?.text) {
         const messages: PageMessageSnapshot[] = [
@@ -245,6 +461,10 @@ export class PagesRepository {
         this.updateLogStatement.run(JSON.stringify(messages), pageId);
       }
 
+      if (parentPageId !== null) {
+        this.appendForkAnchor(parentPageId, pageId);
+      }
+
       const page = this.findById(pageId);
 
       if (!page) {
@@ -253,6 +473,33 @@ export class PagesRepository {
 
       return page;
     });
+  }
+
+  /**
+   * 在父页对谈日志末尾落一条 forked 记录。
+   * 它同时是用户可见的「另起了一页」时间标记，也是子页正文回到父页上下文时的锚点。
+   * 这里只写日志，不动 updated_at：另起一页不算父页自身有了新进展。
+   */
+  private appendForkAnchor(parentPageId: number, childPageId: number) {
+    const parent = this.findById(parentPageId);
+
+    if (!parent) {
+      return;
+    }
+
+    const messages: PageMessageSnapshot[] = [
+      ...parent.messages,
+      {
+        role: 'maintenance',
+        text: '',
+        actionType: 'forked',
+        childPageId,
+        requestId: `fork-${childPageId}`,
+        createdAt: Date.now(),
+      },
+    ];
+
+    this.appendLogStatement.run(JSON.stringify(messages), parentPageId);
   }
 
   findById(pageId: number): PageSnapshot | null {
@@ -268,6 +515,16 @@ export class PagesRepository {
     const rows = this.listRecentReadingStatement.all(
       limit,
     ) as unknown as PageRow[];
+    return rows.map(mapPageRow);
+  }
+
+  listClosed(limit: number): PageSnapshot[] {
+    const rows = this.listClosedStatement.all(limit) as unknown as PageRow[];
+    return rows.map(mapPageRow);
+  }
+
+  listAll(): PageSnapshot[] {
+    const rows = this.listAllStatement.all() as unknown as PageRow[];
     return rows.map(mapPageRow);
   }
 
@@ -287,6 +544,7 @@ export class PagesRepository {
             body,
             page_status,
             depth,
+            root_id,
             path
           ) AS (
             SELECT
@@ -294,6 +552,7 @@ export class PagesRepository {
               body,
               page_status,
               0,
+              id,
               printf(',%d,', id)
             FROM pages
             WHERE id = ?
@@ -305,6 +564,10 @@ export class PagesRepository {
               pages.body,
               pages.page_status,
               descendants.depth + 1,
+              CASE
+                WHEN descendants.depth = 0 AND ? = 0 THEN pages.id
+                ELSE descendants.root_id
+              END,
               descendants.path || pages.id || ','
             FROM pages
             JOIN descendants
@@ -316,7 +579,7 @@ export class PagesRepository {
                 ',' || pages.id || ','
               ) = 0
           )
-          SELECT page_id, body, depth
+          SELECT page_id, body, depth, root_id
           FROM descendants
           WHERE
             page_status = 'closed'
@@ -324,13 +587,268 @@ export class PagesRepository {
           ORDER BY depth ASC, page_id ASC
         `,
       )
-      .all(pageId, includeSelf ? 1 : 0) as unknown as ClosedDescendantBodyRow[];
+      .all(
+        pageId,
+        includeSelf ? 1 : 0,
+        includeSelf ? 1 : 0,
+      ) as unknown as ClosedDescendantBodyRow[];
 
     return rows.map((row) => ({
       pageId: row.page_id,
       body: row.body,
       depth: row.depth,
+      rootPageId: row.root_id,
     }));
+  }
+
+  listRecentPagesForRetrieval(
+    excludePageId: number,
+    limit = 100,
+  ): RetrievalPage[] {
+    if (
+      !Number.isInteger(excludePageId) ||
+      excludePageId <= 0 ||
+      !Number.isInteger(limit) ||
+      limit <= 0
+    ) {
+      return [];
+    }
+
+    const rows = this.listRetrievalStatement.all(
+      excludePageId,
+      limit,
+    ) as unknown as RetrievalPageRow[];
+
+    return rows.map((row) => this.toRetrievalPage(row));
+  }
+
+  searchPagesForRetrieval(
+    excludePageId: number,
+    terms: string[],
+    limit = 100,
+  ): RetrievalPage[] {
+    if (
+      !Number.isInteger(excludePageId) ||
+      excludePageId <= 0 ||
+      !Number.isInteger(limit) ||
+      limit <= 0
+    ) {
+      return [];
+    }
+
+    if (!Array.isArray(terms)) {
+      return this.listRecentPagesForRetrieval(excludePageId, limit);
+    }
+
+    const normalizedTerms = [
+      ...new Set(
+        terms.map((term) => term.trim()).filter((term) => term.length > 0),
+      ),
+    ];
+    const ftsTerms = normalizedTerms
+      .filter((term) => term.length >= 3)
+      .slice(0, 20);
+    const shortTerms = normalizedTerms
+      .filter((term) => /^[\u3400-\u9fff]{2}$/.test(term))
+      .slice(0, 3);
+    const result: RetrievalPage[] = [];
+    const seen = new Set<number>();
+    const append = (pages: RetrievalPage[]) => {
+      for (const page of pages) {
+        if (result.length >= limit) {
+          return;
+        }
+
+        if (!seen.has(page.id)) {
+          seen.add(page.id);
+          result.push(page);
+        }
+      }
+    };
+
+    if (ftsTerms.length > 0) {
+      const match = ftsTerms
+        .map((term) => `"${term.replaceAll('"', '""')}"`)
+        .join(' OR ');
+
+      try {
+        append(
+          (
+            this.searchFtsStatement.all(
+              match,
+              excludePageId,
+              limit,
+            ) as unknown as RetrievalPageRow[]
+          ).map((row) => this.toRetrievalPage(row)),
+        );
+      } catch {
+        // FTS 查询失败时继续走短词和最近页兜底。
+      }
+    }
+
+    for (const term of shortTerms) {
+      try {
+        append(
+          (
+            this.searchLikeStatement.all(
+              excludePageId,
+              `%${escapeLikeTerm(term)}%`,
+              limit,
+            ) as unknown as RetrievalPageRow[]
+          ).map((row) => this.toRetrievalPage(row)),
+        );
+      } catch {
+        // 单个短词查询失败不应阻断其余召回。
+      }
+    }
+
+    if (result.length < limit) {
+      append(this.listRecentPagesForRetrieval(excludePageId, limit));
+    }
+
+    return result;
+  }
+
+  private toRetrievalPage(row: RetrievalPageRow): RetrievalPage {
+    return {
+      id: row.id,
+      title: row.edge_title?.trim() || deriveFallbackTitle(row.body),
+      body: row.body,
+      source: row.source ?? '',
+      updatedAt: row.updated_at,
+    };
+  }
+
+  private replaceFtsIndex(pageId: number, body: string, source: string) {
+    this.deleteFtsStatement.run(pageId);
+    this.insertFtsStatement.run(pageId, body, source || '');
+  }
+
+  finalizeGuidance(
+    pageId: number,
+    guidance: GuidanceView,
+    {
+      removeOpening,
+      expectedBody,
+      allowUserMessages = false,
+      expectedMessageCount,
+    }: GuidanceFinalizeOptions,
+  ): PageSnapshot | null {
+    if (!Number.isInteger(pageId) || pageId <= 0) {
+      return null;
+    }
+
+    const guidanceJson = JSON.stringify(guidance);
+
+    return this.withTransaction(() => {
+      const page = this.findById(pageId);
+
+      if (
+        !page ||
+        page.status !== 'reading' ||
+        page.body !== expectedBody ||
+        (!allowUserMessages &&
+          page.messages.some((message) => message.role === 'user')) ||
+        (expectedMessageCount !== undefined &&
+          page.messages.length !== expectedMessageCount)
+      ) {
+        return null;
+      }
+
+      if (removeOpening) {
+        const messages = page.messages.filter(
+          (message) => message.requestId !== 'opening',
+        );
+        this.updateGuidanceAndLogStatement.run(
+          guidanceJson,
+          JSON.stringify(messages),
+          pageId,
+        );
+      } else {
+        this.updateGuidanceStatement.run(guidanceJson, pageId);
+      }
+
+      return this.findById(pageId);
+    });
+  }
+
+  useGuidanceSuggestion(
+    pageId: number,
+    suggestionId: string,
+  ): GuidanceUseResult {
+    if (!Number.isInteger(pageId) || pageId <= 0 || !suggestionId.trim()) {
+      return { ok: false, errorCode: 'TEACHER_INVALID_REQUEST' };
+    }
+
+    return this.withTransaction(() => {
+      const page = this.findById(pageId);
+
+      if (!page) {
+        return { ok: false, errorCode: 'PAGE_NOT_FOUND' };
+      }
+
+      if (page.status !== 'reading') {
+        return { ok: false, errorCode: 'PAGE_CLOSED' };
+      }
+
+      const guidance = page.guidance;
+
+      if (!guidance || guidance.bodyHash !== hashPageBody(page.body)) {
+        return { ok: false, errorCode: 'TEACHER_INVALID_REQUEST' };
+      }
+
+      const suggestion = guidance.suggestions.find(
+        (item) => item.id === suggestionId,
+      );
+
+      if (!suggestion) {
+        return { ok: false, errorCode: 'TEACHER_INVALID_REQUEST' };
+      }
+
+      if (suggestion.used) {
+        return {
+          ok: true,
+          question: suggestion.question,
+          guidance,
+        };
+      }
+
+      const requestId = `guidance-${suggestion.id}`;
+      const hasMessage = page.messages.some(
+        (message) =>
+          message.role === 'teacher' && message.requestId === requestId,
+      );
+      const messages = hasMessage
+        ? page.messages
+        : [
+            ...page.messages,
+            {
+              role: 'teacher' as const,
+              text: suggestion.question,
+              requestId,
+              createdAt: Date.now(),
+            },
+          ];
+      const nextGuidance: GuidanceView = {
+        ...guidance,
+        suggestions: guidance.suggestions.map((item) =>
+          item.id === suggestion.id ? { ...item, used: true } : item,
+        ),
+        updatedAt: Date.now(),
+      };
+
+      this.updateGuidanceAndLogStatement.run(
+        JSON.stringify(nextGuidance),
+        JSON.stringify(messages),
+        pageId,
+      );
+
+      return {
+        ok: true,
+        question: suggestion.question,
+        guidance: nextGuidance,
+      };
+    });
   }
 
   beginTeacherTurn(
@@ -407,6 +925,45 @@ export class PagesRepository {
     });
   }
 
+  completeResearchAnswer(
+    pageId: number,
+    reply: string,
+    sources: TeacherSource[],
+    requestId: string,
+  ): PageSnapshot | null {
+    return this.withTransaction(() => {
+      const page = this.findById(pageId);
+
+      if (!page) {
+        return null;
+      }
+
+      if (
+        page.messages.some(
+          (message) =>
+            message.role === 'teacher' && message.requestId === requestId,
+        )
+      ) {
+        return page;
+      }
+
+      const messages: PageMessageSnapshot[] = [
+        ...page.messages,
+        {
+          role: 'teacher',
+          text: reply,
+          requestId,
+          mode: 'answer',
+          sources,
+          createdAt: Date.now(),
+        },
+      ];
+
+      this.updateLogStatement.run(JSON.stringify(messages), pageId);
+      return this.findById(pageId);
+    });
+  }
+
   appendText(
     pageId: number,
     content: string,
@@ -430,8 +987,11 @@ export class PagesRepository {
       }
 
       const normalizedContent = content.trim();
+      const baseMessages = page.guidance
+        ? page.messages.filter((message) => message.requestId !== 'opening')
+        : page.messages;
       const messages: PageMessageSnapshot[] = [
-        ...page.messages,
+        ...baseMessages,
         {
           role: 'maintenance',
           text: '',
@@ -448,6 +1008,7 @@ export class PagesRepository {
         JSON.stringify(messages),
         pageId,
       );
+      this.replaceFtsIndex(pageId, nextBody, page.source);
 
       const updatedPage = this.findById(pageId);
       if (!updatedPage) {
@@ -481,8 +1042,11 @@ export class PagesRepository {
       }
 
       const normalizedBody = body.trim();
+      const baseMessages = page.guidance
+        ? page.messages.filter((message) => message.requestId !== 'opening')
+        : page.messages;
       const messages: PageMessageSnapshot[] = [
-        ...page.messages,
+        ...baseMessages,
         {
           role: 'maintenance',
           text: '',
@@ -497,6 +1061,7 @@ export class PagesRepository {
         JSON.stringify(messages),
         pageId,
       );
+      this.replaceFtsIndex(pageId, normalizedBody, page.source);
 
       const updatedPage = this.findById(pageId);
       if (!updatedPage) {
@@ -596,6 +1161,7 @@ export class PagesRepository {
         .prepare('SELECT COUNT(*) AS count FROM pages')
         .get() as { count: number };
       this.db.prepare('DELETE FROM pages').run();
+      this.db.prepare('DELETE FROM pages_fts').run();
       return Number(count.count);
     });
   }

@@ -9,12 +9,23 @@ export const PAGES_TABLE_SQL = `
     source                TEXT,
     parse_status          TEXT NOT NULL DEFAULT 'pending',
     companion_log         TEXT,
+    guidance              TEXT,
     page_status           TEXT NOT NULL DEFAULT 'reading',
     teaching_round_count  INTEGER DEFAULT 0,
     created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
   )
 `;
+
+export const PAGES_FTS_TABLE_SQL = `
+  CREATE VIRTUAL TABLE IF NOT EXISTS pages_fts USING fts5(
+    body,
+    source,
+    tokenize = 'trigram'
+  )
+`;
+
+export const FTS_INDEX_VERSION = 1;
 
 export const PAGES_STATUS_INDEX_SQL = `
   CREATE INDEX IF NOT EXISTS idx_pages_status ON pages(page_status)
@@ -44,7 +55,40 @@ export const initializeSchema = (db: DatabaseSync) => {
     `);
   }
 
+  if (!columns.includes('guidance')) {
+    db.exec('ALTER TABLE pages ADD COLUMN guidance TEXT');
+  }
+
   db.exec(PAGES_STATUS_INDEX_SQL);
   db.exec(PAGES_UPDATED_INDEX_SQL);
   db.exec(PAGES_PARENT_INDEX_SQL);
+  db.exec(PAGES_FTS_TABLE_SQL);
+
+  const pageCount = Number(
+    (
+      db.prepare('SELECT COUNT(*) AS count FROM pages').get() as {
+        count: number;
+      }
+    ).count,
+  );
+  const ftsCount = Number(
+    (
+      db.prepare('SELECT COUNT(*) AS count FROM pages_fts').get() as {
+        count: number;
+      }
+    ).count,
+  );
+  const userVersion = Number(
+    (db.prepare('PRAGMA user_version').get() as { user_version: number })
+      .user_version,
+  );
+
+  if (userVersion < FTS_INDEX_VERSION || pageCount !== ftsCount) {
+    db.exec('DELETE FROM pages_fts');
+    db.exec(`
+      INSERT INTO pages_fts(rowid, body, source)
+      SELECT id, body, COALESCE(source, '') FROM pages
+    `);
+    db.exec(`PRAGMA user_version = ${FTS_INDEX_VERSION}`);
+  }
 };

@@ -53,7 +53,7 @@ const collectStrings = (value) =>
     : Object.values(value).flatMap((entry) => collectStrings(entry));
 
 test('Prompt Catalog 应包含版本和全部非空提示词', () => {
-  assert.equal(PROMPT_VERSION, 'teacher-v1.3.0');
+  assert.equal(PROMPT_VERSION, 'companion-v2.0.0');
   assert.ok(PROMPT_CATALOG.teacher.system.trim());
   assert.ok(PROMPT_CATALOG.teacher.languagePolicy.trim());
   assert.ok(PROMPT_CATALOG.teacher.contextBoundary.trim());
@@ -72,7 +72,7 @@ test('Prompt Catalog 应包含版本和全部非空提示词', () => {
   }
 });
 
-test('Prompt v1.3.0 应保持当前消息内容指纹', () => {
+test('Prompt v2.0.0 应保持当前消息内容指纹', () => {
   const messages = {
     ask: buildTeacherMessages({
       page: promptPage,
@@ -104,12 +104,12 @@ test('Prompt v1.3.0 应保持当前消息内容指纹', () => {
       Object.entries(messages).map(([name, value]) => [name, digest(value)]),
     ),
     {
-      ask: '406a959ac29e3986d5acba7ff4f9a4098567ebbf354e3cd77786e5d588a4fbe9',
+      ask: 'a61908b98dee2405968aa89969b576268aa8e6d962374848fe761e7731c754b4',
       resume:
-        'd7d6de69a2ef8cc4717b66204952b9bcecc0312ade1c8e5e6a7d5faa4b86eb38',
-      edit: 'adfde0576d16f4430d854ae015339dc218b8684a8daafd5c49df3f2e2944fced',
+        '86806da8b8010d8177725d538ef6696fa8fa3515d850b18458a8fa6b41afd4a3',
+      edit: '1fe4b3b395fbfd41af87f6d1a0c79bbca10cd27708b337752d601c1238fc921b',
       append:
-        'aa9a9c7406f48ffbfe77a2a2a09682539b4c48221586e068ccdbbf1b579c9ef6',
+        'cc31bba265a859fe1be88962ba5f1427bd18480b79eb294d83d203b807304b8c',
     },
   );
   assert.equal(
@@ -313,6 +313,74 @@ test('压缩页面应按深度排序、按编号去重并转义正文', () => {
   );
 });
 
+test('已合上页正文应按另起一页的时刻插回时间线', () => {
+  const page = {
+    ...promptPage,
+    id: 10,
+    messages: [
+      { role: 'user', text: '分叉前的想法。' },
+      { role: 'teacher', text: '分叉前的问题？' },
+      {
+        role: 'maintenance',
+        text: '',
+        actionType: 'forked',
+        childPageId: 2,
+      },
+      { role: 'teacher', text: '合页后的跨页问题？' },
+      { role: 'user', text: '合页后的想法。' },
+    ],
+  };
+  const messages = buildTeacherMessages({
+    page,
+    userText: '合页后的想法。',
+    compressedPages: [
+      { pageId: 2, body: 'B 的正文。', depth: 0, rootPageId: 2 },
+      { pageId: 3, body: 'C 的正文。', depth: 1, rootPageId: 2 },
+    ],
+  });
+
+  const indexOf = (fragment) =>
+    messages.findIndex((message) => message.content.includes(fragment));
+
+  assert.notEqual(indexOf('role="current"'), -1);
+  assert.ok(indexOf('role="current"') < indexOf('分叉前的想法。'));
+  assert.ok(indexOf('分叉前的问题？') < indexOf('B 的正文。'));
+  assert.ok(indexOf('B 的正文。') < indexOf('C 的正文。'));
+  assert.ok(indexOf('C 的正文。') < indexOf('合页后的跨页问题？'));
+  assert.ok(indexOf('合页后的跨页问题？') < indexOf('合页后的想法。'));
+  assert.equal(
+    messages.filter((message) =>
+      message.content.startsWith('<study_page role='),
+    ).length,
+    3,
+  );
+  assert.equal(
+    messages.some((message) => !message.content.trim()),
+    false,
+    '分叉锚点记录不应作为空消息发给模型',
+  );
+});
+
+test('缺少分叉锚点的老数据应把已合上页正文插在最新提问之前', () => {
+  const messages = buildTeacherMessages({
+    page: {
+      ...promptPage,
+      messages: [{ role: 'user', text: '老想法。' }],
+    },
+    userText: '老想法。',
+    compressedPages: [{ pageId: 2, body: '老页正文。', depth: 0 }],
+  });
+
+  assert.equal(messages.at(-1).content, '老想法。');
+  assert.match(messages.at(-2).content, /<study_page role="closed_context"/);
+  assert.match(messages.at(-2).content, /老页正文。/);
+  assert.equal(
+    messages.filter((message) => message.content === '老想法。').length,
+    1,
+    '已落盘的最新提问不应重复出现',
+  );
+});
+
 test('业务服务文件不得重新写入模型提示词原文', async () => {
   const files = [
     new URL('../src/main/services/model-teacher.ts', import.meta.url),
@@ -325,7 +393,7 @@ test('业务服务文件不得重新写入模型提示词原文', async () => {
     'The following is the current study page',
     'The following is the recently closed context page',
     'The following is the current target page',
-    'The user edited the current note',
+    'The user edited the current thought',
     'The user appended a new thought',
     'Reply with OK.',
   ];

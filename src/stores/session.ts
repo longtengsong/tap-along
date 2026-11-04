@@ -1,8 +1,17 @@
-import { computed, reactive } from 'vue';
+import { computed, reactive, watch } from 'vue';
 import { extractKeyword, tapAlongApi } from '@/api/tap-along';
 import { i18n } from '@/i18n';
 import { translateFixedMessage } from '@/i18n/fixed-messages';
+import {
+  clearDraftSnapshot,
+  loadDraftSnapshot,
+  saveDraftSnapshot,
+} from '@/shared/draft';
 import type { AppErrorCode } from '@/shared/errors';
+import {
+  createPendingGuidance,
+  type GuidanceUpdatedEvent,
+} from '@/shared/guidance';
 import {
   extractContentKeyword,
   resolveMockReplyLanguage,
@@ -24,7 +33,7 @@ import type {
   TalkMessage,
 } from '@/types/session';
 
-type ViewState = 'new' | 'companion';
+type ViewState = 'new' | 'companion' | 'archive';
 
 const wait = (duration: number) =>
   new Promise((resolve) => window.setTimeout(resolve, duration));
@@ -65,7 +74,11 @@ let editRequestInFlight = false;
 let closeRequestInFlight = false;
 let closingPageId: number | null = null;
 let teacherEventsReady = false;
+let guidanceEventsReady = false;
 let restoreStarted = false;
+let archiveOriginView: 'new' | 'companion' = 'new';
+let archiveOriginIndex = -1;
+let archiveReturn: { pages: PageRecord[]; currentIndex: number } | null = null;
 
 const state = reactive({
   booting: true,
@@ -85,7 +98,31 @@ const state = reactive({
   teacherRequestActive: false,
   sayMoreOpen: false,
   composerMode: 'normal' as ComposerMode,
+  archivePages: [] as PageRecord[],
+  archiveLoading: false,
+  archiveError: null as AppErrorCode | null,
+  archiveDetailOpen: false,
 });
+
+const restoredDraft = loadDraftSnapshot(localStorage);
+
+if (restoredDraft) {
+  state.draft.body = restoredDraft.body;
+  state.draft.source = restoredDraft.source;
+}
+
+watch(
+  () => [state.draft.body, state.draft.source] as const,
+  ([body, source]) => {
+    if (!body.trim() && !source.trim()) {
+      clearDraftSnapshot(localStorage);
+      return;
+    }
+
+    saveDraftSnapshot(localStorage, { body, source });
+  },
+  { flush: 'sync' },
+);
 
 const findPage = (pageId: number) =>
   state.pages.find((page) => page.id === pageId) ?? null;
@@ -144,6 +181,7 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
       page.messages = page.messages.filter(
         (item) => item.id !== pending.tempMessageId,
       );
+      page.pendingGuidanceRefresh = false;
     }
 
     state.typing = false;
@@ -156,6 +194,12 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
   }
 
   if (!event.ok || !event.reply) {
+    const failedPage = findPage(event.pageId);
+
+    if (failedPage) {
+      failedPage.pendingGuidanceRefresh = false;
+    }
+
     state.typing = false;
     state.cancelling = false;
     state.teacherRequestActive = false;
@@ -183,21 +227,30 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
     streamedMessage.text = event.reply;
     streamedMessage.suggestClose = event.suggestClose;
     streamedMessage.requestId = pending.requestId;
+    streamedMessage.mode = event.mode;
+    streamedMessage.sources = event.sources;
+    streamedMessage.citationStatus = event.citationStatus;
   } else {
-    page.messages.push(
-      message(
+    page.messages.push({
+      ...message(
         'teacher',
         event.reply,
         event.suggestClose,
         pending.tempMessageId,
         pending.requestId,
       ),
-    );
+      ...(event.mode ? { mode: event.mode } : {}),
+      ...(event.sources ? { sources: event.sources } : {}),
+      ...(event.citationStatus ? { citationStatus: event.citationStatus } : {}),
+    });
   }
 
-  if (pending.kind === 'ask') {
+  if (pending.kind === 'ask' && event.mode !== 'answer') {
     page.teacherTurn += 1;
   }
+  const shouldRefreshGuidance =
+    pending.kind === 'maintenance' && page.pendingGuidanceRefresh === true;
+  page.pendingGuidanceRefresh = false;
   page.suggestClose = Boolean(event.suggestClose);
   state.typing = false;
   state.cancelling = false;
@@ -205,6 +258,43 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
   state.overlay = null;
   state.errorCode = null;
   pendingTeacherRequest = null;
+
+  if (shouldRefreshGuidance && page.status === 'reading') {
+    void refreshGuidance(page);
+  }
+};
+
+const handleGuidanceUpdated = (event: GuidanceUpdatedEvent) => {
+  const page = findPage(event.pageId);
+
+  if (!page) {
+    return;
+  }
+
+  page.guidance = event.guidance;
+  page.guidanceError = '';
+};
+
+const reconcileGuidance = async (pageId: number) => {
+  try {
+    const savedPage = await tapAlongApi.getPage(pageId);
+    const page = findPage(pageId);
+
+    if (page?.guidance?.status === 'pending' && savedPage?.guidance) {
+      page.guidance = savedPage.guidance;
+    }
+  } catch {
+    // 引导对账失败时保留本地 pending；用户继续写不会受影响。
+  }
+};
+
+const ensureGuidanceEvents = () => {
+  if (guidanceEventsReady || !tapAlongApi.supportsGuidance()) {
+    return;
+  }
+
+  tapAlongApi.onGuidanceUpdated(handleGuidanceUpdated);
+  guidanceEventsReady = true;
 };
 
 const ensureTeacherEvents = () => {
@@ -241,8 +331,11 @@ const restoreLatestPage = async () => {
 
 const currentPage = computed(() => state.pages[state.currentIndex] ?? null);
 
-const canGoBack = computed(() =>
-  state.view === 'new' ? state.pages.length > 0 : state.currentIndex > 0,
+const canGoBack = computed(
+  () =>
+    state.archiveDetailOpen ||
+    state.view === 'archive' ||
+    (state.view === 'new' ? state.pages.length > 0 : state.currentIndex > 0),
 );
 
 const stackIsDeep = computed(() => state.pages.length >= 4);
@@ -353,11 +446,17 @@ const completeSave = (page: PageRecord) => {
     page.messages.push(message('teacher', teacherQuestion(page)));
   }
   page.teacherTurn = Math.max(page.teacherTurn, 1);
+  if (tapAlongApi.supportsGuidance()) {
+    page.guidance = createPendingGuidance();
+    page.guidanceError = '';
+    void reconcileGuidance(page.id);
+  }
   state.pages.push(page);
   state.currentIndex = state.pages.length - 1;
   state.draft.body = '';
   state.draft.source = '';
   state.draftError = '';
+  clearDraftSnapshot(localStorage);
   state.overlay = null;
   state.errorCode = null;
   state.view = 'companion';
@@ -369,6 +468,7 @@ const completeSave = (page: PageRecord) => {
 const submitNewPage = async () => {
   const body = state.draft.body.trim();
   const source = state.draft.source.trim();
+  const parentPage = currentPage.value;
 
   if (!body) {
     state.draftError = 'newPage.emptyError';
@@ -383,12 +483,19 @@ const submitNewPage = async () => {
     const response = await tapAlongApi.savePage({
       body,
       source,
-      parentPageId: currentPage.value?.id,
+      parentPageId: parentPage?.id,
     });
     if (!response.ok || !response.page) {
       state.overlay = 'failed';
       state.errorCode = response.errorCode ?? 'SAVE_FAILED';
       return;
+    }
+
+    // 父页在主进程里落了分叉锚点记录，这里同步内存，返回父页时时间线才完整。
+    if (parentPage) {
+      parentPage.messages.push(
+        message('maintenance', i18n.global.t('messages.newPage')),
+      );
     }
 
     completeSave(response.page);
@@ -494,6 +601,11 @@ const sendReply = async () => {
     return;
   }
 
+  if (page.guidance?.status === 'pending') {
+    page.guidance = undefined;
+  }
+  page.guidanceError = '';
+
   const requestId = createId();
   const userMessageId = `user-${requestId}`;
   page.messages.push(message('user', text, false, userMessageId));
@@ -517,6 +629,84 @@ const sendReply = async () => {
     tempMessageId: `teacher-${requestId}`,
   };
   await startTeacherRequest(pendingTeacherRequest);
+};
+
+const useGuidanceSuggestion = async (suggestionId: string) => {
+  const page = currentPage.value;
+
+  if (!page || !page.guidance || page.status !== 'reading' || state.typing) {
+    return;
+  }
+
+  page.guidanceError = '';
+
+  try {
+    const result = await tapAlongApi.useGuidanceSuggestion({
+      pageId: page.id,
+      suggestionId,
+    });
+
+    if (!result.ok || !result.question || !result.guidance) {
+      page.guidanceError = i18n.global.t('guidance.useFailed');
+      return;
+    }
+
+    page.guidance = result.guidance;
+    const requestId = `guidance-${suggestionId}`;
+
+    if (!page.messages.some((item) => item.requestId === requestId)) {
+      page.messages.push(
+        message('teacher', result.question, false, requestId, requestId),
+      );
+    }
+  } catch {
+    page.guidanceError = i18n.global.t('guidance.useFailed');
+  }
+};
+
+const refreshGuidance = async (page: PageRecord) => {
+  if (!tapAlongApi.supportsGuidanceRefresh()) {
+    return;
+  }
+
+  try {
+    await tapAlongApi.runGuidance({ pageId: page.id, mode: 'refresh' });
+  } catch {
+    // 刷新失败保持静默；维护老师的问题仍然有效。
+  }
+};
+
+const retryGuidance = async () => {
+  const page = currentPage.value;
+
+  if (
+    !page ||
+    page.status !== 'reading' ||
+    state.typing ||
+    page.messages.some((message) => message.role === 'user') ||
+    !tapAlongApi.supportsGuidanceRefresh()
+  ) {
+    return;
+  }
+
+  const previous = page.guidance;
+  page.guidance = createPendingGuidance();
+  page.guidanceError = '';
+
+  try {
+    const result = await tapAlongApi.runGuidance({
+      pageId: page.id,
+      mode: 'retry',
+    });
+
+    if (!result.ok) {
+      page.guidance = previous;
+      page.guidanceError = i18n.global.t('guidance.retryFailed');
+    }
+  } catch {
+    page.guidance = previous;
+    page.guidanceError = i18n.global.t('guidance.retryFailed');
+  }
 };
 
 const retryTeacher = async () => {
@@ -575,6 +765,20 @@ const canCancelTeacher = computed(
     tapAlongApi.supportsTeacherCancellation(),
 );
 
+const clearGuidanceAfterBodyChange = (page: PageRecord) => {
+  const hadTerminalGuidance =
+    page.guidance !== undefined && page.guidance.status !== 'pending';
+
+  page.guidance = undefined;
+  page.guidanceError = '';
+
+  if (hadTerminalGuidance) {
+    page.messages = page.messages.filter(
+      (item) => item.requestId !== 'opening',
+    );
+  }
+};
+
 const submitAppend = async () => {
   const page = currentPage.value;
   const text = state.replyDraft.trim();
@@ -614,6 +818,8 @@ const submitAppend = async () => {
     pendingAppendRequest = null;
     page.body = `${page.body}\n\n${text}`;
     page.editDraft = page.body;
+    clearGuidanceAfterBodyChange(page);
+    page.pendingGuidanceRefresh = true;
     const brief = text.length > 16 ? `${text.slice(0, 16)}…` : text;
     page.messages.push(
       message(
@@ -625,6 +831,7 @@ const submitAppend = async () => {
     state.composerMode = 'normal';
     await respondAfterMaintenance(page, 'append', text);
   } catch {
+    page.pendingGuidanceRefresh = false;
     state.typing = false;
     state.cancelling = false;
     state.teacherRequestActive = false;
@@ -692,11 +899,14 @@ const saveEditing = async () => {
     page.body = body;
     page.title = extractKeyword(body);
     page.editing = false;
+    clearGuidanceAfterBodyChange(page);
+    page.pendingGuidanceRefresh = true;
     page.messages.push(
       message('maintenance', i18n.global.t('messages.edited')),
     );
     await respondAfterMaintenance(page, 'edit', body);
   } catch {
+    page.pendingGuidanceRefresh = false;
     state.overlay = 'failed';
     state.errorCode = 'MAINTENANCE_FAILED';
   } finally {
@@ -714,6 +924,7 @@ const startNewPage = () => {
   state.draft.body = '';
   state.draft.source = '';
   state.draftError = '';
+  clearDraftSnapshot(localStorage);
   state.replyDraft = '';
   state.sayMoreOpen = false;
   state.composerMode = 'normal';
@@ -748,11 +959,17 @@ const clearConversationData = async (): Promise<PageClearAllResult> => {
     state.pages = [];
     state.currentIndex = -1;
     state.view = 'new';
+    state.archivePages = [];
+    state.archiveLoading = false;
+    state.archiveError = null;
+    state.archiveDetailOpen = false;
+    archiveReturn = null;
     state.overlay = null;
     state.errorCode = null;
     state.draft.body = '';
     state.draft.source = '';
     state.draftError = '';
+    clearDraftSnapshot(localStorage);
     state.replyDraft = '';
     state.typing = false;
     state.cancelling = false;
@@ -912,8 +1129,6 @@ const closeCurrentPage = async () => {
   if (state.pages.length === 0) {
     state.currentIndex = -1;
     state.view = 'new';
-    state.draft.body = '';
-    state.draft.source = '';
     return;
   }
 
@@ -935,8 +1150,108 @@ const closeCurrentPage = async () => {
   state.draft.source = '';
 };
 
+const loadArchive = async () => {
+  state.archiveLoading = true;
+  state.archiveError = null;
+
+  try {
+    const result = await tapAlongApi.listClosedPages(50);
+
+    if (!result.ok) {
+      state.archiveError = result.errorCode ?? 'LIST_FAILED';
+      return;
+    }
+
+    state.archivePages = result.pages ?? [];
+  } catch {
+    state.archiveError = 'LIST_FAILED';
+  } finally {
+    state.archiveLoading = false;
+  }
+};
+
+const openArchive = async () => {
+  if (
+    state.view === 'archive' ||
+    state.archiveDetailOpen ||
+    state.typing ||
+    closingPageId !== null
+  ) {
+    return;
+  }
+
+  state.overlay = null;
+  state.errorCode = null;
+  archiveOriginView = state.view === 'companion' ? 'companion' : 'new';
+  archiveOriginIndex = state.currentIndex;
+  state.view = 'archive';
+  state.archivePages = [];
+  state.archiveError = null;
+  await loadArchive();
+};
+
+const openArchivedPage = (pageId: number) => {
+  const page = state.archivePages.find((item) => item.id === pageId);
+
+  if (!page) {
+    return;
+  }
+
+  state.overlay = null;
+  state.errorCode = null;
+  archiveReturn = {
+    pages: state.pages,
+    currentIndex: state.currentIndex,
+  };
+  state.pages = [page];
+  state.currentIndex = 0;
+  state.archiveDetailOpen = true;
+  state.view = 'companion';
+  state.replyDraft = '';
+  state.sayMoreOpen = false;
+  state.composerMode = 'normal';
+};
+
+const closeArchivedDetail = () => {
+  if (archiveReturn) {
+    state.pages = archiveReturn.pages;
+    state.currentIndex = archiveReturn.currentIndex;
+  }
+
+  archiveReturn = null;
+  state.archiveDetailOpen = false;
+  state.view = 'archive';
+  state.replyDraft = '';
+  state.sayMoreOpen = false;
+  state.composerMode = 'normal';
+};
+
+const closeArchive = () => {
+  state.view = archiveOriginView;
+  state.currentIndex = archiveOriginIndex;
+  state.archivePages = [];
+  state.archiveError = null;
+  state.archiveLoading = false;
+  state.archiveDetailOpen = false;
+  archiveReturn = null;
+};
+
+const retryArchive = () => {
+  void loadArchive();
+};
+
 const goBack = () => {
   if (closingPageId !== null) {
+    return;
+  }
+
+  if (state.archiveDetailOpen) {
+    closeArchivedDetail();
+    return;
+  }
+
+  if (state.view === 'archive') {
+    closeArchive();
     return;
   }
 
@@ -974,6 +1289,7 @@ const dismissOverlay = () => {
 
 export const useSessionStore = () => {
   ensureTeacherEvents();
+  ensureGuidanceEvents();
   void restoreLatestPage();
 
   return {
@@ -983,6 +1299,8 @@ export const useSessionStore = () => {
     stackIsDeep,
     submitNewPage,
     sendReply,
+    useGuidanceSuggestion,
+    retryGuidance,
     submitAppend,
     startEditing,
     cancelEditing,
@@ -990,6 +1308,10 @@ export const useSessionStore = () => {
     startAppending,
     startNewPage,
     closeCurrentPage,
+    openArchive,
+    openArchivedPage,
+    closeArchive,
+    retryArchive,
     goBack,
     toggleHistory,
     retrySave,

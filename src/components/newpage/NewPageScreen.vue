@@ -10,6 +10,7 @@ const props = defineProps<{
   body: string;
   source: string;
   canBack: boolean;
+  demoMode: boolean;
   deep: boolean;
   error: string;
 }>();
@@ -19,6 +20,7 @@ const emit = defineEmits<{
   'update:source': [value: string];
   submit: [];
   back: [];
+  archive: [];
   settings: [];
 }>();
 
@@ -42,7 +44,9 @@ watch(
   <section class="screen screen--new" aria-labelledby="new-page-title">
     <AppBar
       :back-visible="canBack"
+      :demo-mode="demoMode"
       @back="emit('back')"
+      @archive="emit('archive')"
       @settings="emit('settings')"
     />
     <ContentColumn>

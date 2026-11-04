@@ -11,7 +11,9 @@ import type {
 } from '../../shared/pages.ts';
 import { PAGE_CHANNELS } from '../../shared/pages.ts';
 import type { PagesRepository } from '../db/pages.ts';
+import { GUIDANCE_CHANNELS } from '../../shared/guidance.ts';
 import { createOpeningTeacherMessage } from '../services/teacher.ts';
+import type { GuidanceService } from '../services/guidance.ts';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -52,22 +54,26 @@ const parseSavePayload = (
   };
 };
 
-const parseListPayload = (payload: unknown): ListPagesPayload | null => {
+const parseListPayload = (
+  payload: unknown,
+  defaultLimit = 1,
+  maxLimit = 20,
+): ListPagesPayload | null => {
   if (payload === undefined) {
-    return { limit: 1 };
+    return { limit: defaultLimit };
   }
 
   if (!isRecord(payload)) {
     return null;
   }
 
-  const limit = payload.limit ?? 1;
+  const limit = payload.limit ?? defaultLimit;
 
   if (typeof limit !== 'number' || !Number.isInteger(limit) || limit <= 0) {
     return null;
   }
 
-  return { limit: Math.min(limit, 20) };
+  return { limit: Math.min(limit, maxLimit) };
 };
 
 const parseAppendPayload = (payload: unknown): AppendPagePayload | null => {
@@ -214,6 +220,27 @@ export const listPages = (
   }
 };
 
+export const listClosedPages = (
+  repository: Pick<PagesRepository, 'listClosed'>,
+  payload: unknown,
+): PageListResult => {
+  const input = parseListPayload(payload, 50, 100);
+
+  if (!input) {
+    return { ok: false, errorCode: 'INVALID_LIST_LIMIT' };
+  }
+
+  try {
+    return {
+      ok: true,
+      pages: repository.listClosed(input.limit ?? 50),
+    };
+  } catch (error) {
+    console.error('读取旧念头失败：', error);
+    return { ok: false, errorCode: 'LIST_FAILED' };
+  }
+};
+
 export const appendPage = (
   repository: Pick<PagesRepository, 'appendText'>,
   payload: unknown,
@@ -319,15 +346,36 @@ export const clearAllPages = (
 export const registerPageHandlers = (
   ipcMain: Pick<IpcMain, 'handle'>,
   repository: PagesRepository,
+  guidanceService?: Pick<GuidanceService, 'run'>,
 ) => {
-  ipcMain.handle(PAGE_CHANNELS.save, (_event, payload: unknown) =>
-    savePage(repository, payload),
-  );
+  ipcMain.handle(PAGE_CHANNELS.save, (event, payload: unknown) => {
+    const result = savePage(repository, payload);
+    const sender = event?.sender;
+
+    if (result.ok && result.page && guidanceService && sender) {
+      const pageId = result.page.id;
+
+      void guidanceService
+        .run(pageId, (update) => {
+          if (!sender.isDestroyed()) {
+            sender.send(GUIDANCE_CHANNELS.updated, update);
+          }
+        })
+        .catch((error: unknown) => {
+          console.error('触发理解引导失败：', error);
+        });
+    }
+
+    return result;
+  });
   ipcMain.handle(PAGE_CHANNELS.get, (_event, pageId: unknown) =>
     getPage(repository, pageId),
   );
   ipcMain.handle(PAGE_CHANNELS.list, (_event, payload: unknown) =>
     listPages(repository, payload),
+  );
+  ipcMain.handle(PAGE_CHANNELS.listClosed, (_event, payload: unknown) =>
+    listClosedPages(repository, payload),
   );
   ipcMain.handle(PAGE_CHANNELS.append, (_event, payload: unknown) =>
     appendPage(repository, payload),

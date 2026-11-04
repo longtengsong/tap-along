@@ -7,6 +7,7 @@ import {
   closePage,
   editPage,
   getPage,
+  listClosedPages,
   listPages,
   registerPageHandlers,
   savePage,
@@ -157,6 +158,47 @@ test('列出最近在读页时应校验并限制数量', () => {
     pages: [samplePage],
   });
   assert.deepEqual(calls, [1, 20]);
+});
+
+test('列出旧念头时应使用独立默认值和上限', () => {
+  const calls = [];
+  const repository = {
+    listClosed(limit) {
+      calls.push(limit);
+      return [{ ...samplePage, status: 'closed' }];
+    },
+  };
+
+  assert.deepEqual(listClosedPages(repository, undefined), {
+    ok: true,
+    pages: [{ ...samplePage, status: 'closed' }],
+  });
+  assert.deepEqual(listClosedPages(repository, { limit: 500 }), {
+    ok: true,
+    pages: [{ ...samplePage, status: 'closed' }],
+  });
+  assert.deepEqual(calls, [50, 100]);
+
+  for (const payload of [null, [], { limit: 0 }, { limit: 1.5 }]) {
+    assert.deepEqual(listClosedPages(repository, payload), {
+      ok: false,
+      errorCode: 'INVALID_LIST_LIMIT',
+    });
+  }
+});
+
+test('列出旧念头时应处理仓储异常', (t) => {
+  t.mock.method(console, 'error', () => {});
+  const repository = {
+    listClosed() {
+      throw new Error('数据库不可用');
+    },
+  };
+
+  assert.deepEqual(listClosedPages(repository, { limit: 50 }), {
+    ok: false,
+    errorCode: 'LIST_FAILED',
+  });
 });
 
 test('列出最近页边时应拒绝无效参数并处理仓储异常', (t) => {
@@ -381,6 +423,7 @@ test('IPC 注册应暴露保存和读取通道', () => {
     create: () => samplePage,
     findById: () => samplePage,
     listRecentReading: () => [samplePage],
+    listClosed: () => [{ ...samplePage, status: 'closed' }],
     appendText: () => ({ ok: true, page: samplePage }),
     editText: () => ({ ok: true, page: samplePage }),
     closePage: () => ({ ok: true, page: { ...samplePage, status: 'closed' } }),
@@ -405,6 +448,13 @@ test('IPC 注册应暴露保存和读取通道', () => {
     ok: true,
     pages: [samplePage],
   });
+  assert.deepEqual(
+    handlers.get(PAGE_CHANNELS.listClosed)(null, { limit: 50 }),
+    {
+      ok: true,
+      pages: [{ ...samplePage, status: 'closed' }],
+    },
+  );
   assert.deepEqual(
     handlers.get(PAGE_CHANNELS.append)(null, {
       pageId: 1,

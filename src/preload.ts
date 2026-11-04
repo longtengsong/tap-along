@@ -1,5 +1,21 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import {
+  SEARCH_CHANNELS,
+  type SaveWebSearchPayload,
+  type WebSearchSettingsResult,
+  type WebSearchTestResult,
+} from './shared/search.ts';
+import { BACKUP_CHANNELS, type ExportBackupResult } from './shared/backup.ts';
+import { SHELL_CHANNELS, type OpenExternalResult } from './shared/shell.ts';
+import {
+  GUIDANCE_CHANNELS,
+  type GuidanceRunPayload,
+  type GuidanceRunResult,
+  type GuidanceUpdatedEvent,
+  type GuidanceUsePayload,
+  type GuidanceUseResult,
+} from './shared/guidance.ts';
+import {
   PAGE_CHANNELS,
   TEACHER_CHANNELS,
   type AppendPagePayload,
@@ -30,6 +46,8 @@ const tapAlongBridge: TapAlongBridge = {
   getPage: (pageId: number) => ipcRenderer.invoke(PAGE_CHANNELS.get, pageId),
   listPages: (payload: ListPagesPayload) =>
     ipcRenderer.invoke(PAGE_CHANNELS.list, payload),
+  listClosedPages: (payload: ListPagesPayload) =>
+    ipcRenderer.invoke(PAGE_CHANNELS.listClosed, payload),
   appendPage: (payload: AppendPagePayload) =>
     ipcRenderer.invoke(PAGE_CHANNELS.append, payload),
   editPage: (payload: EditPagePayload) =>
@@ -37,6 +55,35 @@ const tapAlongBridge: TapAlongBridge = {
   closePage: (payload: ClosePagePayload) =>
     ipcRenderer.invoke(PAGE_CHANNELS.close, payload),
   clearAllPages: () => ipcRenderer.invoke(PAGE_CHANNELS.clearAll),
+  exportBackup: (): Promise<ExportBackupResult> =>
+    ipcRenderer.invoke(BACKUP_CHANNELS.export),
+  useGuidanceSuggestion: (
+    payload: GuidanceUsePayload,
+  ): Promise<GuidanceUseResult> =>
+    ipcRenderer.invoke(GUIDANCE_CHANNELS.use, payload),
+  getSearchSettings: (): Promise<WebSearchSettingsResult> =>
+    ipcRenderer.invoke(SEARCH_CHANNELS.get),
+  saveSearchSettings: (
+    payload: SaveWebSearchPayload,
+  ): Promise<WebSearchSettingsResult> =>
+    ipcRenderer.invoke(SEARCH_CHANNELS.save, payload),
+  clearSearchKey: (): Promise<WebSearchSettingsResult> =>
+    ipcRenderer.invoke(SEARCH_CHANNELS.clearKey),
+  testSearch: (): Promise<WebSearchTestResult> =>
+    ipcRenderer.invoke(SEARCH_CHANNELS.test),
+  openExternal: (url: string): Promise<OpenExternalResult> =>
+    ipcRenderer.invoke(SHELL_CHANNELS.openExternal, url),
+  runGuidance: (payload: GuidanceRunPayload): Promise<GuidanceRunResult> =>
+    ipcRenderer.invoke(GUIDANCE_CHANNELS.run, payload),
+  onGuidanceUpdated: (callback: (event: GuidanceUpdatedEvent) => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      data: GuidanceUpdatedEvent,
+    ) => callback(data);
+    ipcRenderer.on(GUIDANCE_CHANNELS.updated, listener);
+    return () =>
+      ipcRenderer.removeListener(GUIDANCE_CHANNELS.updated, listener);
+  },
   askTeacher: (payload: TeacherAskPayload) =>
     ipcRenderer.invoke(TEACHER_CHANNELS.ask, payload),
   resumeTeacher: (payload: TeacherResumePayload) =>

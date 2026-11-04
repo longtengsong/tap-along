@@ -14,6 +14,14 @@ import type {
   TeacherStartResult,
 } from '@/shared/pages';
 import type { AppErrorCode } from '@/shared/errors';
+import type { ExportBackupResult } from '@/shared/backup';
+import type {
+  GuidanceRunPayload,
+  GuidanceRunResult,
+  GuidanceUpdatedEvent,
+  GuidanceUsePayload,
+  GuidanceUseResult,
+} from '@/shared/guidance';
 import { i18n } from '@/i18n';
 import { translateFixedMessage } from '@/i18n/fixed-messages';
 import {
@@ -25,6 +33,12 @@ import type { PageRecord } from '@/types/session';
 interface PageUiResult {
   ok: boolean;
   page?: PageRecord;
+  errorCode?: AppErrorCode;
+}
+
+interface PageUiListResult {
+  ok: boolean;
+  pages?: PageRecord[];
   errorCode?: AppErrorCode;
 }
 
@@ -67,11 +81,24 @@ const toPageRecord = (page: PageSnapshot): PageRecord => {
                   closeLanguage,
                   'teacherFallback.userClosed',
                 )
-              : message.text,
+              : message.actionType === 'forked'
+                ? i18n.global.t('messages.newPage')
+                : message.text,
       suggestClose: message.suggestClose,
       requestId: message.requestId,
+      ...(message.mode ? { mode: message.mode } : {}),
+      ...(message.sources ? { sources: message.sources } : {}),
+      ...(message.sources
+        ? {
+            citationStatus: /\[\d+\]/.test(message.text)
+              ? ('cited' as const)
+              : ('uncited' as const),
+          }
+        : {}),
     })),
     teacherTurn: page.teachingRoundCount,
+    guidance: page.guidance,
+    guidanceError: '',
     editing: false,
     editDraft: page.body,
     historyOpen: false,
@@ -87,6 +114,7 @@ const createMockPage = ({ body, source }: SavePagePayload): PageRecord => ({
   status: 'reading',
   messages: [],
   teacherTurn: 0,
+  guidanceError: '',
   editing: false,
   editDraft: body,
   historyOpen: false,
@@ -112,6 +140,33 @@ export const tapAlongApi = {
     ),
 
   supportsTeacherCancellation: () => Boolean(bridge?.cancelTeacher),
+
+  supportsGuidance: () =>
+    Boolean(bridge?.useGuidanceSuggestion && bridge?.onGuidanceUpdated),
+
+  supportsGuidanceRefresh: () => Boolean(bridge?.runGuidance),
+
+  async runGuidance(payload: GuidanceRunPayload): Promise<GuidanceRunResult> {
+    if (!bridge?.runGuidance) {
+      return { ok: false, errorCode: 'TEACHER_INVALID_REQUEST' };
+    }
+
+    return bridge.runGuidance(payload);
+  },
+
+  async useGuidanceSuggestion(
+    payload: GuidanceUsePayload,
+  ): Promise<GuidanceUseResult> {
+    if (!bridge?.useGuidanceSuggestion) {
+      return { ok: false, errorCode: 'TEACHER_INVALID_REQUEST' };
+    }
+
+    return bridge.useGuidanceSuggestion(payload);
+  },
+
+  onGuidanceUpdated(callback: (event: GuidanceUpdatedEvent) => void) {
+    return bridge?.onGuidanceUpdated?.(callback) ?? (() => {});
+  },
 
   async askTeacher(payload: TeacherAskPayload): Promise<TeacherStartResult> {
     if (!bridge?.askTeacher) {
@@ -167,6 +222,14 @@ export const tapAlongApi = {
       : { ok: false, errorCode: 'DEVELOPER_MODE_REQUIRED' };
   },
 
+  async openExternal(url: string) {
+    if (!bridge?.openExternal) {
+      return { ok: false, errorCode: 'EXTERNAL_URL_INVALID' as const };
+    }
+
+    return bridge.openExternal(url);
+  },
+
   async savePage(input: SavePagePayload): Promise<PageUiResult> {
     if (bridge?.savePage) {
       const response = await bridge.savePage(input);
@@ -198,6 +261,28 @@ export const tapAlongApi = {
     return response.ok && response.pages
       ? response.pages.map(toPageRecord)
       : [];
+  },
+
+  async listClosedPages(limit = 50): Promise<PageUiListResult> {
+    if (!bridge?.listClosedPages) {
+      return { ok: true, pages: [] };
+    }
+
+    const response = await bridge.listClosedPages({ limit });
+
+    return {
+      ok: response.ok,
+      ...(response.pages ? { pages: response.pages.map(toPageRecord) } : {}),
+      ...(response.errorCode ? { errorCode: response.errorCode } : {}),
+    };
+  },
+
+  async exportBackup(): Promise<ExportBackupResult> {
+    if (!bridge?.exportBackup) {
+      return { ok: false, errorCode: 'EXPORT_FAILED' };
+    }
+
+    return bridge.exportBackup();
   },
 
   async clearAllPages(): Promise<PageClearAllResult> {

@@ -18,7 +18,10 @@ import {
   createModelAwareTeacherStream,
   ProviderRequestError,
 } from '../src/main/services/model-teacher.ts';
-import { PROMPT_CATALOG } from '../src/main/prompts/index.ts';
+import {
+  composeTeacherMessages,
+  PROMPT_CATALOG,
+} from '../src/main/prompts/index.ts';
 
 const createTeacherFixture = async (t, generator) => {
   const directory = await mkdtemp(path.join(tmpdir(), 'tap-along-teacher-'));
@@ -341,7 +344,37 @@ test('多层页叠应在后续请求中持续携带后代正文且不发送讨�
       ).length,
       1,
     );
+
+    const pageBlockIndex = requestBody.messages.findIndex(
+      (message) =>
+        message.content.startsWith('<study_page role="target"') ||
+        message.content.startsWith('<study_page role="current"'),
+    );
+    const firstCompressedIndex = requestBody.messages.findIndex((message) =>
+      message.content.startsWith('<study_page role="closed_context"'),
+    );
+
+    assert.ok(pageBlockIndex >= 0);
+    assert.ok(
+      firstCompressedIndex > pageBlockIndex,
+      '已合上页正文应排在目标页正文之后，而不是内容区最前面',
+    );
   }
+
+  // A 在另起 B 时还没有对谈，因此 B、C 的正文应落在 A 历史的最前段，
+  // 之后再出现 A 自己的跨页叩问和后续讨论。
+  const resumeMessages = requestBodies[0].messages;
+  const lastCompressedIndex = resumeMessages.findLastIndex((message) =>
+    message.content.startsWith('<study_page role="closed_context"'),
+  );
+  assert.equal(
+    resumeMessages.some(
+      (message) =>
+        message.role === 'assistant' && message.content.includes('模型问题？'),
+    ),
+    false,
+  );
+  assert.ok(lastCompressedIndex > 0);
 });
 
 test('编辑和补一句维护应使用激活模型并持久化回应', async (t) => {
@@ -351,7 +384,7 @@ test('编辑和补一句维护应使用激活模型并持久化回应', async (t
       triggerText: '修改后的中文想法。',
       prepare: (repository, pageId) =>
         repository.editText(pageId, '修改后的中文想法。', 'model-edit-source'),
-      action: /edited the current note/,
+      action: /edited the current thought/,
       content: /修改后的中文想法/,
     },
     {
@@ -866,7 +899,7 @@ test('本地老师流应逐块输出并在聊透后建议合上', async () => {
   }
 
   assert.ok(chunks.length > 2);
-  assert.match(chunks.join(''), /合上这页/);
+  assert.match(chunks.join(''), /先想到这/);
 });
 
 test('本地老师流应针对首轮生成叩问', async () => {
@@ -1238,8 +1271,27 @@ test('跨页回问应把目标页用户内容和上下文页正文传给生成�
   assert.equal(receivedInput.userText, '目标页的中文补充。');
   assert.equal(receivedInput.replyLanguage, 'zh-CN');
   assert.deepEqual(receivedInput.compressedPages, [
-    { pageId: contextPage.id, body: '另一个页边。', depth: 0 },
+    {
+      pageId: contextPage.id,
+      body: '另一个页边。',
+      depth: 0,
+      rootPageId: contextPage.id,
+    },
   ]);
+  const composedMessages = composeTeacherMessages(receivedInput);
+  assert.ok(
+    composedMessages.some(
+      (message) =>
+        message.content.includes('role="closed_context"') &&
+        message.content.includes('另一个页边。'),
+    ),
+  );
+  assert.equal(
+    JSON.stringify(composedMessages).includes(
+      'Latest English context thought.',
+    ),
+    false,
+  );
   assert.ok(
     receivedInput.page.messages.some(
       (message) => message.text === '目标页的中文补充。',

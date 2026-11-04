@@ -1,15 +1,15 @@
 {
   "name": "tap-along",
-  "productName": "tap-along",
-  "version": "1.0.0",
+  "productName": "TapAlong",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "My Electron application description",
+  "description": "A reading companion that helps new thoughts connect with earlier ones.",
   "keywords": [],
   "license": "MIT",
   "author": {
     "name": "longtengsong",
-    "email": "tengsonglong.gmail.com"
+    "email": "tengsonglong@gmail.com"
   },
   "main": ".vite/build/main.cjs",
   "scripts": {

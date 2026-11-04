@@ -64,11 +64,10 @@ test('每个评测场景应构造正确的 Prompt 数据边界和模式', async 
       assert.equal(digest(messages), testCase.messageDigest);
 
       if (testCase.mode === 'resume') {
-        assert.match(pageBlocks[0].content, /role="closed_context"/);
-        assert.match(pageBlocks.at(-1).content, /role="target"/);
+        assert.match(pageBlocks[0].content, /role="target"/);
         assert.equal(
           pageBlocks
-            .slice(0, -1)
+            .slice(1)
             .every((block) => block.content.includes('role="closed_context"')),
           true,
         );

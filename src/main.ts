@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import path from 'node:path';
+import { writeFile } from 'node:fs/promises';
 import type { DatabaseSync } from 'node:sqlite';
 import Store from 'electron-store';
 import started from 'electron-squirrel-startup';
@@ -11,6 +12,10 @@ import {
 import { PagesRepository } from './main/db/pages';
 import { registerDeveloperPromptHandlers } from './main/ipc/developer-prompts';
 import { registerPageHandlers } from './main/ipc/pages';
+import { registerBackupHandlers } from './main/ipc/backup';
+import { registerGuidanceHandlers } from './main/ipc/guidance';
+import { registerSearchHandlers } from './main/ipc/search';
+import { registerShellHandlers } from './main/ipc/shell';
 import { registerProviderHandlers } from './main/ipc/providers';
 import { registerSettingsHandlers } from './main/ipc/settings';
 import { registerTeacherHandlers } from './main/ipc/teacher';
@@ -27,7 +32,17 @@ import {
 import { DeveloperModeService } from './main/services/developer-mode';
 import { DeveloperPromptConfigService } from './main/services/developer-prompts';
 import { TeacherRequestInspector } from './main/services/teacher-request-inspector';
+import { buildStartupFailureContent } from './main/services/startup-error';
 import { createModelAwareTeacherStream } from './main/services/model-teacher';
+import { createGuidancePlanner } from './main/services/guidance-planner';
+import { GuidanceService } from './main/services/guidance';
+import {
+  SearchConfigService,
+  type StoredWebSearchSettings,
+} from './main/services/search-config';
+import { WebSearchService } from './main/services/web-search';
+import { createIntentRouter } from './main/services/intent-router';
+import { ResearchService } from './main/services/research';
 import {
   createMockTeacherStream,
   TeacherService,
@@ -61,6 +76,30 @@ const createWindow = (developerMode = false) => {
       nodeIntegration: false,
       sandbox: false,
     },
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const currentUrl = mainWindow.webContents.getURL();
+
+    try {
+      const next = new URL(url);
+
+      if (url === currentUrl) {
+        return;
+      }
+
+      if (
+        (next.protocol === 'http:' || next.protocol === 'https:') &&
+        next.origin === new URL(currentUrl).origin
+      ) {
+        return;
+      }
+    } catch {
+      // Fall through and block invalid or external navigation.
+    }
+
+    event.preventDefault();
   });
 
   // and load the index.html of the app.
@@ -97,6 +136,38 @@ const focusMainWindow = () => {
   mainWindow.focus();
 };
 
+const showDatabaseStartupFailure = async (error: unknown) => {
+  const dataDirectory = app.getPath('userData');
+  const content = buildStartupFailureContent({
+    error,
+    dataDirectory,
+    locale: app.getLocale(),
+  });
+
+  try {
+    const result = await dialog.showMessageBox({
+      type: 'error',
+      title: content.title,
+      message: content.message,
+      detail: content.detail,
+      buttons: [content.openButton, content.quitButton],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true,
+    });
+
+    if (result.response === 0) {
+      const failure = await shell.openPath(dataDirectory);
+
+      if (failure) {
+        console.error('Failed to open the data directory.', failure);
+      }
+    }
+  } catch (dialogError) {
+    console.error('Failed to show the database startup error.', dialogError);
+  }
+};
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!hasSingleInstanceLock) {
@@ -104,7 +175,7 @@ if (!hasSingleInstanceLock) {
 } else {
   app.on('second-instance', focusMainWindow);
 
-  app.whenReady().then(() => {
+  const initializeApplication = async () => {
     try {
       database = openDatabase(allocateDatabasePath(app.getPath('userData')));
       const pagesRepository = new PagesRepository(database);
@@ -112,6 +183,7 @@ if (!hasSingleInstanceLock) {
         modelProviders?: StoredProviderSettings;
         developerMode?: boolean;
         developerPromptProfile?: DeveloperPromptProfile;
+        webSearch?: StoredWebSearchSettings;
       }>({ name: 'tap-along-settings' });
       const providerStore: ProviderSettingsStore = {
         read: () => settingsStore.get('modelProviders'),
@@ -134,7 +206,6 @@ if (!hasSingleInstanceLock) {
         developerModeService,
       );
 
-      registerPageHandlers(ipcMain, pagesRepository);
       registerSettingsHandlers(ipcMain, developerModeService);
       registerDeveloperPromptHandlers(ipcMain, developerPromptService);
       const providerService = new ProviderConfigService(
@@ -150,6 +221,39 @@ if (!hasSingleInstanceLock) {
           developerPromptService,
         ),
       );
+      const guidanceService = new GuidanceService(
+        pagesRepository,
+        createGuidancePlanner({ configService: providerService }),
+      );
+      const searchConfigService = new SearchConfigService(
+        {
+          read: () => settingsStore.get('webSearch'),
+          write: (settings) => settingsStore.set('webSearch', settings),
+        },
+        new ElectronSecretCipher(),
+      );
+      const webSearchService = new WebSearchService({
+        configService: searchConfigService,
+      });
+      const researchService = new ResearchService(
+        createIntentRouter({ configService: providerService }),
+        webSearchService,
+      );
+      registerPageHandlers(ipcMain, pagesRepository, guidanceService);
+      registerBackupHandlers(ipcMain, pagesRepository, {
+        documentsPath: app.getPath('documents'),
+        showSaveDialog: async (options) => {
+          const window = BrowserWindow.getFocusedWindow();
+          return window
+            ? dialog.showSaveDialog(window, options)
+            : dialog.showSaveDialog(options);
+        },
+        writeFile: (filePath, data, encoding) =>
+          writeFile(filePath, data, encoding),
+      });
+      registerGuidanceHandlers(ipcMain, guidanceService);
+      registerSearchHandlers(ipcMain, searchConfigService, webSearchService);
+      registerShellHandlers(ipcMain, (url) => shell.openExternal(url));
       registerTeacherHandlers(
         ipcMain,
         new TeacherService(
@@ -160,11 +264,13 @@ if (!hasSingleInstanceLock) {
             promptService: developerPromptService,
             inspector: teacherRequestInspector,
           }),
+          researchService,
         ),
         teacherRequestInspector,
       );
     } catch (error) {
       console.error('Failed to initialize the TapAlong database.', error);
+      await showDatabaseStartupFailure(error);
       app.quit();
       return;
     }
@@ -178,7 +284,9 @@ if (!hasSingleInstanceLock) {
         createWindow(isDeveloperModeEnabled());
       }
     });
-  });
+  };
+
+  app.whenReady().then(initializeApplication);
 
   app.on('before-quit', () => {
     if (!database) {

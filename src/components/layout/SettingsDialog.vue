@@ -2,8 +2,10 @@
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { providerApi } from '@/api/providers';
+import { tapAlongApi } from '@/api/tap-along';
 import { settingsApi } from '@/api/settings';
 import AppButton from '@/components/ui/AppButton.vue';
+import WebSearchSettings from '@/components/settings/WebSearchSettings.vue';
 import { setLocale } from '@/i18n';
 import type { SupportedLocale } from '@/i18n/locale';
 import { ERROR_MESSAGE_KEYS, type AppErrorCode } from '@/shared/errors';
@@ -40,6 +42,9 @@ const dataConfirming = ref(false);
 const dataClearing = ref(false);
 const dataMessage = ref('');
 const dataError = ref('');
+const exporting = ref(false);
+const exportMessage = ref('');
+const exportError = ref('');
 const developerMode = ref(false);
 const developerModeLoading = ref(false);
 const developerModeSaving = ref(false);
@@ -282,6 +287,39 @@ const testProvider = async () => {
     showProviderError('PROVIDER_TEST_FAILED');
   } finally {
     providerTesting.value = false;
+  }
+};
+
+const exportConversationData = async () => {
+  if (exporting.value) {
+    return;
+  }
+
+  exporting.value = true;
+  exportMessage.value = '';
+  exportError.value = '';
+
+  try {
+    const result = await tapAlongApi.exportBackup();
+
+    if (!result.ok) {
+      if (result.canceled) {
+        return;
+      }
+
+      exportError.value = t(
+        ERROR_MESSAGE_KEYS[result.errorCode ?? 'EXPORT_FAILED'],
+      );
+      return;
+    }
+
+    exportMessage.value = t('settings.exportedConversations', {
+      count: result.pageCount ?? 0,
+    });
+  } catch {
+    exportError.value = t(ERROR_MESSAGE_KEYS.EXPORT_FAILED);
+  } finally {
+    exporting.value = false;
   }
 };
 
@@ -667,11 +705,38 @@ onBeforeUnmount(() => {
           </p>
         </section>
 
+        <WebSearchSettings />
+
         <section class="settings-section" aria-labelledby="settings-data">
           <div class="settings-section__heading">
             <h3 id="settings-data">{{ t('settings.conversationData') }}</h3>
             <span>{{ t('settings.conversationDataHint') }}</span>
           </div>
+
+          <div class="settings-data">
+            <div class="settings-data__copy">
+              <strong>{{ t('settings.exportConversations') }}</strong>
+              <p>{{ t('settings.exportConversationsDescription') }}</p>
+            </div>
+            <AppButton
+              variant="text"
+              :disabled="exporting"
+              @click="exportConversationData"
+            >
+              {{
+                exporting
+                  ? t('settings.exportingConversations')
+                  : t('settings.exportConversationsAction')
+              }}
+            </AppButton>
+          </div>
+
+          <p v-if="exportError" class="provider-error" role="alert">
+            {{ exportError }}
+          </p>
+          <p v-if="exportMessage" class="provider-feedback" role="status">
+            {{ exportMessage }}
+          </p>
 
           <div class="settings-data">
             <div class="settings-data__copy">

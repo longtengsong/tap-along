@@ -7,9 +7,31 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
+const macosSignIdentity = process.env.MACOS_SIGN_IDENTITY;
+const appleId = process.env.APPLE_ID;
+const appleIdPassword = process.env.APPLE_APP_SPECIFIC_PASSWORD;
+const appleTeamId = process.env.APPLE_TEAM_ID;
+const electronZipDir = process.env.ELECTRON_ZIP_DIR;
+const notarizeConfig =
+  appleId && appleIdPassword && appleTeamId
+    ? { appleId, appleIdPassword, teamId: appleTeamId }
+    : undefined;
+
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    name: 'TapAlong',
+    executableName: 'TapAlong',
+    appBundleId: 'com.tapalong.app',
+    appCategoryType: 'public.app-category.productivity',
+    icon: 'assets/icon',
+    extendInfo: {
+      CFBundleDisplayName: '轻叩伴读',
+      NSHumanReadableCopyright: 'Copyright © 2026 TapAlong',
+    },
+    ...(electronZipDir ? { electronZipDir } : {}),
+    ...(macosSignIdentity ? { osxSign: { identity: macosSignIdentity } } : {}),
+    ...(notarizeConfig ? { osxNotarize: notarizeConfig } : {}),
   },
   rebuildConfig: {},
   makers: [

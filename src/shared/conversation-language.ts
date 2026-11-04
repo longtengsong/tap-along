@@ -72,5 +72,7 @@ export const extractContentKeyword = (
     );
   }
 
-  return firstLine.replace(/[，。、；：“”‘’？！\s]/g, '').slice(0, 6) || '这页';
+  return (
+    firstLine.replace(/[，。、；：“”‘’？！\s]/g, '').slice(0, 6) || '这一点'
+  );
 };

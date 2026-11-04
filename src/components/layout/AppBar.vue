@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
 
-defineProps<{
-  backVisible?: boolean;
-}>();
+withDefaults(
+  defineProps<{
+    backVisible?: boolean;
+    archiveVisible?: boolean;
+    demoMode?: boolean;
+  }>(),
+  { archiveVisible: true, demoMode: false },
+);
 
 const { t } = useI18n();
 
 const emit = defineEmits<{
   back: [];
+  archive: [];
   settings: [];
 }>();
 </script>
@@ -33,6 +39,24 @@ const emit = defineEmits<{
     <h1 class="app-bar__title">{{ t('app.name') }}</h1>
 
     <div class="app-bar__side app-bar__side--end">
+      <button
+        v-if="demoMode"
+        class="app-bar__action app-bar__action--demo"
+        type="button"
+        :aria-label="t('a11y.demoMode')"
+        @click="emit('settings')"
+      >
+        {{ t('onboarding.demoLabel') }}
+      </button>
+      <button
+        v-if="archiveVisible"
+        class="app-bar__action"
+        type="button"
+        :aria-label="t('a11y.oldThoughts')"
+        @click="emit('archive')"
+      >
+        {{ t('actions.oldThoughts') }}
+      </button>
       <button
         class="app-bar__action"
         type="button"
@@ -61,6 +85,8 @@ const emit = defineEmits<{
 
 .app-bar__side--end {
   justify-self: end;
+  display: flex;
+  gap: 18px;
 }
 
 .app-bar__title {
@@ -90,6 +116,12 @@ const emit = defineEmits<{
 
 .app-bar__action:hover {
   color: var(--ink);
+}
+
+.app-bar__action--demo {
+  color: var(--moss);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
 }
 
 .app-bar__action:focus-visible {

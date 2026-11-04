@@ -20,7 +20,7 @@ const emit = defineEmits<{
     <p class="overlay-copy">{{ message }}</p>
     <div class="overlay-actions">
       <AppButton variant="ghost" @click="emit('openSettings')">
-        {{ t('errors.openModelSettings') }}
+        {{ t('errors.openSettings') }}
       </AppButton>
       <AppButton size="small" @click="emit('retry')">
         {{ t('errors.retry') }}

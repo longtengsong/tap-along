@@ -42,6 +42,8 @@ const visibleMessages = computed(() => {
         :suggest-close="item.suggestClose"
         :developer-mode="developerMode"
         :request-id="item.requestId"
+        :sources="item.sources"
+        :citation-status="item.citationStatus"
       />
       <UserMessage v-else-if="item.role === 'user'" :text="item.text" />
       <MaintenanceMessage v-else :text="item.text" />

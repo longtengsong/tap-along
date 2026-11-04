@@ -2,14 +2,18 @@
 import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { tapAlongApi } from '@/api/tap-along';
+import SourceList from '@/components/companion/TalkStream/SourceList.vue';
 import { ERROR_MESSAGE_KEYS } from '@/shared/errors';
 import type { TeacherRequestInspection } from '@/shared/pages';
+import type { TeacherSource } from '@/shared/search';
 
 const props = defineProps<{
   text: string;
   suggestClose?: boolean;
   developerMode: boolean;
   requestId?: string;
+  sources?: TeacherSource[];
+  citationStatus?: 'cited' | 'uncited';
 }>();
 
 const { t } = useI18n();
@@ -75,6 +79,11 @@ watch(
     <div class="message" :aria-label="t('a11y.teacherMessage')">
       {{ text }}
     </div>
+
+    <SourceList v-if="sources && sources.length > 0" :sources="sources" />
+    <p v-if="citationStatus === 'uncited'" class="teacher-message__uncited">
+      {{ t('research.uncited') }}
+    </p>
 
     <button
       v-if="developerMode && requestId"
@@ -329,6 +338,13 @@ watch(
 .teacher-message__error {
   margin-top: 8px;
   color: #96645a;
+}
+
+.teacher-message__uncited {
+  margin: 6px 0 0;
+  color: var(--amber);
+  font-size: 10px;
+  line-height: 1.55;
 }
 
 .teacher-message__fallback {

@@ -17,7 +17,15 @@ import {
 import { translateFixedMessage } from '../../i18n/fixed-messages.ts';
 import type { PagesRepository } from '../db/pages.ts';
 import type { CompressedPagePrompt } from '../prompts/index.ts';
-import { getTeacherFailureCode } from './model-teacher.ts';
+import type { ResearchEvidence } from '../../shared/search.ts';
+import {
+  getTeacherFailureCode,
+  ProviderRequestError,
+} from './model-teacher.ts';
+import { sanitizeCitations } from './citations.ts';
+import type { ResearchRoute } from './intent-router.ts';
+import type { ResearchCoordinator } from './research.ts';
+import { SearchError } from './web-search.ts';
 
 export interface TeacherGeneratorInput {
   requestId?: string;
@@ -27,6 +35,7 @@ export interface TeacherGeneratorInput {
   contextPage?: PageSnapshot;
   compressedPages?: CompressedPagePrompt[];
   maintenanceKind?: 'edit' | 'append';
+  research?: ResearchEvidence[];
   signal?: AbortSignal;
 }
 
@@ -54,7 +63,12 @@ type TeacherRepository = Pick<
   | 'findById'
   | 'appendTeacherPrompt'
 > &
-  Partial<Pick<PagesRepository, 'listClosedDescendantBodies'>>;
+  Partial<
+    Pick<
+      PagesRepository,
+      'listClosedDescendantBodies' | 'completeResearchAnswer'
+    >
+  >;
 
 const wait = (duration: number) =>
   new Promise((resolve) => setTimeout(resolve, duration));
@@ -265,7 +279,12 @@ export const createMockTeacherStream: TeacherGenerator = async function* ({
   replyLanguage,
   contextPage,
   maintenanceKind,
+  research,
 }) {
+  if (research && research.length > 0) {
+    throw new ProviderRequestError('PROVIDER_NOT_CONFIGURED');
+  }
+
   const reply = createMockReply(
     page,
     replyLanguage,
@@ -284,13 +303,16 @@ export class TeacherService {
   private readonly activeRequests = new Map<string, ActiveTeacherRequest>();
   private readonly repository: TeacherRepository;
   private readonly generate: TeacherGenerator;
+  private readonly research?: ResearchCoordinator;
 
   constructor(
     repository: TeacherRepository,
     generate: TeacherGenerator = createMockTeacherStream,
+    research?: ResearchCoordinator,
   ) {
     this.repository = repository;
     this.generate = generate;
+    this.research = research;
   }
 
   private getCompressedPages(
@@ -306,7 +328,14 @@ export class TeacherService {
     }
 
     return fallback
-      ? [{ pageId: fallback.id, body: fallback.body, depth: 0 }]
+      ? [
+          {
+            pageId: fallback.id,
+            body: fallback.body,
+            depth: 0,
+            rootPageId: fallback.id,
+          },
+        ]
       : [];
   }
 
@@ -817,6 +846,121 @@ export class TeacherService {
     }
   }
 
+  private async streamResearch(
+    page: PageSnapshot,
+    input: TeacherAskPayload,
+    route: ResearchRoute,
+    research: ResearchCoordinator,
+    emit: TeacherEventEmitter,
+    signal: AbortSignal,
+    compressedPages: CompressedPagePrompt[],
+  ): Promise<TeacherDoneEvent> {
+    let reply = '';
+    const previousUserTexts = page.messages
+      .filter(
+        (message) =>
+          message.role === 'user' && message.requestId !== input.requestId,
+      )
+      .map((message) => message.text);
+    const replyLanguage = resolveMockReplyLanguage(
+      input.userText,
+      previousUserTexts,
+    );
+
+    try {
+      throwIfCancelled(signal);
+      const evidence = await research.search({
+        queries: route.queries,
+        signal,
+      });
+      throwIfCancelled(signal);
+
+      if (evidence.length === 0) {
+        throw new SearchError('RESEARCH_NO_EVIDENCE');
+      }
+
+      for await (const chunk of this.generate({
+        requestId: input.requestId,
+        page,
+        userText: input.userText,
+        replyLanguage,
+        compressedPages,
+        research: evidence,
+        signal,
+      })) {
+        throwIfCancelled(signal);
+        if (!chunk) {
+          continue;
+        }
+
+        reply += chunk;
+        emit({
+          pageId: input.pageId,
+          requestId: input.requestId,
+          chunk,
+        });
+      }
+
+      throwIfCancelled(signal);
+      if (!reply) {
+        throw new Error('联网回答为空');
+      }
+
+      const citation = sanitizeCitations(reply, evidence);
+
+      if (!citation.reply.trim()) {
+        throw new Error('联网回答没有可展示内容');
+      }
+
+      const updatedPage = this.repository.completeResearchAnswer?.(
+        input.pageId,
+        citation.reply,
+        citation.sources,
+        input.requestId,
+      );
+
+      if (!updatedPage) {
+        throw new Error('保存联网回答后无法读取页边');
+      }
+
+      throwIfCancelled(signal);
+      const doneEvent: TeacherDoneEvent = {
+        ok: true,
+        pageId: input.pageId,
+        requestId: input.requestId,
+        reply: citation.reply,
+        suggestClose: false,
+        mode: 'answer',
+        sources: citation.sources,
+        citationStatus: citation.citationStatus,
+      };
+      emit(doneEvent);
+      return doneEvent;
+    } catch (error) {
+      const cancelled = signal.aborted;
+
+      if (!cancelled) {
+        console.error('生成联网回答失败：', error);
+      }
+
+      const failedEvent: TeacherDoneEvent = {
+        ok: false,
+        pageId: input.pageId,
+        requestId: input.requestId,
+        ...(cancelled
+          ? { cancelled: true }
+          : {
+              errorCode:
+                error instanceof SearchError
+                  ? error.errorCode
+                  : getTeacherFailureCode(error),
+            }),
+      };
+      emit(failedEvent);
+      return failedEvent;
+    }
+  }
+
   private async streamResponse(
     page: PageSnapshot,
     input: TeacherAskPayload,
@@ -835,6 +979,48 @@ export class TeacherService {
       input.userText,
       previousUserTexts,
     );
+    let route: ResearchRoute = { mode: 'reflect', queries: [] };
+    const research = this.research;
+
+    if (research) {
+      try {
+        route = await research.route({
+          page,
+          userText: input.userText,
+          signal,
+        });
+      } catch (error) {
+        if (signal.aborted) {
+          const cancelledEvent: TeacherDoneEvent = {
+            ok: false,
+            pageId: input.pageId,
+            requestId: input.requestId,
+            cancelled: true,
+          };
+          emit(cancelledEvent);
+          return cancelledEvent;
+        }
+
+        if (
+          !(error instanceof ProviderRequestError) ||
+          error.errorCode !== 'PROVIDER_NOT_CONFIGURED'
+        ) {
+          console.error('判断是否需要联网失败：', error);
+        }
+      }
+    }
+
+    if (route.mode === 'research' && research) {
+      return this.streamResearch(
+        page,
+        input,
+        route,
+        research,
+        emit,
+        signal,
+        compressedPages,
+      );
+    }
 
     try {
       throwIfCancelled(signal);

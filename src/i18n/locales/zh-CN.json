@@ -3,32 +3,32 @@
     "name": "轻叩伴读",
     "tagline": "读到哪里，轻轻叩一下",
     "settings": "设置",
-    "privacy": "笔记会发送到云端老师那里，用于生成回应。",
-    "settingsPanel": "设置只影响界面语言，老师始终跟随你的提问语言。"
+    "privacy": "念头会发送到云端伴读那里，用于生成回应。",
+    "settingsPanel": "设置只影响界面语言，伴读始终跟随你的提问语言。"
   },
   "common": {
     "cancel": "取消",
-    "back": "翻回去",
+    "back": "返回",
     "retry": "再试一次",
-    "close": "合上",
-    "loading": "正在收进页边……",
-    "restoring": "正在翻开上一页……"
+    "close": "关闭",
+    "loading": "正在处理……",
+    "restoring": "正在找回上一条……"
   },
   "newPage": {
-    "title": "新页边",
-    "bodyAria": "页边正文",
-    "placeholder": "读到哪里，记一句……",
+    "title": "新念头",
+    "bodyAria": "念头内容",
+    "placeholder": "读到哪里，记下一个念头……",
     "sourceLabel": "出处",
     "sourceAria": "出处",
     "sourcePlaceholder": "书名 / 网页 / 电影 / 课程",
-    "submit": "收进页边",
-    "back": "翻回去",
-    "emptyError": "先落下一句，再收进页边。"
+    "submit": "记下",
+    "back": "回到上一条",
+    "emptyError": "先写下一个念头，再记下。"
   },
   "overlay": {
-    "saving": "正在收进页边……",
-    "failed": "这一句没送进去。",
-    "backToEdit": "回到页边",
+    "saving": "正在记下……",
+    "failed": "这个念头没记上。",
+    "backToEdit": "回到这条",
     "tryAgain": "再试一次"
   },
   "companion": {
@@ -36,47 +36,65 @@
     "historyCollapsed": "前面聊过的",
     "historyExpanded": "收起前面聊过的",
     "inputPlaceholder": "写下你的想法……",
-    "inputAria": "落笔处",
+    "inputAria": "写下你的回应",
     "send": "落笔",
-    "sayMoreCollapsed": "想留一句？",
-    "sayMoreExpanded": "想留一句？",
+    "sayMoreCollapsed": "整理这个念头？",
+    "sayMoreExpanded": "收起整理",
     "sourcePrefix": "出处：",
     "statusPrefix": "状态：",
-    "typing": "老师正在回应",
+    "typing": "伴读正在回应",
     "stop": "停止",
     "stopping": "正在停止",
-    "maintenanceMenu": "页边维护",
-    "editBodyAria": "编辑页边正文",
-    "closedNote": "这页已合上"
+    "maintenanceMenu": "整理这个念头",
+    "editBodyAria": "编辑念头内容",
+    "closedNote": "这个念头先收住了"
+  },
+  "research": {
+    "sources": "来源",
+    "uncited": "这段回答没有标注来源，请谨慎参考。"
+  },
+  "guidance": {
+    "pending": "正在旧念头里找能接住的线……",
+    "heading": "也许能接上",
+    "fromPage": "旧念头 · 出自《{title}》",
+    "action": "顺着这条线问",
+    "used": "已经接过",
+    "notNeeded": "这个念头已经很清楚，这一轮先不硬接。",
+    "useFailed": "这条线这次没接上，先继续写也行。",
+    "anchor": "从“{quote}”这处接上",
+    "retryHint": "这次没找到能接住的旧念头。",
+    "retryAction": "再找找",
+    "retryFailed": "这次没找成，稍后再试也行。"
   },
   "status": {
-    "reading": "在读",
-    "closed": "已合上",
-    "saving": "正在收进页边",
-    "failed": "没送进去",
-    "active": "进行中",
-    "concluded": "已收束"
+    "reading": "在聊",
+    "closed": "已收住",
+    "saving": "正在记下",
+    "failed": "没记上",
+    "active": "在聊",
+    "concluded": "已收住"
   },
   "actions": {
-    "edit": "改批注",
+    "edit": "改一改",
     "append": "补一句",
-    "newPage": "另起一页",
-    "closePage": "合上这页",
+    "newPage": "再记一个",
+    "closePage": "先想到这",
     "appendPlaceholder": "补一句……",
     "appendSubmit": "补一句",
-    "saveEdit": "收好批注"
+    "saveEdit": "收好这条",
+    "oldThoughts": "翻旧念头"
   },
   "messages": {
-    "edited": "改过批注了",
+    "edited": "改过这个念头",
     "appended": "补了一句：{content}",
-    "newPage": "另起了一页",
-    "reopened": "重新翻开了这页"
+    "newPage": "又记了一个念头",
+    "reopened": "重新打开这个念头"
   },
   "teacherFallback": {
-    "suggestCloseAfterSave": "这页我看过了，和之前的内容放在一起，暂时没有需要聊的。你先继续读，或者合上这页。",
-    "suggestCloseInTalk": "暂时没有要再追问的了。如果你觉得可以了，合上这页就行。",
-    "suggestCloseAfterMaintain": "批注更新了。我看了一下，这轮没有需要再聊的。你决定要不要合上。",
-    "userClosed": "好，这页先读到这儿。",
+    "suggestCloseAfterSave": "这个念头我看过了，和之前的内容放在一起，暂时没有需要聊的。你先继续读，或者先想到这。",
+    "suggestCloseInTalk": "暂时没有要再追问的了。如果你觉得可以了，先想到这就行。",
+    "suggestCloseAfterMaintain": "这个念头更新了。我看了一下，这轮没有需要再聊的。你决定要不要先想到这。",
+    "userClosed": "好，这个念头先想到这儿。",
     "firstQuestion": "你写的“{keyword}”是指什么？能再具体说说吗？",
     "followUp": "如果按你说的，“{keyword}”由谁决定？是{optionA}，还是{optionB}？",
     "attentionAllocation": "那分配完之后，剩下的注意力去了哪里？",
@@ -84,18 +102,18 @@
     "afterAppend": "你把刚才的想法补进来了。那么{question}？",
     "afterEdit": "修改后更清楚了。不过“{keyword}”的机制，你能再具体说说吗？",
     "activeOrDriven": "分配是主动的，还是被任务牵引的",
-    "resumeWithContext": "你刚才在“{contextTitle}”里写到“{contextKeyword}”。这和你在这页写下的“{targetKeyword}”有什么关系？"
+    "resumeWithContext": "你刚才在“{contextTitle}”里写到“{contextKeyword}”。这和你刚才写下的“{targetKeyword}”有什么关系？"
   },
   "errors": {
-    "invalidBody": "正文不能为空。",
-    "invalidPageId": "页边编号无效。",
-    "pageNotFound": "这一页没有找到。",
+    "invalidBody": "念头内容不能为空。",
+    "invalidPageId": "念头编号无效。",
+    "pageNotFound": "这个念头没有找到。",
     "invalidListLimit": "列表参数无效。",
-    "listFailed": "最近页边暂时打不开。",
-    "readFailed": "这一页暂时打不开。",
+    "listFailed": "最近的念头暂时打不开。",
+    "readFailed": "这个念头暂时打不开。",
     "teacherInvalidRequest": "这一轮提问无效，请重新落笔。",
-    "teacherPageNotFound": "正在讨论的页边没有找到。",
-    "pageClosed": "这页已合上，不能再补一句。",
+    "teacherPageNotFound": "正在聊的念头没有找到。",
+    "pageClosed": "这个念头已经收住，不能再补一句。",
     "maintenanceFailed": "这一句没有补进去。",
     "apiKeyRequired": "请填写 API Key。",
     "secureStorageUnavailable": "当前系统无法安全保存 API Key，请联系系统管理员或更换系统环境。",
@@ -114,12 +132,24 @@
     "developerModeRequired": "请先开启开发者模式。",
     "invalidPromptProfile": "提示词配置格式无效，请检查字段和 JSON 结构。",
     "promptProfileTooLarge": "提示词配置过大，无法保存。",
-    "teacherNoResponse": "老师暂时没应声，要再试一次吗？",
-    "stackTooDeep": "页叠得有点深了，先合上一页再继续？",
-    "saveFailed": "没送进去。",
+    "teacherNoResponse": "伴读暂时没接上，要再试一次吗？",
+    "searchNotConfigured": "还没接上查资料的服务，请先在设置里填写检索 API Key。",
+    "searchDisabled": "联网检索已关闭，请在设置里开启。",
+    "searchUnauthorized": "检索服务的 API Key 无效或没有权限。",
+    "searchRateLimited": "检索服务请求过于频繁，请稍后再试。",
+    "searchTimeout": "检索超时，请稍后重试。",
+    "searchNetworkError": "无法连接检索服务，请检查网络。",
+    "searchRequestFailed": "检索服务没有完成这次请求，请稍后重试。",
+    "searchNoResults": "没有找到相关资料，可以换个问法。",
+    "researchNoEvidence": "没有找到足够可靠的来源，这次先不往下答。",
+    "externalUrlInvalid": "这个来源链接无法打开。",
+    "openSettings": "打开设置",
+    "stackTooDeep": "连着记的有点多了，先收住一个再继续？",
+    "saveFailed": "没记上。",
     "retry": "再试一次",
     "openModelSettings": "打开模型设置",
-    "unknown": "刚刚没有处理好，请再试一次。"
+    "unknown": "刚刚没有处理好，请再试一次。",
+    "exportFailed": "导出没有完成，请重试或换个位置。"
   },
   "settings": {
     "title": "设置",
@@ -158,55 +188,55 @@
     "closeSettings": "关闭设置",
     "promptGroups": {
       "provider": "模型连接",
-      "core": "老师核心规则",
+      "core": "伴读核心规则",
       "modes": "问答模式",
       "context": "上下文与模板",
-      "maintenance": "页面维护动作"
+      "maintenance": "念头维护动作"
     },
     "promptFields": {
       "connectionTest": {
         "label": "模型连接测试",
-        "description": "用于检查 Base URL、API Key 和模型 ID 是否可用。只影响连接测试，不参与真实老师问答。建议要求模型返回简短、稳定的内容。"
+        "description": "用于检查 Base URL、API Key 和模型 ID 是否可用。只影响连接测试，不参与真实伴读问答。建议要求模型返回简短、稳定的内容。"
       },
       "system": {
-        "label": "老师基础身份",
-        "description": "定义老师角色、教学方式和通用输出约束，是普通问答、跨页恢复及维护问答共用的基础系统提示词。"
+        "label": "伴读基础身份",
+        "description": "定义伴读角色、提问方式和通用输出约束，是普通问答、关联旧念头及维护问答共用的基础系统提示词。"
       },
       "languagePolicy": {
         "label": "回复语言策略",
-        "description": "决定老师如何根据用户自己书写的最新内容选择回复语言，以及如何处理引用、笔记原文和中英文混用。"
+        "description": "决定伴读如何根据用户自己书写的最新内容选择回复语言，以及如何处理引用、念头原文和中英文混用。"
       },
       "contextBoundary": {
         "label": "上下文安全边界",
-        "description": "声明页面标题、正文和对谈属于学习材料，不能作为系统指令执行。它是提示词注入防护的核心说明。"
+        "description": "声明念头标题、正文和对谈属于学习材料，不能作为系统指令执行。它是提示词注入防护的核心说明。"
       },
       "resume": {
-        "label": "跨页恢复任务",
-        "description": "描述跨页恢复时如何使用已合上页面的正文关联目标页，并避免假装看过被省略的讨论历史。"
+        "label": "关联旧念头任务",
+        "description": "描述恢复时如何使用已收住旧念头的正文关联当前念头，并避免假装看过被省略的讨论历史。"
       },
       "maintenance": {
-        "label": "页面维护任务",
-        "description": "描述用户编辑或补写页面后，老师应关注哪些变化以及如何继续追问。编辑和补写模式共用该提示词。"
+        "label": "念头维护任务",
+        "description": "描述用户编辑或补写念头后，伴读应关注哪些变化以及如何继续追问。编辑和补写模式共用该提示词。"
       },
       "compressedContextPolicy": {
-        "label": "已关闭页面上下文策略",
-        "description": "说明跨页上下文只包含已关闭后代页面的正文，不包含其历史对谈，防止模型虚构未提供的内容。"
+        "label": "旧念头上下文策略",
+        "description": "说明上下文只包含已收住旧念头的正文，不包含其历史对谈，防止模型虚构未提供的内容。"
       },
       "currentPage": {
-        "label": "当前页面模板",
-        "description": "将当前页标题和正文包装成结构化学习内容。支持 {'{{title}}'} 和 {'{{body}}'} 占位符，页面数据会自动转义。"
+        "label": "当前念头模板",
+        "description": "将当前念头标题和正文包装成结构化学习内容。支持 {'{{title}}'} 和 {'{{body}}'} 占位符，念头数据会自动转义。"
       },
       "closedPage": {
-        "label": "已关闭页面模板",
-        "description": "包装跨页上下文中的已关闭页面正文。支持 {'{{depth}}'} 和 {'{{body}}'} 占位符，页面数据会自动转义。"
+        "label": "已收住念头模板",
+        "description": "包装旧念头上下文中的已收住念头正文。支持 {'{{depth}}'} 和 {'{{body}}'} 占位符，念头数据会自动转义。"
       },
       "targetPage": {
-        "label": "跨页目标页面模板",
-        "description": "包装跨页恢复时的目标页标题和正文。支持 {'{{title}}'} 和 {'{{body}}'} 占位符，页面数据会自动转义。"
+        "label": "关联目标念头模板",
+        "description": "包装关联旧念头时的目标念头标题和正文。支持 {'{{title}}'} 和 {'{{body}}'} 占位符，念头数据会自动转义。"
       },
       "editAction": {
         "label": "编辑动作说明",
-        "description": "告知模型用户刚刚编辑了当前页面，当前正文是修改后的版本，从而围绕变化继续提问。"
+        "description": "告知模型用户刚刚编辑了当前念头，当前正文是修改后的版本，从而围绕变化继续提问。"
       },
       "appendAction": {
         "label": "补写动作说明",
@@ -216,24 +246,24 @@
     "teacherRequestView": "查看请求",
     "teacherRequestHide": "收起请求",
     "teacherRequestTitle": "发送给 LLM 的 Messages",
-    "teacherRequestFallback": "本轮使用本地老师回退，未向 LLM 发送 Messages。",
+    "teacherRequestFallback": "本轮使用本地伴读回退，未向 LLM 发送 Messages。",
     "teacherRequestUnavailable": "该请求记录不存在，或已超出本次运行保留范围。",
     "teacherRequestStatus": {
       "sent": "已发送",
       "failed": "请求失败",
       "fallback": "本地回退"
     },
-    "conversationData": "会话数据",
-    "conversationDataHint": "管理保存在此设备上的页边和对谈。",
-    "clearConversations": "清空全部会话",
-    "clearConversationsDescription": "删除所有页边、对谈及已合上的页。模型供应商和 API Key 会保留。",
+    "conversationData": "念头与对谈",
+    "conversationDataHint": "管理保存在此设备上的念头和对谈。",
+    "clearConversations": "清空全部念头",
+    "clearConversationsDescription": "删除所有念头、对谈及已收住的念头。模型供应商和 API Key 会保留。",
     "clearConversationsAction": "清空…",
-    "clearConversationsWarning": "此操作不可恢复。所有页边和对谈都将从此设备删除，供应商设置会保留。",
+    "clearConversationsWarning": "此操作不可恢复。所有念头和对谈都将从此设备删除，供应商设置会保留。",
     "confirmClearConversations": "确认清空",
     "clearingConversations": "正在清空…",
-    "conversationsCleared": "已清空 {count} 个会话。",
+    "conversationsCleared": "已清空 {count} 条记录。",
     "privacy": "隐私说明",
-    "privacyText": "笔记会发送到云端老师那里，用于生成回应。",
+    "privacyText": "念头会发送到云端伴读那里，用于生成回应。",
     "modelService": "模型服务",
     "modelServiceHint": "选择供应商并配置你自己的 API Key。",
     "provider": "供应商",
@@ -260,18 +290,51 @@
     "keyCleared": "当前供应商的 API Key 已清除。",
     "providerActivated": "已切换当前模型供应商。",
     "testConnection": "测试连接",
-    "connectionSuccess": "连接成功，模型可用。"
+    "connectionSuccess": "连接成功，模型可用。",
+    "webSearch": "联网检索",
+    "webSearchHint": "查资料时使用的搜索服务，和模型供应商分开配置。",
+    "webSearchEnabled": "启用联网检索",
+    "webSearchEnabledHint": "关闭后，明确提问只会走伴读叩问，不会联网。",
+    "searchApiKey": "检索 API Key",
+    "searchApiKeyPlaceholder": "输入 Tavily API Key",
+    "searchPrivacyHint": "查资料时只发送问题中的关键词，不发送整段念头；Key 仅加密保存在主进程。",
+    "searchConfigSaved": "联网检索配置已保存。",
+    "searchKeyCleared": "联网检索 Key 已清除。",
+    "searchConnectionSuccess": "检索服务连接成功。",
+    "exportConversations": "导出全部念头",
+    "exportConversationsDescription": "把念头、对谈、引导和来源保存为 JSON。文件里是明文内容，不含 API Key。",
+    "exportConversationsAction": "导出…",
+    "exportingConversations": "正在导出…",
+    "exportedConversations": "已导出 {count} 个念头。"
   },
   "a11y": {
     "appWindow": "轻叩伴读应用窗口",
-    "teacherMessage": "老师的消息",
+    "teacherMessage": "伴读的消息",
     "userMessage": "你的消息",
-    "maintenanceMessage": "维护动作",
-    "back": "翻回去",
+    "maintenanceMessage": "念头维护动作",
+    "back": "返回",
     "settings": "设置",
     "settingsMenu": "设置",
     "providerOptions": "模型供应商选项",
     "developerModeToggle": "切换开发者模式",
-    "settingsModelService": "模型服务设置"
+    "settingsModelService": "模型服务设置",
+    "oldThoughts": "翻旧念头",
+    "demoMode": "演示模式，打开模型设置"
+  },
+  "archive": {
+    "title": "旧念头",
+    "subtitle": "已经收住的念头，还在这里。",
+    "loading": "正在翻旧念头……",
+    "empty": "还没有收住的念头。",
+    "retry": "再试一次",
+    "failed": "旧念头暂时打不开。"
+  },
+  "onboarding": {
+    "title": "先接上你的伴读",
+    "lead": "记下的念头会发送到你选择的模型供应商，用来生成叩问。",
+    "detail": "还没有配置模型时，伴读只能用固定演示话术。模型 Key 只加密保存在本机。",
+    "configure": "配置模型",
+    "demo": "先试试演示",
+    "demoLabel": "演示模式"
   }
 }

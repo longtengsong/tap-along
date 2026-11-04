@@ -1,0 +1,213 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "zh-short-attention",
+      "current": { "body": "注意力是有限资源。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "注意力需要主动分配。", "source": "课程" },
+        { "id": 3, "body": "今天天气不错。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "zh-short-focus",
+      "current": { "body": "专注力需要保护。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "专注力会被消息打断。", "source": "课程" },
+        { "id": 3, "body": "窗外的树很高。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "zh-three-load",
+      "current": { "body": "认知负荷来自工作记忆。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "认知负荷是工作记忆的负担。", "source": "课程" },
+        { "id": 3, "body": "晚饭吃了面。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "zh-three-memory",
+      "current": { "body": "工作记忆容量有限。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "工作记忆的容量决定认知负荷。", "source": "课程" },
+        { "id": 3, "body": "周末去爬山。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "en-attention",
+      "current": {
+        "body": "Attention is a limited resource.",
+        "source": "course"
+      },
+      "pages": [
+        {
+          "id": 2,
+          "body": "We allocate attention to tasks.",
+          "source": "course"
+        },
+        { "id": 3, "body": "The weather is nice.", "source": "diary" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "en-working-memory",
+      "current": {
+        "body": "Working memory has a limited capacity.",
+        "source": "course"
+      },
+      "pages": [
+        {
+          "id": 2,
+          "body": "Cognitive load depends on working memory.",
+          "source": "course"
+        },
+        { "id": 3, "body": "Dinner was pasta.", "source": "diary" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "zh-source-bonus",
+      "current": { "body": "任务牵引注意力。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "注意力被任务牵引。", "source": "课程" },
+        { "id": 3, "body": "注意力被心情牵引。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "zh-short-allocation",
+      "current": { "body": "分配决定体验。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "主动分配注意力。", "source": "课程" },
+        { "id": 3, "body": "体验来自当下。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "zh-short-memory",
+      "current": { "body": "记忆需要复述。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "复述能加强记忆。", "source": "课程" },
+        { "id": 3, "body": "记忆是过去。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "zh-short-reading",
+      "current": { "body": "阅读要带着问题。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "带着问题阅读更有效。", "source": "课程" },
+        { "id": 3, "body": "阅读是一种习惯。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "zh-short-habit",
+      "current": { "body": "习惯需要触发。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "触发是习惯的起点。", "source": "课程" },
+        { "id": 3, "body": "习惯需要时间。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "zh-short-feedback",
+      "current": { "body": "反馈影响动力。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "及时反馈能提升动力。", "source": "课程" },
+        { "id": 3, "body": "动力来自目标。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "zh-three-practice",
+      "current": { "body": "刻意练习需要反馈。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "刻意练习依赖及时反馈。", "source": "课程" },
+        { "id": 3, "body": "练习需要时间。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "en-spaced-repetition",
+      "current": {
+        "body": "Spaced repetition improves memory.",
+        "source": "course"
+      },
+      "pages": [
+        {
+          "id": 2,
+          "body": "Memory improves with spaced repetition.",
+          "source": "course"
+        },
+        { "id": 3, "body": "Memory is unreliable.", "source": "diary" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "zh-three-attention-task",
+      "current": { "body": "注意力会被任务牵引。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "任务会牵引注意力。", "source": "课程" },
+        { "id": 3, "body": "任务清单很长。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "zh-three-focus",
+      "current": { "body": "专注力是一种能力。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "专注力需要刻意训练。", "source": "课程" },
+        { "id": 3, "body": "能力可以培养。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "zh-short-goal",
+      "current": { "body": "目标要具体。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "具体目标更容易执行。", "source": "课程" },
+        { "id": 3, "body": "目标需要时间。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "zh-short-emotion",
+      "current": { "body": "情绪影响判断。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "判断会被情绪影响。", "source": "课程" },
+        { "id": 3, "body": "情绪需要出口。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "semantic-capacity",
+      "current": { "body": "人一次只能处理少量信息。", "source": "课程" },
+      "pages": [
+        { "id": 2, "body": "工作记忆容量有限。", "source": "课程" },
+        { "id": 3, "body": "信息需要筛选。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    },
+    {
+      "id": "semantic-start",
+      "current": {
+        "body": "先做五分钟，往往就能继续下去。",
+        "source": "课程"
+      },
+      "pages": [
+        {
+          "id": 2,
+          "body": "启动阻力常来自对任务规模的想象。",
+          "source": "课程"
+        },
+        { "id": 3, "body": "五分钟很短。", "source": "日记" }
+      ],
+      "expectedRelatedPageIds": [2]
+    }
+  ]
+}

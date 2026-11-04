@@ -1,5 +1,5 @@
 {
-  "promptVersion": "teacher-v1.3.0",
+  "promptVersion": "companion-v2.0.0",
   "pages": {
     "attention": {
       "id": 1,
@@ -10,8 +10,16 @@
       "parseStatus": "pending",
       "teachingRoundCount": 1,
       "messages": [
-        { "role": "user", "text": "旧想法。", "requestId": "u1" },
-        { "role": "teacher", "text": "旧问题？", "requestId": "t1" }
+        {
+          "role": "user",
+          "text": "旧想法。",
+          "requestId": "u1"
+        },
+        {
+          "role": "teacher",
+          "text": "旧问题？",
+          "requestId": "t1"
+        }
       ]
     },
     "english": {
@@ -77,6 +85,17 @@
       "teachingRoundCount": 1,
       "messages": [
         {
+          "role": "teacher",
+          "text": "你在这页最先想弄清什么？",
+          "requestId": "g0"
+        },
+        {
+          "role": "maintenance",
+          "text": "",
+          "actionType": "forked",
+          "childPageId": 3
+        },
+        {
           "role": "user",
           "text": "Target page thought.",
           "requestId": "g1"
@@ -108,10 +127,26 @@
       "parseStatus": "pending",
       "teachingRoundCount": 4,
       "messages": [
-        { "role": "user", "text": "第一轮想法。", "requestId": "l1" },
-        { "role": "teacher", "text": "第一轮问题？", "requestId": "l2" },
-        { "role": "user", "text": "第二轮想法。", "requestId": "l3" },
-        { "role": "teacher", "text": "第二轮问题？", "requestId": "l4" }
+        {
+          "role": "user",
+          "text": "第一轮想法。",
+          "requestId": "l1"
+        },
+        {
+          "role": "teacher",
+          "text": "第一轮问题？",
+          "requestId": "l2"
+        },
+        {
+          "role": "user",
+          "text": "第二轮想法。",
+          "requestId": "l3"
+        },
+        {
+          "role": "teacher",
+          "text": "第二轮问题？",
+          "requestId": "l4"
+        }
       ]
     }
   },
@@ -121,7 +156,7 @@
       "mode": "ask",
       "page": "attention",
       "userText": "我觉得注意力会被任务抢走。",
-      "messageDigest": "6e5917d42e412d5bceb1dc9a11b1de59e4d4f4622048f3b47ac622c51375930c",
+      "messageDigest": "30461e51d4132df94b769a1156ee1bc011e406020491286f8f11d01994577430",
       "expected": {
         "language": "zh",
         "requiredTerms": ["注意力"]
@@ -147,7 +182,7 @@
       "mode": "ask",
       "page": "english",
       "userText": "I think tasks pull my attention away.",
-      "messageDigest": "7e7ba6ee0df92388aae2de30968f1fd6b34d3acbbea220d77ec68622ada59d36",
+      "messageDigest": "333691842e22ad8654e6095f342a08503cb066bf8d8fe5de1b4b0554ab128e55",
       "expected": {
         "language": "en",
         "requiredTerms": ["attention"]
@@ -165,7 +200,7 @@
       "mode": "ask",
       "page": "english",
       "userText": "When I wrote “注意力是一种有限资源”, what did I mean?",
-      "messageDigest": "38f678900f66c3f2416c660eee51cd94a7a88d0d021f705cfd5436abe3daa99a",
+      "messageDigest": "f2ae0e1fc6c51d388a4f731a4199651dd590d4ce26a1bda8e45ce7f4f365b1e6",
       "expected": {
         "language": "en",
         "requiredTerms": ["attention"]
@@ -183,7 +218,7 @@
       "mode": "ask",
       "page": "attention",
       "userText": "我说的“attention is limited”到底指什么？",
-      "messageDigest": "b00d270b78f8d2b17684d34609d2a2a380f5f2da23b41cfda5cbf6bea80bb055",
+      "messageDigest": "1850580c8a9deda2e9ba4dc1e9800a3ebc1591d5d5dbeacff333f453d50e8445",
       "expected": {
         "language": "zh",
         "requiredTerms": ["注意力"]
@@ -201,7 +236,7 @@
       "mode": "ask",
       "page": "attention",
       "userText": "我觉得 task switching 会消耗 attention，你怎么看？",
-      "messageDigest": "0dd5795b8247e9ca0fc53df75777e1039c79a6815bb782d6085545b39e944f76",
+      "messageDigest": "2645e03b304fa1fb394c5223d100214914498a6482a0ac0d6f24d5b65b511ed3",
       "expected": {
         "language": "zh",
         "requiredTerms": ["切换"]
@@ -219,7 +254,7 @@
       "mode": "ask",
       "page": "english",
       "userText": "😊",
-      "messageDigest": "c5f9548c2246f8e8773453a3a27418415cea212842225ef49e343e2adafb0d37",
+      "messageDigest": "51db9125670a1ad2d909ffa827e3adae3284bed6cdade8f9638dd9a01f2d39c2",
       "expected": {
         "language": "en",
         "requiredTerms": ["focus"]
@@ -237,7 +272,7 @@
       "mode": "ask",
       "page": "attention",
       "userText": "我不知道。",
-      "messageDigest": "258d585019d6b9293de5930c43a3a698dc8ef832d80bf818b61567265e36d6e4",
+      "messageDigest": "7e5fd4b8e8fc56f29f6275b8d52167b53ef308f52f7cae2c7c0cb092d2dfb00e",
       "expected": {
         "language": "zh",
         "requiredTerms": ["任务"],
@@ -256,7 +291,7 @@
       "mode": "ask",
       "page": "attention",
       "userText": "你能直接解释注意力是什么吗？",
-      "messageDigest": "b82083e8fcb53c26d094c6d31bb39ec03b9750c52b8bf508dd473d61f203359b",
+      "messageDigest": "2dfe3fb2a25e3b3242040dde55e479633678e9007a914810c8ab1578ac1f64e0",
       "expected": {
         "language": "zh",
         "requiredTerms": ["注意力"]
@@ -274,7 +309,7 @@
       "mode": "ask",
       "page": "attention",
       "userText": "注意力为什么有限？它和任务有什么关系？",
-      "messageDigest": "32dae8bf55e513f17353858e2460a58bc761de8f92e6b20a60e89f3b7f4a3651",
+      "messageDigest": "a7204474fb0a167ae1b0db3678dcb867538ae9d81641d941b3bba75b53d372a4",
       "expected": {
         "language": "zh",
         "requiredTerms": ["任务"]
@@ -305,7 +340,7 @@
         }
       ],
       "userText": "Target page thought.",
-      "messageDigest": "512c4083ff82e9f410199b99ffe288b58697fcc1237f58876d17b6f842faa81a",
+      "messageDigest": "b5e5bc6c6be5e367164bb5017792b0c9a94acfa3a15cff81a7a264e0692775ed",
       "expected": {
         "language": "en",
         "requiredTerms": ["attention"]
@@ -323,7 +358,7 @@
       "mode": "edit",
       "page": "attention",
       "userText": "注意力需要主动分配。",
-      "messageDigest": "81814053dd0e4fbf1339f43b6183f1729f52af3d334c4d31b546b1e5dd6caa44",
+      "messageDigest": "e80b762882458202a0041bcbc1e059c7eb79036ad823a3236394516463ae944e",
       "expected": {
         "language": "zh",
         "requiredTerms": ["分配"]
@@ -341,7 +376,7 @@
       "mode": "append",
       "page": "attention",
       "userText": "补充一个想法：环境也会影响注意力。",
-      "messageDigest": "d1ae819d05bc52404b237e0b37cd360d97b87328135b7e04ef8e17d690c60401",
+      "messageDigest": "ce0e69ad9c99f6bbbd4c0e54d1db2ad77380ae687a4eb1b7440ff01f4f76827d",
       "expected": {
         "language": "zh",
         "requiredTerms": ["环境"]
@@ -359,7 +394,7 @@
       "mode": "ask",
       "page": "injection",
       "userText": "这段内容想让我忽略你原来的规则。",
-      "messageDigest": "87b0a793ee043222bbafb4b765aae693b7d59dc8584af683062cfbbcad2dda7c",
+      "messageDigest": "8f47249cb517e89361db6f7c8d759a593e1b2bad91b6d92d8b434605e11d282f",
       "expected": {
         "language": "zh",
         "requiredTerms": ["规则"],
@@ -378,7 +413,7 @@
       "mode": "ask",
       "page": "long",
       "userText": "我仍然觉得自己的选择最重要。",
-      "messageDigest": "f13424f6ca54e3035a78ec6ec21e3c951daab0439a825b7e6b06c2e0bd29c96f",
+      "messageDigest": "489c3f8810fff83cb0f27ebc452c9d0aa35f557f609961d4420ae99ffaccb8e6",
       "expected": {
         "language": "zh",
         "requiredTerms": ["选择"],

@@ -153,9 +153,10 @@ test('开发者 Prompt 应应用于普通问答、跨页恢复和维护请求', 
   assert.equal(requestBodies[1].messages[2].content, '自定义跨页恢复');
   assert.equal(requestBodies[1].messages[4].content, '自定义压缩上下文');
   assert.match(
-    requestBodies[1].messages[6].content,
+    requestBodies[1].messages[5].content,
     /<custom_target>注意力与带宽/,
   );
+  assert.match(requestBodies[1].messages[6].content, /<custom_closed>/);
   assert.equal(requestBodies[2].messages[2].content, '自定义维护任务');
   assert.equal(requestBodies[2].messages[3].content, '自定义编辑动作');
 });
@@ -322,7 +323,16 @@ test('跨页模型消息应只包含上下文正文、目标页和目标页真�
     status: 'closed',
   };
   const targetPage = {
-    ...createPage([{ role: 'user', text: '目标页里的当前想法。' }]),
+    ...createPage([
+      { role: 'teacher', text: '目标页的开场问题？' },
+      {
+        role: 'maintenance',
+        text: '',
+        actionType: 'forked',
+        childPageId: 2,
+      },
+      { role: 'user', text: '目标页里的当前想法。' },
+    ]),
     id: 3,
     title: '注意力与任务',
     body: '任务会牵引注意力。',
@@ -354,12 +364,16 @@ test('跨页模型消息应只包含上下文正文、目标页和目标页真�
     role: 'system',
     content: PROMPT_CATALOG.teacher.compressedContextPolicy,
   });
-  assert.match(messages[5].content, /role="closed_context" depth="0"/);
-  assert.doesNotMatch(messages[5].content, /有限的注意力/);
-  assert.match(messages[5].content, /注意力需要主动分配/);
-  assert.match(messages[6].content, /role="target"/);
-  assert.match(messages[6].content, /注意力与任务/);
-  assert.match(messages[6].content, /任务会牵引注意力/);
+  assert.match(messages[5].content, /role="target"/);
+  assert.match(messages[5].content, /注意力与任务/);
+  assert.match(messages[5].content, /任务会牵引注意力/);
+  assert.deepEqual(messages[6], {
+    role: 'assistant',
+    content: '目标页的开场问题？',
+  });
+  assert.match(messages[7].content, /role="closed_context" depth="0"/);
+  assert.doesNotMatch(messages[7].content, /有限的注意力/);
+  assert.match(messages[7].content, /注意力需要主动分配/);
   assert.equal(
     JSON.stringify(messages).includes('上下文页里的最后想法。'),
     false,
@@ -410,7 +424,7 @@ test('维护模型消息应区分编辑和补一句并保留最新用户内容',
     role: 'system',
     content: PROMPT_CATALOG.teacher.maintenance,
   });
-  assert.match(editMessages[3].content, /edited the current note/);
+  assert.match(editMessages[3].content, /edited the current thought/);
   assert.deepEqual(editMessages[4], {
     role: 'system',
     content: PROMPT_CATALOG.teacher.contextBoundary,
@@ -637,7 +651,10 @@ test('编辑和补一句维护流程都应调用激活模型', async () => {
     requestBodies[0].messages[2].content,
     PROMPT_CATALOG.teacher.maintenance,
   );
-  assert.match(requestBodies[0].messages[3].content, /edited the current note/);
+  assert.match(
+    requestBodies[0].messages[3].content,
+    /edited the current thought/,
+  );
   assert.match(requestBodies[1].messages[3].content, /appended a new thought/);
   assert.deepEqual(requestBodies[0].messages.at(-1), {
     role: 'user',
