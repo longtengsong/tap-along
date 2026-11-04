@@ -16,7 +16,9 @@ import { isDemoMode, shouldShowFirstRun } from '@/shared/onboarding';
 import { useSessionStore } from '@/stores/session';
 
 const { t } = useI18n();
+type SettingsTab = 'general' | 'model' | 'search' | 'data';
 const settingsOpen = ref(false);
+const settingsInitialTab = ref<SettingsTab | null>(null);
 const developerPromptsOpen = ref(false);
 const developerMode = ref(false);
 const providerCheckDone = ref(false);
@@ -132,6 +134,12 @@ const chooseDemo = () => {
 
 const configureFromFirstRun = () => {
   markOnboardingDone();
+  settingsInitialTab.value = null;
+  settingsOpen.value = true;
+};
+
+const openSettings = () => {
+  settingsInitialTab.value = null;
   settingsOpen.value = true;
 };
 
@@ -141,6 +149,7 @@ const closeSettings = async () => {
 };
 
 const openModelSettings = () => {
+  settingsInitialTab.value = 'model';
   settingsOpen.value = true;
 };
 
@@ -203,7 +212,7 @@ onMounted(async () => {
         @back="closeArchive"
         @open="openArchivedPage"
         @retry="retryArchive"
-        @settings="settingsOpen = true"
+        @settings="openSettings"
       />
       <NewPageScreen
         v-else-if="state.view === 'new'"
@@ -218,7 +227,7 @@ onMounted(async () => {
         @submit="submitNewPage"
         @back="goBack"
         @archive="openArchive"
-        @settings="settingsOpen = true"
+        @settings="openSettings"
       />
       <CompanionScreen
         v-else-if="currentPage"
@@ -235,7 +244,7 @@ onMounted(async () => {
         :cancelling="state.cancelling"
         @back="goBack"
         @archive="openArchive"
-        @settings="settingsOpen = true"
+        @settings="openSettings"
         @update-edit-draft="currentPage.editDraft = $event"
         @save-edit="saveEditing"
         @cancel-edit="cancelEditing"
@@ -265,6 +274,7 @@ onMounted(async () => {
     <SettingsDialog
       :open="settingsOpen"
       :demo-mode="demoMode"
+      :initial-tab="settingsInitialTab"
       :clear-conversation-data="clearConversationData"
       @close="closeSettings"
       @open-developer-prompts="openDeveloperPrompts"

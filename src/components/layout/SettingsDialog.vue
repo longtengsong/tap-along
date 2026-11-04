@@ -17,9 +17,12 @@ import type {
   SaveModelProviderPayload,
 } from '@/shared/providers';
 
+type SettingsTab = 'general' | 'model' | 'search' | 'data';
+
 const props = defineProps<{
   open: boolean;
   demoMode?: boolean;
+  initialTab?: SettingsTab;
   clearConversationData: () => Promise<PageClearAllResult>;
 }>();
 
@@ -30,9 +33,18 @@ const emit = defineEmits<{
   providerChanged: [];
 }>();
 
+const TABS: { id: SettingsTab; labelKey: string }[] = [
+  { id: 'general', labelKey: 'settings.tabGeneral' },
+  { id: 'model', labelKey: 'settings.tabModel' },
+  { id: 'search', labelKey: 'settings.tabSearch' },
+  { id: 'data', labelKey: 'settings.tabData' },
+];
+
 const { locale, t } = useI18n();
 const dialog = ref<HTMLElement | null>(null);
-const modelSection = ref<HTMLElement | null>(null);
+const tabList = ref<HTMLElement | null>(null);
+const settingsBody = ref<HTMLElement | null>(null);
+const activeTab = ref<SettingsTab>('general');
 const activeLocale = computed(() => locale.value as SupportedLocale);
 const providerState = ref<ModelProviderState | null>(null);
 const selectedProviderId = ref<ModelProviderId>('deepseek');
@@ -73,21 +85,53 @@ const close = () => {
   emit('close');
 };
 
-const scrollToModel = () => {
-  const panel = dialog.value;
-  const section = modelSection.value;
+const selectTab = (tab: SettingsTab) => {
+  activeTab.value = tab;
+};
 
-  if (!panel || !section) {
+watch(activeTab, () => {
+  settingsBody.value?.scrollTo({ top: 0 });
+});
+
+const showModelTab = () => {
+  selectTab('model');
+};
+
+const handleTabKeydown = (event: KeyboardEvent) => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
     return;
   }
 
-  panel.scrollTo({
-    top:
-      section.getBoundingClientRect().top -
-      panel.getBoundingClientRect().top +
-      panel.scrollTop -
-      18,
-    behavior: 'smooth',
+  const index = TABS.findIndex((tab) => tab.id === activeTab.value);
+
+  if (index < 0) {
+    return;
+  }
+
+  event.preventDefault();
+  let next = index;
+
+  if (event.key === 'ArrowLeft') {
+    next = (index - 1 + TABS.length) % TABS.length;
+  } else if (event.key === 'ArrowRight') {
+    next = (index + 1) % TABS.length;
+  } else if (event.key === 'Home') {
+    next = 0;
+  } else {
+    next = TABS.length - 1;
+  }
+
+  const nextTab = TABS[next];
+
+  if (!nextTab) {
+    return;
+  }
+
+  activeTab.value = nextTab.id;
+  void nextTick(() => {
+    tabList.value
+      ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+      [next]?.focus();
   });
 };
 
@@ -410,7 +454,14 @@ watch(
       document.addEventListener('keydown', handleKeydown);
       void loadProviders();
       void loadDeveloperMode();
+      if (props.demoMode) {
+        activeTab.value = 'model';
+      } else if (props.initialTab) {
+        activeTab.value = props.initialTab;
+      }
+
       await nextTick();
+
       dialog.value?.focus();
       return;
     }
@@ -456,383 +507,454 @@ onBeforeUnmount(() => {
           </button>
         </header>
 
+        <div
+          ref="tabList"
+          class="settings-tabs"
+          role="tablist"
+          :aria-label="t('settings.tabsLabel')"
+        >
+          <button
+            v-for="tab in TABS"
+            :id="`settings-tab-${tab.id}`"
+            :key="tab.id"
+            class="settings-tab"
+            :class="{ 'settings-tab--active': activeTab === tab.id }"
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === tab.id"
+            :aria-controls="`settings-tabpanel-${tab.id}`"
+            :tabindex="activeTab === tab.id ? 0 : -1"
+            @click="selectTab(tab.id)"
+            @keydown="handleTabKeydown"
+          >
+            {{ t(tab.labelKey) }}
+          </button>
+        </div>
+
         <div v-if="demoMode" class="demo-banner">
           <p>{{ t('settings.demoNotice') }}</p>
           <button
             class="demo-banner__action"
             type="button"
-            @click="scrollToModel"
+            @click="showModelTab"
           >
             {{ t('settings.demoNoticeAction') }}
           </button>
         </div>
 
-        <section class="settings-section" aria-labelledby="settings-language">
-          <div class="settings-section__heading">
-            <h3 id="settings-language">{{ t('settings.uiLanguage') }}</h3>
-            <span>{{ t('app.settingsPanel') }}</span>
-          </div>
-
-          <div class="language-options">
-            <button
-              class="language-option"
-              :class="{ 'language-option--active': activeLocale === 'zh-CN' }"
-              type="button"
-              :aria-pressed="activeLocale === 'zh-CN'"
-              @click="selectLocale('zh-CN')"
-            >
-              <span>{{ t('settings.chinese') }}</span>
-              <span class="language-option__check" aria-hidden="true">
-                {{ activeLocale === 'zh-CN' ? '✓' : '' }}
-              </span>
-            </button>
-            <button
-              class="language-option"
-              :class="{ 'language-option--active': activeLocale === 'en' }"
-              type="button"
-              :aria-pressed="activeLocale === 'en'"
-              @click="selectLocale('en')"
-            >
-              <span>{{ t('settings.english') }}</span>
-              <span class="language-option__check" aria-hidden="true">
-                {{ activeLocale === 'en' ? '✓' : '' }}
-              </span>
-            </button>
-          </div>
-        </section>
-
-        <section
-          class="settings-section"
-          aria-labelledby="settings-developer-mode"
-        >
-          <div class="settings-section__heading">
-            <h3 id="settings-developer-mode">
-              {{ t('settings.developerMode') }}
-            </h3>
-            <span>{{ t('settings.developerModeHint') }}</span>
-          </div>
-
-          <div class="developer-mode">
-            <div class="developer-mode__copy">
-              <strong>{{ t('settings.developerModeLabel') }}</strong>
-              <p>{{ t('settings.developerModeDescription') }}</p>
-            </div>
-            <button
-              class="developer-mode__toggle"
-              :class="{
-                'developer-mode__toggle--enabled': developerMode,
-              }"
-              type="button"
-              role="switch"
-              :aria-checked="developerMode"
-              :aria-label="t('a11y.developerModeToggle')"
-              :disabled="developerModeLoading || developerModeSaving"
-              @click="toggleDeveloperMode"
-            >
-              <span class="developer-mode__track" aria-hidden="true">
-                <span class="developer-mode__thumb"></span>
-              </span>
-              <span>
-                {{
-                  developerModeLoading || developerModeSaving
-                    ? t('common.loading')
-                    : developerMode
-                      ? t('settings.developerModeOn')
-                      : t('settings.developerModeOff')
-                }}
-              </span>
-            </button>
-          </div>
-
-          <p v-if="developerModeError" class="provider-error" role="alert">
-            {{ developerModeError }}
-          </p>
-          <p
-            v-if="developerModeMessage"
-            class="provider-feedback"
-            role="status"
+        <div ref="settingsBody" class="settings-body">
+          <div
+            v-show="activeTab === 'general'"
+            id="settings-tabpanel-general"
+            class="settings-tabpanel"
+            role="tabpanel"
+            aria-labelledby="settings-tab-general"
           >
-            {{ developerModeMessage }}
-          </p>
-
-          <div class="developer-mode__tools">
-            <AppButton
-              v-if="developerMode"
-              variant="ghost"
-              size="small"
-              @click="emit('openDeveloperPrompts')"
+            <section
+              class="settings-section"
+              aria-labelledby="settings-language"
             >
-              {{ t('settings.editPrompts') }}
-            </AppButton>
-            <span v-else>{{ t('settings.developerPromptsLockedHint') }}</span>
-          </div>
-        </section>
+              <div class="settings-section__heading">
+                <h3 id="settings-language">{{ t('settings.uiLanguage') }}</h3>
+                <span>{{ t('app.settingsPanel') }}</span>
+              </div>
 
-        <section
-          ref="modelSection"
-          class="settings-section"
-          aria-labelledby="settings-model"
-        >
-          <div class="settings-section__heading">
-            <h3 id="settings-model">{{ t('settings.modelService') }}</h3>
-            <span>{{ t('settings.modelServiceHint') }}</span>
-          </div>
-
-          <p v-if="providerLoading" class="provider-feedback">
-            {{ t('common.loading') }}
-          </p>
-
-          <template v-else-if="providerState">
-            <div
-              class="provider-options"
-              role="group"
-              :aria-label="t('a11y.providerOptions')"
-            >
-              <button
-                v-for="provider in providerState.providers"
-                :key="provider.id"
-                class="provider-option"
-                :class="{
-                  'provider-option--active': selectedProviderId === provider.id,
-                }"
-                type="button"
-                :aria-pressed="selectedProviderId === provider.id"
-                @click="selectProvider(provider)"
-              >
-                <span>{{ provider.name }}</span>
-                <small v-if="provider.active">
-                  {{ t('settings.activeProvider') }}
-                </small>
-              </button>
-            </div>
-
-            <div class="provider-status">
-              <span
-                class="provider-status__dot"
-                :class="{
-                  'provider-status__dot--configured':
-                    selectedProvider?.configured,
-                }"
-                aria-hidden="true"
-              ></span>
-              {{
-                selectedProvider?.configured
-                  ? t('settings.keyConfigured')
-                  : t('settings.keyNotConfigured')
-              }}
-            </div>
-
-            <div class="provider-fields">
-              <label v-if="selectedProvider?.isCustom" class="settings-field">
-                <span>{{ t('settings.providerName') }}</span>
-                <input
-                  v-model="providerForm.name"
-                  type="text"
-                  :placeholder="t('settings.providerNamePlaceholder')"
-                  autocomplete="off"
-                />
-              </label>
-
-              <label class="settings-field">
-                <span>{{ t('settings.model') }}</span>
-                <input
-                  v-model="providerForm.model"
-                  type="text"
-                  :placeholder="t('settings.modelPlaceholder')"
-                  autocomplete="off"
-                  spellcheck="false"
-                />
-              </label>
-
-              <label
-                v-if="selectedProvider?.isCustom"
-                class="settings-field settings-field--wide"
-              >
-                <span>{{ t('settings.baseUrl') }}</span>
-                <input
-                  v-model="providerForm.baseUrl"
-                  type="url"
-                  :placeholder="t('settings.baseUrlPlaceholder')"
-                  autocomplete="off"
-                  spellcheck="false"
-                />
-              </label>
-
-              <label class="settings-field settings-field--wide">
-                <span class="settings-field__heading">
-                  <span>{{ t('settings.apiKey') }}</span>
-                  <span
-                    v-if="selectedProvider?.configured"
-                    class="settings-field__saved"
-                  >
-                    <span aria-hidden="true">✓</span>
-                    {{ t('settings.keySavedBadge') }}
-                  </span>
-                </span>
-                <input
-                  v-model="providerForm.apiKey"
-                  type="password"
+              <div class="language-options">
+                <button
+                  class="language-option"
                   :class="{
-                    'settings-field__input--saved':
-                      selectedProvider?.configured && !providerForm.apiKey,
+                    'language-option--active': activeLocale === 'zh-CN',
                   }"
-                  :placeholder="
-                    selectedProvider?.configured
-                      ? t('settings.apiKeySavedPlaceholder')
-                      : t('settings.apiKeyPlaceholder')
-                  "
-                  autocomplete="new-password"
-                  spellcheck="false"
-                />
-                <small v-if="selectedProvider?.configured">
-                  {{ t('settings.apiKeyConfigured') }}
-                </small>
-                <small>{{ t('settings.keySecurityHint') }}</small>
-              </label>
-            </div>
+                  type="button"
+                  :aria-pressed="activeLocale === 'zh-CN'"
+                  @click="selectLocale('zh-CN')"
+                >
+                  <span>{{ t('settings.chinese') }}</span>
+                  <span class="language-option__check" aria-hidden="true">
+                    {{ activeLocale === 'zh-CN' ? '✓' : '' }}
+                  </span>
+                </button>
+                <button
+                  class="language-option"
+                  :class="{ 'language-option--active': activeLocale === 'en' }"
+                  type="button"
+                  :aria-pressed="activeLocale === 'en'"
+                  @click="selectLocale('en')"
+                >
+                  <span>{{ t('settings.english') }}</span>
+                  <span class="language-option__check" aria-hidden="true">
+                    {{ activeLocale === 'en' ? '✓' : '' }}
+                  </span>
+                </button>
+              </div>
+            </section>
 
-            <p
-              v-if="!providerState.secureStorageAvailable"
-              class="provider-warning"
+            <section
+              class="settings-section"
+              aria-labelledby="settings-developer-mode"
             >
-              {{ t('settings.keyStorageUnavailable') }}
-            </p>
-            <p v-if="providerError" class="provider-error" role="alert">
-              {{ providerError }}
-            </p>
-            <p v-if="providerMessage" class="provider-feedback" role="status">
-              {{ providerMessage }}
-            </p>
+              <div class="settings-section__heading">
+                <h3 id="settings-developer-mode">
+                  {{ t('settings.developerMode') }}
+                </h3>
+                <span>{{ t('settings.developerModeHint') }}</span>
+              </div>
 
-            <div class="provider-actions">
-              <AppButton
-                size="small"
-                :disabled="providerSaving || providerTesting"
-                @click="saveProvider"
+              <div class="developer-mode">
+                <div class="developer-mode__copy">
+                  <strong>{{ t('settings.developerModeLabel') }}</strong>
+                  <p>{{ t('settings.developerModeDescription') }}</p>
+                </div>
+                <button
+                  class="developer-mode__toggle"
+                  :class="{
+                    'developer-mode__toggle--enabled': developerMode,
+                  }"
+                  type="button"
+                  role="switch"
+                  :aria-checked="developerMode"
+                  :aria-label="t('a11y.developerModeToggle')"
+                  :disabled="developerModeLoading || developerModeSaving"
+                  @click="toggleDeveloperMode"
+                >
+                  <span class="developer-mode__track" aria-hidden="true">
+                    <span class="developer-mode__thumb"></span>
+                  </span>
+                  <span>
+                    {{
+                      developerModeLoading || developerModeSaving
+                        ? t('common.loading')
+                        : developerMode
+                          ? t('settings.developerModeOn')
+                          : t('settings.developerModeOff')
+                    }}
+                  </span>
+                </button>
+              </div>
+
+              <p v-if="developerModeError" class="provider-error" role="alert">
+                {{ developerModeError }}
+              </p>
+              <p
+                v-if="developerModeMessage"
+                class="provider-feedback"
+                role="status"
               >
-                {{ t('settings.saveConfig') }}
-              </AppButton>
-              <AppButton
-                v-if="selectedProvider?.configured && !selectedProvider.active"
-                variant="ghost"
-                :disabled="providerSaving || providerTesting"
-                @click="setActiveProvider"
-              >
-                {{ t('settings.setActive') }}
-              </AppButton>
-              <AppButton
-                v-if="selectedProvider?.configured"
-                variant="ghost"
-                :disabled="providerTesting || providerSaving"
-                @click="testProvider"
-              >
-                {{ t('settings.testConnection') }}
-              </AppButton>
-              <AppButton
-                v-if="selectedProvider?.configured"
-                variant="text"
-                :disabled="providerSaving || providerTesting"
-                @click="clearProviderKey"
-              >
-                {{ t('settings.clearKey') }}
-              </AppButton>
-            </div>
-          </template>
+                {{ developerModeMessage }}
+              </p>
 
-          <p v-else class="provider-error" role="alert">
-            {{ providerError }}
-          </p>
-        </section>
-
-        <WebSearchSettings />
-
-        <section class="settings-section" aria-labelledby="settings-data">
-          <div class="settings-section__heading">
-            <h3 id="settings-data">{{ t('settings.conversationData') }}</h3>
-            <span>{{ t('settings.conversationDataHint') }}</span>
-          </div>
-
-          <div class="settings-data">
-            <div class="settings-data__copy">
-              <strong>{{ t('settings.exportConversations') }}</strong>
-              <p>{{ t('settings.exportConversationsDescription') }}</p>
-            </div>
-            <AppButton
-              variant="text"
-              :disabled="exporting"
-              @click="exportConversationData"
-            >
-              {{
-                exporting
-                  ? t('settings.exportingConversations')
-                  : t('settings.exportConversationsAction')
-              }}
-            </AppButton>
-          </div>
-
-          <p v-if="exportError" class="provider-error" role="alert">
-            {{ exportError }}
-          </p>
-          <p v-if="exportMessage" class="provider-feedback" role="status">
-            {{ exportMessage }}
-          </p>
-
-          <div class="settings-data">
-            <div class="settings-data__copy">
-              <strong>{{ t('settings.clearConversations') }}</strong>
-              <p>{{ t('settings.clearConversationsDescription') }}</p>
-            </div>
-            <AppButton
-              v-if="!dataConfirming"
-              variant="text"
-              :disabled="dataClearing"
-              @click="beginClearConversationData"
-            >
-              {{ t('settings.clearConversationsAction') }}
-            </AppButton>
+              <div class="developer-mode__tools">
+                <AppButton
+                  v-if="developerMode"
+                  variant="ghost"
+                  size="small"
+                  @click="emit('openDeveloperPrompts')"
+                >
+                  {{ t('settings.editPrompts') }}
+                </AppButton>
+                <span v-else>{{
+                  t('settings.developerPromptsLockedHint')
+                }}</span>
+              </div>
+            </section>
           </div>
 
           <div
-            v-if="dataConfirming"
-            class="settings-data__confirm"
-            role="alertdialog"
-            :aria-label="t('settings.confirmClearConversations')"
+            v-show="activeTab === 'model'"
+            id="settings-tabpanel-model"
+            class="settings-tabpanel"
+            role="tabpanel"
+            aria-labelledby="settings-tab-model"
           >
-            <p>{{ t('settings.clearConversationsWarning') }}</p>
-            <div class="settings-data__actions">
-              <AppButton
-                variant="ghost"
-                :disabled="dataClearing"
-                @click="cancelClearConversationData"
-              >
-                {{ t('common.cancel') }}
-              </AppButton>
-              <AppButton
-                variant="danger"
-                :disabled="dataClearing"
-                @click="confirmClearConversationData"
-              >
-                {{
-                  dataClearing
-                    ? t('settings.clearingConversations')
-                    : t('settings.confirmClearConversations')
-                }}
-              </AppButton>
-            </div>
+            <section class="settings-section" aria-labelledby="settings-model">
+              <div class="settings-section__heading">
+                <h3 id="settings-model">{{ t('settings.modelService') }}</h3>
+                <span>{{ t('settings.modelServiceHint') }}</span>
+              </div>
+
+              <p v-if="providerLoading" class="provider-feedback">
+                {{ t('common.loading') }}
+              </p>
+
+              <template v-else-if="providerState">
+                <div
+                  class="provider-options"
+                  role="group"
+                  :aria-label="t('a11y.providerOptions')"
+                >
+                  <button
+                    v-for="provider in providerState.providers"
+                    :key="provider.id"
+                    class="provider-option"
+                    :class="{
+                      'provider-option--active':
+                        selectedProviderId === provider.id,
+                    }"
+                    type="button"
+                    :aria-pressed="selectedProviderId === provider.id"
+                    @click="selectProvider(provider)"
+                  >
+                    <span>{{ provider.name }}</span>
+                    <small v-if="provider.active">
+                      {{ t('settings.activeProvider') }}
+                    </small>
+                  </button>
+                </div>
+
+                <div class="provider-status">
+                  <span
+                    class="provider-status__dot"
+                    :class="{
+                      'provider-status__dot--configured':
+                        selectedProvider?.configured,
+                    }"
+                    aria-hidden="true"
+                  ></span>
+                  {{
+                    selectedProvider?.configured
+                      ? t('settings.keyConfigured')
+                      : t('settings.keyNotConfigured')
+                  }}
+                </div>
+
+                <div class="provider-fields">
+                  <label
+                    v-if="selectedProvider?.isCustom"
+                    class="settings-field"
+                  >
+                    <span>{{ t('settings.providerName') }}</span>
+                    <input
+                      v-model="providerForm.name"
+                      type="text"
+                      :placeholder="t('settings.providerNamePlaceholder')"
+                      autocomplete="off"
+                    />
+                  </label>
+
+                  <label class="settings-field">
+                    <span>{{ t('settings.model') }}</span>
+                    <input
+                      v-model="providerForm.model"
+                      type="text"
+                      :placeholder="t('settings.modelPlaceholder')"
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                  </label>
+
+                  <label
+                    v-if="selectedProvider?.isCustom"
+                    class="settings-field settings-field--wide"
+                  >
+                    <span>{{ t('settings.baseUrl') }}</span>
+                    <input
+                      v-model="providerForm.baseUrl"
+                      type="url"
+                      :placeholder="t('settings.baseUrlPlaceholder')"
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                  </label>
+
+                  <label class="settings-field settings-field--wide">
+                    <span class="settings-field__heading">
+                      <span>{{ t('settings.apiKey') }}</span>
+                      <span
+                        v-if="selectedProvider?.configured"
+                        class="settings-field__saved"
+                      >
+                        <span aria-hidden="true">✓</span>
+                        {{ t('settings.keySavedBadge') }}
+                      </span>
+                    </span>
+                    <input
+                      v-model="providerForm.apiKey"
+                      type="password"
+                      :class="{
+                        'settings-field__input--saved':
+                          selectedProvider?.configured && !providerForm.apiKey,
+                      }"
+                      :placeholder="
+                        selectedProvider?.configured
+                          ? t('settings.apiKeySavedPlaceholder')
+                          : t('settings.apiKeyPlaceholder')
+                      "
+                      autocomplete="new-password"
+                      spellcheck="false"
+                    />
+                    <small v-if="selectedProvider?.configured">
+                      {{ t('settings.apiKeyConfigured') }}
+                    </small>
+                    <small>{{ t('settings.keySecurityHint') }}</small>
+                  </label>
+                </div>
+
+                <p
+                  v-if="!providerState.secureStorageAvailable"
+                  class="provider-warning"
+                >
+                  {{ t('settings.keyStorageUnavailable') }}
+                </p>
+                <p v-if="providerError" class="provider-error" role="alert">
+                  {{ providerError }}
+                </p>
+                <p
+                  v-if="providerMessage"
+                  class="provider-feedback"
+                  role="status"
+                >
+                  {{ providerMessage }}
+                </p>
+
+                <div class="provider-actions">
+                  <AppButton
+                    size="small"
+                    :disabled="providerSaving || providerTesting"
+                    @click="saveProvider"
+                  >
+                    {{ t('settings.saveConfig') }}
+                  </AppButton>
+                  <AppButton
+                    v-if="
+                      selectedProvider?.configured && !selectedProvider.active
+                    "
+                    variant="ghost"
+                    :disabled="providerSaving || providerTesting"
+                    @click="setActiveProvider"
+                  >
+                    {{ t('settings.setActive') }}
+                  </AppButton>
+                  <AppButton
+                    v-if="selectedProvider?.configured"
+                    variant="ghost"
+                    :disabled="providerTesting || providerSaving"
+                    @click="testProvider"
+                  >
+                    {{ t('settings.testConnection') }}
+                  </AppButton>
+                  <AppButton
+                    v-if="selectedProvider?.configured"
+                    variant="text"
+                    :disabled="providerSaving || providerTesting"
+                    @click="clearProviderKey"
+                  >
+                    {{ t('settings.clearKey') }}
+                  </AppButton>
+                </div>
+              </template>
+
+              <p v-else class="provider-error" role="alert">
+                {{ providerError }}
+              </p>
+            </section>
           </div>
 
-          <p v-if="dataError" class="provider-error" role="alert">
-            {{ dataError }}
-          </p>
-          <p v-if="dataMessage" class="provider-feedback" role="status">
-            {{ dataMessage }}
-          </p>
-        </section>
+          <div
+            v-show="activeTab === 'search'"
+            id="settings-tabpanel-search"
+            class="settings-tabpanel"
+            role="tabpanel"
+            aria-labelledby="settings-tab-search"
+          >
+            <WebSearchSettings />
+          </div>
 
-        <section class="settings-privacy">
-          <h3>{{ t('settings.privacy') }}</h3>
-          <p>{{ t('settings.privacyText') }}</p>
-        </section>
+          <div
+            v-show="activeTab === 'data'"
+            id="settings-tabpanel-data"
+            class="settings-tabpanel"
+            role="tabpanel"
+            aria-labelledby="settings-tab-data"
+          >
+            <section class="settings-section" aria-labelledby="settings-data">
+              <div class="settings-section__heading">
+                <h3 id="settings-data">{{ t('settings.conversationData') }}</h3>
+                <span>{{ t('settings.conversationDataHint') }}</span>
+              </div>
+
+              <div class="settings-data">
+                <div class="settings-data__copy">
+                  <strong>{{ t('settings.exportConversations') }}</strong>
+                  <p>{{ t('settings.exportConversationsDescription') }}</p>
+                </div>
+                <AppButton
+                  variant="text"
+                  :disabled="exporting"
+                  @click="exportConversationData"
+                >
+                  {{
+                    exporting
+                      ? t('settings.exportingConversations')
+                      : t('settings.exportConversationsAction')
+                  }}
+                </AppButton>
+              </div>
+
+              <p v-if="exportError" class="provider-error" role="alert">
+                {{ exportError }}
+              </p>
+              <p v-if="exportMessage" class="provider-feedback" role="status">
+                {{ exportMessage }}
+              </p>
+
+              <div class="settings-data">
+                <div class="settings-data__copy">
+                  <strong>{{ t('settings.clearConversations') }}</strong>
+                  <p>{{ t('settings.clearConversationsDescription') }}</p>
+                </div>
+                <AppButton
+                  v-if="!dataConfirming"
+                  variant="text"
+                  :disabled="dataClearing"
+                  @click="beginClearConversationData"
+                >
+                  {{ t('settings.clearConversationsAction') }}
+                </AppButton>
+              </div>
+
+              <div
+                v-if="dataConfirming"
+                class="settings-data__confirm"
+                role="alertdialog"
+                :aria-label="t('settings.confirmClearConversations')"
+              >
+                <p>{{ t('settings.clearConversationsWarning') }}</p>
+                <div class="settings-data__actions">
+                  <AppButton
+                    variant="ghost"
+                    :disabled="dataClearing"
+                    @click="cancelClearConversationData"
+                  >
+                    {{ t('common.cancel') }}
+                  </AppButton>
+                  <AppButton
+                    variant="danger"
+                    :disabled="dataClearing"
+                    @click="confirmClearConversationData"
+                  >
+                    {{
+                      dataClearing
+                        ? t('settings.clearingConversations')
+                        : t('settings.confirmClearConversations')
+                    }}
+                  </AppButton>
+                </div>
+              </div>
+
+              <p v-if="dataError" class="provider-error" role="alert">
+                {{ dataError }}
+              </p>
+              <p v-if="dataMessage" class="provider-feedback" role="status">
+                {{ dataMessage }}
+              </p>
+            </section>
+
+            <section class="settings-privacy">
+              <h3>{{ t('settings.privacy') }}</h3>
+              <p>{{ t('settings.privacyText') }}</p>
+            </section>
+          </div>
+        </div>
 
         <div class="settings-panel__footer">
           <AppButton variant="ghost" @click="close">
@@ -857,8 +979,11 @@ onBeforeUnmount(() => {
 }
 
 .settings-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: min(480px, calc(100vh - 56px));
   max-height: calc(100vh - 56px);
-  overflow-y: auto;
+  overflow: hidden;
   width: min(440px, 100%);
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -873,6 +998,7 @@ onBeforeUnmount(() => {
 }
 
 .demo-banner {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1080,9 +1206,7 @@ onBeforeUnmount(() => {
 }
 
 .settings-panel__header {
-  position: sticky;
-  top: 0;
-  z-index: 4;
+  flex: 0 0 auto;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1130,6 +1254,64 @@ onBeforeUnmount(() => {
 .settings-panel__close:hover {
   background: var(--line);
   color: var(--ink);
+}
+
+.settings-tabs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 3px;
+  margin-top: 4px;
+  padding: 3px;
+  border-radius: 11px;
+  background: var(--paper-deep);
+}
+
+.settings-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 4px;
+  background: transparent;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.settings-tab:hover {
+  color: var(--ink);
+}
+
+.settings-tab--active {
+  background: var(--paper-raised);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgb(44 35 23 / 10%);
+}
+
+.settings-tab:focus-visible {
+  outline: 2px solid var(--moss);
+  outline-offset: 1px;
+}
+
+.settings-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 -6px;
+  padding: 18px 6px 10px;
+}
+
+.settings-tabpanel > .settings-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .settings-section {
@@ -1384,10 +1566,11 @@ onBeforeUnmount(() => {
 }
 
 .settings-panel__footer {
+  flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
-  margin-top: 20px;
-  padding-top: 18px;
+  margin-top: 0;
+  padding-top: 16px;
   border-top: 1px solid var(--line-soft);
 }
 

@@ -153,6 +153,11 @@
   },
   "settings": {
     "title": "Settings",
+    "tabsLabel": "Settings sections",
+    "tabGeneral": "General",
+    "tabModel": "Model",
+    "tabSearch": "Search",
+    "tabData": "Data & privacy",
     "uiLanguage": "Interface language",
     "chinese": "简体中文",
     "english": "English",
