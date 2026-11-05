@@ -22,6 +22,7 @@ import type {
   ClosePagePayload,
   EditPagePayload,
   PageClearAllResult,
+  PageTitleUpdatedEvent,
   TeacherChunkEvent,
   TeacherDoneEvent,
 } from '@/shared/pages';
@@ -85,6 +86,7 @@ let closeRequestInFlight = false;
 let closingPageId: number | null = null;
 let teacherEventsReady = false;
 let guidanceEventsReady = false;
+let titleEventsReady = false;
 let restoreStarted = false;
 let archiveOriginView: 'new' | 'companion' = 'new';
 let archiveOriginIndex = -1;
@@ -305,6 +307,25 @@ const reconcileGuidance = async (pageId: number) => {
   } catch {
     // 引导对账失败时保留本地 pending；用户继续写不会受影响。
   }
+};
+
+const handlePageTitleUpdated = (event: PageTitleUpdatedEvent) => {
+  const page = findPage(event.pageId);
+
+  if (!page) {
+    return;
+  }
+
+  page.title = event.title;
+};
+
+const ensureTitleEvents = () => {
+  if (titleEventsReady || !tapAlongApi.supportsTitleUpdates()) {
+    return;
+  }
+
+  tapAlongApi.onPageTitleUpdated(handlePageTitleUpdated);
+  titleEventsReady = true;
 };
 
 const ensureGuidanceEvents = () => {
@@ -1458,6 +1479,7 @@ const dismissOverlay = () => {
 
 export const useSessionStore = () => {
   ensureTeacherEvents();
+  ensureTitleEvents();
   ensureGuidanceEvents();
   void restoreLatestPage();
 

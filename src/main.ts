@@ -43,6 +43,9 @@ import {
 import { WebSearchService } from './main/services/web-search';
 import { createIntentRouter } from './main/services/intent-router';
 import { ResearchService } from './main/services/research';
+import { createStructuredCompletion } from './main/services/structured-completion';
+import { ModelTitleGenerator } from './main/services/title-generator';
+import { TitleService } from './main/services/title-service';
 import {
   createMockTeacherStream,
   TeacherService,
@@ -245,7 +248,18 @@ if (!hasSingleInstanceLock) {
         createIntentRouter({ configService: providerService }),
         webSearchService,
       );
-      registerPageHandlers(ipcMain, pagesRepository, guidanceService);
+      const titleService = new TitleService(
+        pagesRepository,
+        new ModelTitleGenerator(
+          createStructuredCompletion({ configService: providerService }),
+        ),
+      );
+      registerPageHandlers(
+        ipcMain,
+        pagesRepository,
+        guidanceService,
+        titleService,
+      );
       registerBackupHandlers(ipcMain, pagesRepository, {
         documentsPath: app.getPath('documents'),
         showSaveDialog: async (options) => {

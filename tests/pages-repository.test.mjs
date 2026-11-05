@@ -615,3 +615,19 @@ test('清空会话失败时应回滚并保留已有数据', async (t) => {
   assert.notEqual(repository.findById(page.id), null);
   db.exec = exec;
 });
+
+test('标题更新应写入题眼且清空后保留正文', async (t) => {
+  const { repository } = await createRepository(t);
+  const page = repository.create('注意力像带宽。\n分配决定处理能力。', '课程');
+
+  const updated = repository.updateTitle(page.id, '  注意力如何分配  ');
+  assert.equal(updated.title, '注意力如何分配');
+  assert.equal(updated.body, page.body);
+  assert.equal(updated.source, page.source);
+  assert.equal(repository.findById(page.id).title, '注意力如何分配');
+
+  assert.equal(repository.updateTitle(page.id, '   '), null);
+  assert.equal(repository.updateTitle(page.id, ''), null);
+  assert.equal(repository.updateTitle(9999, '标题'), null);
+  assert.equal(repository.updateTitle(0, '标题'), null);
+});

@@ -1,4 +1,4 @@
-import type { IpcMain } from 'electron';
+import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import type {
   AppendPagePayload,
   ClosePagePayload,
@@ -9,11 +9,12 @@ import type {
   PageOperationResult,
   SavePagePayload,
 } from '../../shared/pages.ts';
-import { PAGE_CHANNELS } from '../../shared/pages.ts';
+import { PAGE_CHANNELS, TITLE_CHANNELS } from '../../shared/pages.ts';
 import type { PagesRepository } from '../db/pages.ts';
 import { GUIDANCE_CHANNELS } from '../../shared/guidance.ts';
 import { createOpeningTeacherMessage } from '../services/teacher.ts';
 import type { GuidanceService } from '../services/guidance.ts';
+import type { TitleService } from '../services/title-service.ts';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -347,7 +348,29 @@ export const registerPageHandlers = (
   ipcMain: Pick<IpcMain, 'handle'>,
   repository: PagesRepository,
   guidanceService?: Pick<GuidanceService, 'run'>,
+  titleService?: Pick<TitleService, 'run'>,
 ) => {
+  const emitTitleUpdate = (
+    event: IpcMainInvokeEvent | null | undefined,
+    pageId: number,
+  ) => {
+    const sender = event?.sender;
+
+    if (!titleService || !sender) {
+      return;
+    }
+
+    void titleService
+      .run(pageId, (update) => {
+        if (!sender.isDestroyed()) {
+          sender.send(TITLE_CHANNELS.updated, update);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('触发标题生成失败：', error);
+      });
+  };
+
   ipcMain.handle(PAGE_CHANNELS.save, (event, payload: unknown) => {
     const result = savePage(repository, payload);
     const sender = event?.sender;
@@ -366,6 +389,10 @@ export const registerPageHandlers = (
         });
     }
 
+    if (result.ok && result.page) {
+      emitTitleUpdate(event, result.page.id);
+    }
+
     return result;
   });
   ipcMain.handle(PAGE_CHANNELS.get, (_event, pageId: unknown) =>
@@ -377,12 +404,24 @@ export const registerPageHandlers = (
   ipcMain.handle(PAGE_CHANNELS.listClosed, (_event, payload: unknown) =>
     listClosedPages(repository, payload),
   );
-  ipcMain.handle(PAGE_CHANNELS.append, (_event, payload: unknown) =>
-    appendPage(repository, payload),
-  );
-  ipcMain.handle(PAGE_CHANNELS.edit, (_event, payload: unknown) =>
-    editPage(repository, payload),
-  );
+  ipcMain.handle(PAGE_CHANNELS.append, (event, payload: unknown) => {
+    const result = appendPage(repository, payload);
+
+    if (result.ok && result.page) {
+      emitTitleUpdate(event, result.page.id);
+    }
+
+    return result;
+  });
+  ipcMain.handle(PAGE_CHANNELS.edit, (event, payload: unknown) => {
+    const result = editPage(repository, payload);
+
+    if (result.ok && result.page) {
+      emitTitleUpdate(event, result.page.id);
+    }
+
+    return result;
+  });
   ipcMain.handle(PAGE_CHANNELS.close, (_event, payload: unknown) =>
     closePage(repository, payload),
   );

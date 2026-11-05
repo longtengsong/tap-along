@@ -1,6 +1,7 @@
 import type {
   PageSnapshot,
   PageClearAllResult,
+  PageTitleUpdatedEvent,
   SavePagePayload,
   TapAlongBridge,
   TeacherAskPayload,
@@ -166,6 +167,12 @@ export const tapAlongApi = {
 
   onGuidanceUpdated(callback: (event: GuidanceUpdatedEvent) => void) {
     return bridge?.onGuidanceUpdated?.(callback) ?? (() => {});
+  },
+
+  supportsTitleUpdates: () => Boolean(bridge?.onPageTitleUpdated),
+
+  onPageTitleUpdated(callback: (event: PageTitleUpdatedEvent) => void) {
+    return bridge?.onPageTitleUpdated?.(callback) ?? (() => {});
   },
 
   async askTeacher(payload: TeacherAskPayload): Promise<TeacherStartResult> {

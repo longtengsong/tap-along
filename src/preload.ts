@@ -18,10 +18,12 @@ import {
 import {
   PAGE_CHANNELS,
   TEACHER_CHANNELS,
+  TITLE_CHANNELS,
   type AppendPagePayload,
   type ClosePagePayload,
   type EditPagePayload,
   type ListPagesPayload,
+  type PageTitleUpdatedEvent,
   type SavePagePayload,
   type TapAlongBridge,
   type TeacherAskPayload,
@@ -83,6 +85,14 @@ const tapAlongBridge: TapAlongBridge = {
     ipcRenderer.on(GUIDANCE_CHANNELS.updated, listener);
     return () =>
       ipcRenderer.removeListener(GUIDANCE_CHANNELS.updated, listener);
+  },
+  onPageTitleUpdated: (callback: (event: PageTitleUpdatedEvent) => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      data: PageTitleUpdatedEvent,
+    ) => callback(data);
+    ipcRenderer.on(TITLE_CHANNELS.updated, listener);
+    return () => ipcRenderer.removeListener(TITLE_CHANNELS.updated, listener);
   },
   askTeacher: (payload: TeacherAskPayload) =>
     ipcRenderer.invoke(TEACHER_CHANNELS.ask, payload),

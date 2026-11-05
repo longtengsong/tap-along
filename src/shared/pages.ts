@@ -105,6 +105,15 @@ export const PAGE_CHANNELS = {
   clearAll: 'pages:clear-all',
 } as const;
 
+export const TITLE_CHANNELS = {
+  updated: 'title:updated',
+} as const;
+
+export interface PageTitleUpdatedEvent {
+  pageId: number;
+  title: string;
+}
+
 export interface TeacherAskPayload {
   pageId: number;
   userText: string;
@@ -212,6 +221,9 @@ export interface TapAlongBridge
   appendPage?: (payload: AppendPagePayload) => Promise<PageOperationResult>;
   closePage?: (payload: ClosePagePayload) => Promise<PageOperationResult>;
   clearAllPages?: () => Promise<PageClearAllResult>;
+  onPageTitleUpdated?: (
+    callback: (event: PageTitleUpdatedEvent) => void,
+  ) => () => void;
   askTeacher?: (payload: TeacherAskPayload) => Promise<TeacherStartResult>;
   resumeTeacher?: (
     payload: TeacherResumePayload,

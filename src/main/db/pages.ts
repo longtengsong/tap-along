@@ -254,6 +254,7 @@ export class PagesRepository {
   private readonly updateEditedBodyStatement;
   private readonly updateGuidanceStatement;
   private readonly updateGuidanceAndLogStatement;
+  private readonly updateTitleStatement;
   private readonly listRetrievalStatement;
   private readonly insertFtsStatement;
   private readonly deleteFtsStatement;
@@ -373,6 +374,12 @@ export class PagesRepository {
     this.updateGuidanceAndLogStatement = this.db.prepare(`
       UPDATE pages
       SET guidance = ?, companion_log = ?
+      WHERE id = ?
+    `);
+    // 标题由模型异步补写；不改 updated_at，避免标题更新把旧页顶到最前。
+    this.updateTitleStatement = this.db.prepare(`
+      UPDATE pages
+      SET edge_title = ?
       WHERE id = ?
     `);
     this.listRetrievalStatement = this.db.prepare(`
@@ -1070,6 +1077,21 @@ export class PagesRepository {
 
       return { ok: true, page: updatedPage };
     });
+  }
+
+  updateTitle(pageId: number, title: string): PageSnapshot | null {
+    if (!Number.isInteger(pageId) || pageId <= 0) {
+      return null;
+    }
+
+    const normalized = title.trim().replace(/\s+/g, ' ').slice(0, 60);
+
+    if (!normalized) {
+      return null;
+    }
+
+    this.updateTitleStatement.run(normalized, pageId);
+    return this.findById(pageId);
   }
 
   closePage(

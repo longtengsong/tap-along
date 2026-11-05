@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { PAGE_CHANNELS } from '../src/shared/pages.ts';
+import { PAGE_CHANNELS, TITLE_CHANNELS } from '../src/shared/pages.ts';
 import {
   appendPage,
   clearAllPages,
@@ -482,4 +482,115 @@ test('IPC 注册应暴露保存和读取通道', () => {
     ok: true,
     cleared: 1,
   });
+});
+
+test('保存、补写、编辑之后都应触发标题生成并广播', async () => {
+  const handlers = new Map();
+  const ipcMain = {
+    handle(channel, handler) {
+      handlers.set(channel, handler);
+    },
+  };
+  const repository = {
+    create: () => samplePage,
+    findById: () => samplePage,
+    listRecentReading: () => [samplePage],
+    listClosed: () => [],
+    appendText: () => ({ ok: true, page: samplePage }),
+    editText: () => ({ ok: true, page: samplePage }),
+    closePage: () => ({ ok: true, page: samplePage }),
+    clearAll: () => 0,
+  };
+  const triggered = [];
+  const titleService = {
+    run(pageId, emit) {
+      triggered.push(pageId);
+      emit({ pageId, title: '注意力如何分配' });
+      return Promise.resolve();
+    },
+  };
+  const sent = [];
+  const event = {
+    sender: {
+      isDestroyed: () => false,
+      send: (channel, payload) => sent.push({ channel, payload }),
+    },
+  };
+
+  registerPageHandlers(ipcMain, repository, undefined, titleService);
+
+  handlers.get(PAGE_CHANNELS.save)(event, { body: '注意力像带宽。' });
+  handlers.get(PAGE_CHANNELS.append)(event, {
+    pageId: 1,
+    content: '补一句。',
+    requestId: 'append-1',
+  });
+  handlers.get(PAGE_CHANNELS.edit)(event, {
+    pageId: 1,
+    body: '改过的正文。',
+    requestId: 'edit-1',
+  });
+
+  assert.deepEqual(triggered, [1, 1, 1]);
+  assert.equal(sent.length, 3);
+
+  for (const message of sent) {
+    assert.deepEqual(message, {
+      channel: TITLE_CHANNELS.updated,
+      payload: { pageId: 1, title: '注意力如何分配' },
+    });
+  }
+});
+
+test('保存失败或窗口已销毁时不应触发标题生成', async () => {
+  const handlers = new Map();
+  const ipcMain = {
+    handle(channel, handler) {
+      handlers.set(channel, handler);
+    },
+  };
+  let triggered = 0;
+  const repository = {
+    create: () => {
+      throw new Error('db down');
+    },
+    findById: () => samplePage,
+    listRecentReading: () => [],
+    listClosed: () => [],
+    appendText: () => ({ ok: false, reason: 'not_found' }),
+    editText: () => ({ ok: false, reason: 'closed' }),
+    closePage: () => ({ ok: true, page: samplePage }),
+    clearAll: () => 0,
+  };
+  const titleService = {
+    run() {
+      triggered += 1;
+      return Promise.resolve();
+    },
+  };
+
+  registerPageHandlers(ipcMain, repository, undefined, titleService);
+
+  assert.deepEqual(handlers.get(PAGE_CHANNELS.save)(null, { body: '笔记' }), {
+    ok: false,
+    errorCode: 'SAVE_FAILED',
+  });
+  assert.deepEqual(
+    handlers.get(PAGE_CHANNELS.append)(null, {
+      pageId: 1,
+      content: '补一句。',
+      requestId: 'append-2',
+    }),
+    { ok: false, errorCode: 'PAGE_NOT_FOUND' },
+  );
+  assert.deepEqual(
+    handlers.get(PAGE_CHANNELS.edit)(null, {
+      pageId: 1,
+      body: '改过的正文。',
+      requestId: 'edit-2',
+    }),
+    { ok: false, errorCode: 'PAGE_CLOSED' },
+  );
+
+  assert.equal(triggered, 0);
 });
