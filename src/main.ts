@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, screen, shell } from 'electron';
 import path from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import type { DatabaseSync } from 'node:sqlite';
@@ -50,6 +50,12 @@ import {
   createMockTeacherStream,
   TeacherService,
 } from './main/services/teacher';
+import {
+  WindowStateService,
+  WINDOW_DEFAULT_SIZE,
+  WINDOW_MIN_SIZE,
+  type StoredWindowState,
+} from './main/services/window-state';
 import type { DeveloperPromptProfile } from './shared/prompts';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -59,6 +65,10 @@ if (started) {
 
 let database: DatabaseSync | null = null;
 let developerModeService: DeveloperModeService | null = null;
+let windowStateService: WindowStateService | null = null;
+
+/** 连续拖动/缩放时合并写盘，避免每个像素都落一次配置。 */
+const WINDOW_STATE_SAVE_DELAY = 250;
 
 const isDeveloperModeEnabled = () => {
   const result = developerModeService?.get();
@@ -66,12 +76,18 @@ const isDeveloperModeEnabled = () => {
 };
 
 const createWindow = (developerMode = false) => {
+  const restored: StoredWindowState = windowStateService
+    ? windowStateService.getInitialState(screen.getAllDisplays())
+    : {
+        bounds: { x: 0, y: 0, ...WINDOW_DEFAULT_SIZE },
+        maximized: false,
+      };
+
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 1180,
-    height: 780,
-    minWidth: 720,
-    minHeight: 560,
+    ...restored.bounds,
+    minWidth: WINDOW_MIN_SIZE.width,
+    minHeight: WINDOW_MIN_SIZE.height,
     backgroundColor: '#e8e4dc',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -79,6 +95,40 @@ const createWindow = (developerMode = false) => {
       nodeIntegration: false,
       sandbox: false,
     },
+  });
+
+  if (restored.maximized) {
+    mainWindow.maximize();
+  }
+
+  const persistWindowState = () => {
+    windowStateService?.capture(mainWindow);
+  };
+
+  let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const scheduleWindowStateSave = () => {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+    }
+
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      persistWindowState();
+    }, WINDOW_STATE_SAVE_DELAY);
+  };
+
+  mainWindow.on('resize', scheduleWindowStateSave);
+  mainWindow.on('move', scheduleWindowStateSave);
+  mainWindow.on('maximize', scheduleWindowStateSave);
+  mainWindow.on('unmaximize', scheduleWindowStateSave);
+  mainWindow.on('close', () => {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+
+    persistWindowState();
   });
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -187,7 +237,12 @@ if (!hasSingleInstanceLock) {
         developerMode?: boolean;
         developerPromptProfile?: DeveloperPromptProfile;
         webSearch?: StoredWebSearchSettings;
+        windowState?: StoredWindowState;
       }>({ name: 'tap-along-settings' });
+      windowStateService = new WindowStateService({
+        read: () => settingsStore.get('windowState'),
+        write: (state) => settingsStore.set('windowState', state),
+      });
       const providerStore: ProviderSettingsStore = {
         read: () => settingsStore.get('modelProviders'),
         write: (settings) => settingsStore.set('modelProviders', settings),
