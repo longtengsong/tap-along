@@ -22,6 +22,34 @@ const expanded = ref(false);
 const loading = ref(false);
 const error = ref('');
 const inspection = ref<TeacherRequestInspection | null>(null);
+const inspectable = ref(false);
+
+/**
+ * 只有真实发生过、且仍在主进程内存里的请求才提供入口。
+ * 开场白、引导问题等消息也带 requestId，但并没有对应的 LLM 请求；
+ * 历史消息可能已超出本次运行的保留范围。先探测再显示，避免点开才报错。
+ */
+const probeInspection = async () => {
+  inspectable.value = false;
+
+  if (!props.developerMode || !props.requestId) {
+    return;
+  }
+
+  const requestId = props.requestId;
+
+  try {
+    const result = await tapAlongApi.inspectTeacherRequest(requestId);
+
+    if (requestId !== props.requestId || !props.developerMode) {
+      return;
+    }
+
+    inspectable.value = result.ok && Boolean(result.request);
+  } catch {
+    inspectable.value = false;
+  }
+};
 
 const loadInspection = async () => {
   if (!props.requestId || loading.value) {
@@ -61,14 +89,15 @@ const toggleInspection = async () => {
 };
 
 watch(
-  () => props.developerMode,
-  (enabled) => {
-    if (!enabled) {
-      expanded.value = false;
-      inspection.value = null;
-      error.value = '';
-    }
+  () => [props.developerMode, props.requestId],
+  () => {
+    expanded.value = false;
+    inspection.value = null;
+    error.value = '';
+    inspectable.value = false;
+    void probeInspection();
   },
+  { immediate: true },
 );
 </script>
 
@@ -90,7 +119,7 @@ watch(
     </p>
 
     <button
-      v-if="developerMode && requestId"
+      v-if="developerMode && requestId && inspectable"
       class="teacher-message__inspect"
       type="button"
       :aria-expanded="expanded"
