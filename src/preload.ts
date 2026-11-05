@@ -23,8 +23,10 @@ import {
   type ClosePagePayload,
   type EditPagePayload,
   type ListPagesPayload,
+  type GeneratePageTitlePayload,
   type PageTitleUpdatedEvent,
   type SavePagePayload,
+  type UpdatePageTitlePayload,
   type TapAlongBridge,
   type TeacherAskPayload,
   type TeacherCancelPayload,
@@ -94,6 +96,10 @@ const tapAlongBridge: TapAlongBridge = {
     ipcRenderer.on(TITLE_CHANNELS.updated, listener);
     return () => ipcRenderer.removeListener(TITLE_CHANNELS.updated, listener);
   },
+  generatePageTitle: (payload: GeneratePageTitlePayload) =>
+    ipcRenderer.invoke(TITLE_CHANNELS.generate, payload),
+  updatePageTitle: (payload: UpdatePageTitlePayload) =>
+    ipcRenderer.invoke(TITLE_CHANNELS.update, payload),
   askTeacher: (payload: TeacherAskPayload) =>
     ipcRenderer.invoke(TEACHER_CHANNELS.ask, payload),
   resumeTeacher: (payload: TeacherResumePayload) =>

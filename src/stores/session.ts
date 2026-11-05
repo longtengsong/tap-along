@@ -7,7 +7,7 @@ import {
   loadDraftSnapshot,
   saveDraftSnapshot,
 } from '@/shared/draft';
-import type { AppErrorCode } from '@/shared/errors';
+import { ERROR_MESSAGE_KEYS, type AppErrorCode } from '@/shared/errors';
 import {
   createPendingGuidance,
   type GuidanceUpdatedEvent,
@@ -370,6 +370,127 @@ const restoreLatestPage = async () => {
 };
 
 const currentPage = computed(() => state.pages[state.currentIndex] ?? null);
+
+const canGenerateTitle = computed(() => tapAlongApi.supportsTitleGeneration());
+
+const canEditTitle = computed(() => tapAlongApi.supportsTitleEdit());
+
+const startTitleEdit = () => {
+  const page = currentPage.value;
+
+  if (!page || !canEditTitle.value || page.editing || page.titleGenerating) {
+    return;
+  }
+
+  page.titleError = '';
+  page.titleEditing = true;
+};
+
+const cancelTitleEdit = () => {
+  const page = currentPage.value;
+
+  if (!page) {
+    return;
+  }
+
+  page.titleEditing = false;
+  page.titleError = '';
+};
+
+const saveTitleEdit = async (title: string) => {
+  const page = currentPage.value;
+
+  if (!page || page.titleSaving) {
+    return;
+  }
+
+  const next = title.trim();
+
+  if (!next) {
+    page.titleError = i18n.global.t('companion.titleRequired');
+    return;
+  }
+
+  const pageId = page.id;
+  page.titleSaving = true;
+  page.titleError = '';
+
+  try {
+    const result = await tapAlongApi.updatePageTitle(pageId, next);
+    const target = findPage(pageId);
+
+    if (!target) {
+      return;
+    }
+
+    if (!result.ok || !result.title) {
+      target.titleError = i18n.global.t(
+        ERROR_MESSAGE_KEYS[result.errorCode ?? 'SAVE_FAILED'],
+      );
+      return;
+    }
+
+    target.title = result.title;
+    target.titleEditing = false;
+  } catch (error) {
+    const target = findPage(pageId);
+
+    if (target) {
+      target.titleError = i18n.global.t(ERROR_MESSAGE_KEYS.UNKNOWN_ERROR);
+    }
+
+    console.error('保存标题失败：', error);
+  } finally {
+    const target = findPage(pageId) ?? page;
+    target.titleSaving = false;
+  }
+};
+
+const generateTitle = async () => {
+  const page = currentPage.value;
+
+  if (!page || page.titleGenerating || !canGenerateTitle.value) {
+    return;
+  }
+
+  const pageId = page.id;
+  page.titleGenerating = true;
+  page.titleError = '';
+
+  try {
+    const result = await tapAlongApi.generatePageTitle(pageId);
+    const target = findPage(pageId);
+
+    if (!target) {
+      return;
+    }
+
+    if (!result.ok || !result.title) {
+      target.titleError = i18n.global.t(
+        ERROR_MESSAGE_KEYS[result.errorCode ?? 'PROVIDER_REQUEST_FAILED'],
+      );
+      return;
+    }
+
+    target.title = result.title;
+  } catch (error) {
+    const target = findPage(pageId);
+
+    if (target) {
+      // 开发期常见：渲染层已热更新，但主进程还是旧代码，没有注册通道。
+      target.titleError = i18n.global.t(
+        error instanceof Error && /No handler registered/i.test(error.message)
+          ? 'companion.titleServiceUnavailable'
+          : ERROR_MESSAGE_KEYS.UNKNOWN_ERROR,
+      );
+    }
+
+    console.error('生成标题失败：', error);
+  } finally {
+    const target = findPage(pageId) ?? page;
+    target.titleGenerating = false;
+  }
+};
 
 const lastUserMessageIndex = (page: PageRecord) => {
   for (let index = page.messages.length - 1; index >= 0; index -= 1) {
@@ -1487,6 +1608,8 @@ export const useSessionStore = () => {
     state,
     currentPage,
     retryableTurn,
+    canGenerateTitle,
+    canEditTitle,
     canGoBack,
     stackIsDeep,
     submitNewPage,
@@ -1509,6 +1632,10 @@ export const useSessionStore = () => {
     retrySave,
     retryTeacher,
     retryTurn,
+    generateTitle,
+    startTitleEdit,
+    cancelTitleEdit,
+    saveTitleEdit,
     answerWithoutSearch,
     cancelTeacher,
     canCancelTeacher,

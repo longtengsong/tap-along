@@ -79,3 +79,39 @@ test('标题生成器应向上抛出模型错误，由服务层降级', async ()
     /provider down/,
   );
 });
+
+test('重新生成时提示词应包含上一次标题并要求换角度', () => {
+  const messages = buildTitleMessages('注意力像带宽。', {
+    avoid: '注意力与分配',
+  });
+
+  assert.equal(
+    messages[1].content.includes(
+      '<previous_title>注意力与分配</previous_title>',
+    ),
+    true,
+  );
+  assert.equal(messages[1].content.includes('rejected'), true);
+  assert.equal(
+    buildTitleMessages('注意力像带宽。')[1].content.includes(
+      '<previous_title>',
+    ),
+    false,
+  );
+});
+
+test('标题生成器应把避开选项传给提示词', async () => {
+  const calls = [];
+  const generator = new ModelTitleGenerator({
+    async complete(messages) {
+      calls.push(messages);
+      return '新的标题';
+    },
+  });
+
+  assert.equal(
+    await generator.generate('注意力像带宽。', { avoid: '旧标题' }),
+    '新的标题',
+  );
+  assert.equal(calls[0][1].content.includes('旧标题'), true);
+});

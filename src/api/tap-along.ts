@@ -1,6 +1,7 @@
 import type {
   PageSnapshot,
   PageClearAllResult,
+  GeneratePageTitleResult,
   PageTitleUpdatedEvent,
   SavePagePayload,
   TapAlongBridge,
@@ -13,6 +14,7 @@ import type {
   TeacherRequestInspectionResult,
   TeacherResumePayload,
   TeacherStartResult,
+  UpdatePageTitleResult,
 } from '@/shared/pages';
 import type { AppErrorCode } from '@/shared/errors';
 import type { ExportBackupResult } from '@/shared/backup';
@@ -173,6 +175,29 @@ export const tapAlongApi = {
 
   onPageTitleUpdated(callback: (event: PageTitleUpdatedEvent) => void) {
     return bridge?.onPageTitleUpdated?.(callback) ?? (() => {});
+  },
+
+  supportsTitleGeneration: () => Boolean(bridge?.generatePageTitle),
+
+  supportsTitleEdit: () => Boolean(bridge?.updatePageTitle),
+
+  async updatePageTitle(
+    pageId: number,
+    title: string,
+  ): Promise<UpdatePageTitleResult> {
+    if (!bridge?.updatePageTitle) {
+      return { ok: false, errorCode: 'CONFIG_FAILED' };
+    }
+
+    return bridge.updatePageTitle({ pageId, title });
+  },
+
+  async generatePageTitle(pageId: number): Promise<GeneratePageTitleResult> {
+    if (!bridge?.generatePageTitle) {
+      return { ok: false, errorCode: 'CONFIG_FAILED' };
+    }
+
+    return bridge.generatePageTitle({ pageId });
   },
 
   async askTeacher(payload: TeacherAskPayload): Promise<TeacherStartResult> {

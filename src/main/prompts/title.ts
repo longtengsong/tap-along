@@ -18,17 +18,37 @@ Return one line only.
 `.trim();
 
 export const MAX_TITLE_BODY_LENGTH = 2_000;
+export const MAX_TITLE_AVOID_LENGTH = 60;
 
-export const buildTitleMessages = (body: string): ChatMessage[] => [
-  { role: 'system', content: TITLE_SYSTEM_PROMPT },
-  {
-    role: 'user',
-    content: `
+export interface TitlePromptOptions {
+  /** 上一次生成、用户不满意的标题；提供时要求换一个角度。 */
+  avoid?: string;
+}
+
+export const buildTitleMessages = (
+  body: string,
+  options: TitlePromptOptions = {},
+): ChatMessage[] => {
+  const avoid = options.avoid?.trim().slice(0, MAX_TITLE_AVOID_LENGTH) ?? '';
+
+  return [
+    { role: 'system', content: TITLE_SYSTEM_PROMPT },
+    {
+      role: 'user',
+      content: `
 <note>
 ${escapePromptData(body.slice(0, MAX_TITLE_BODY_LENGTH))}
 </note>
-
+${
+  avoid
+    ? `
+<previous_title>${escapePromptData(avoid)}</previous_title>
+The previous title above was rejected. Propose a different title that captures the note from another angle.
+`
+    : ''
+}
 Write the title for this note. Return one line only.
-    `.trim(),
-  },
-];
+      `.trim(),
+    },
+  ];
+};

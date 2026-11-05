@@ -5,6 +5,7 @@ export const PAGES_TABLE_SQL = `
     id                    INTEGER PRIMARY KEY AUTOINCREMENT,
     parent_page_id        INTEGER REFERENCES pages(id) ON DELETE CASCADE,
     edge_title            TEXT,
+    title_source          TEXT,
     body                  TEXT NOT NULL,
     source                TEXT,
     parse_status          TEXT NOT NULL DEFAULT 'pending',
@@ -57,6 +58,10 @@ export const initializeSchema = (db: DatabaseSync) => {
 
   if (!columns.includes('guidance')) {
     db.exec('ALTER TABLE pages ADD COLUMN guidance TEXT');
+  }
+
+  if (!columns.includes('title_source')) {
+    db.exec('ALTER TABLE pages ADD COLUMN title_source TEXT');
   }
 
   db.exec(PAGES_STATUS_INDEX_SQL);

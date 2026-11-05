@@ -24,6 +24,8 @@ const props = defineProps<{
   canCancel: boolean;
   cancelling: boolean;
   retryableTurn?: RetryableTurn | null;
+  canGenerateTitle?: boolean;
+  canEditTitle?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -45,6 +47,10 @@ const emit = defineEmits<{
   useGuidance: [suggestionId: string];
   retryGuidance: [];
   retryTurn: [];
+  generateTitle: [];
+  startTitleEdit: [];
+  cancelTitleEdit: [];
+  saveTitleEdit: [value: string];
 }>();
 
 const displayMessages = computed(() => {
@@ -93,9 +99,15 @@ const showGuidance = computed(() => {
       </h1>
       <PageCard
         :page="page"
+        :can-generate-title="canGenerateTitle"
+        :can-edit-title="canEditTitle"
         @update-edit-draft="emit('updateEditDraft', $event)"
         @save-edit="emit('saveEdit')"
         @cancel-edit="emit('cancelEdit')"
+        @generate-title="emit('generateTitle')"
+        @start-title-edit="emit('startTitleEdit')"
+        @cancel-title-edit="emit('cancelTitleEdit')"
+        @save-title-edit="emit('saveTitleEdit', $event)"
       />
       <GuidancePanel
         v-if="showGuidance && page.guidance"

@@ -65,6 +65,7 @@ test('初始化数据库时应启用 WAL、页边表及索引', async (t) => {
       'id',
       'parent_page_id',
       'edge_title',
+      'title_source',
       'body',
       'source',
       'parse_status',
@@ -116,6 +117,7 @@ test('旧数据库应幂等迁移页面父级字段并保留数据', async (t) =
 
   assert.ok(columns.includes('parent_page_id'));
   assert.ok(columns.includes('guidance'));
+  assert.ok(columns.includes('title_source'));
   assert.equal(page.body, '旧数据库中的页边。');
   assert.equal(page.parent_page_id, null);
   assert.equal(

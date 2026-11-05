@@ -348,7 +348,7 @@ export const registerPageHandlers = (
   ipcMain: Pick<IpcMain, 'handle'>,
   repository: PagesRepository,
   guidanceService?: Pick<GuidanceService, 'run'>,
-  titleService?: Pick<TitleService, 'run'>,
+  titleService?: Pick<TitleService, 'run' | 'generate'>,
 ) => {
   const emitTitleUpdate = (
     event: IpcMainInvokeEvent | null | undefined,
@@ -426,4 +426,63 @@ export const registerPageHandlers = (
     closePage(repository, payload),
   );
   ipcMain.handle(PAGE_CHANNELS.clearAll, () => clearAllPages(repository));
+  ipcMain.handle(TITLE_CHANNELS.update, (_event, payload: unknown) => {
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      Array.isArray(payload) ||
+      !Number.isInteger((payload as { pageId?: unknown }).pageId) ||
+      ((payload as { pageId?: number }).pageId ?? 0) <= 0
+    ) {
+      return { ok: false, errorCode: 'INVALID_PAGE_ID' };
+    }
+
+    const title = (payload as { title?: unknown }).title;
+
+    if (typeof title !== 'string' || !title.trim()) {
+      return { ok: false, errorCode: 'INVALID_BODY' };
+    }
+
+    try {
+      const page = repository.updateTitle(
+        (payload as { pageId: number }).pageId,
+        title,
+        'user',
+      );
+
+      if (!page) {
+        return { ok: false, errorCode: 'PAGE_NOT_FOUND' };
+      }
+
+      return { ok: true, title: page.title };
+    } catch (error) {
+      console.error('保存标题失败：', error);
+      return { ok: false, errorCode: 'SAVE_FAILED' };
+    }
+  });
+
+  ipcMain.handle(TITLE_CHANNELS.generate, async (_event, payload: unknown) => {
+    if (!titleService) {
+      return { ok: false, errorCode: 'CONFIG_FAILED' };
+    }
+
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      Array.isArray(payload) ||
+      !Number.isInteger((payload as { pageId?: unknown }).pageId) ||
+      ((payload as { pageId?: number }).pageId ?? 0) <= 0
+    ) {
+      return { ok: false, errorCode: 'INVALID_PAGE_ID' };
+    }
+
+    try {
+      return await titleService.generate(
+        (payload as { pageId: number }).pageId,
+      );
+    } catch (error) {
+      console.error('生成标题失败：', error);
+      return { ok: false, errorCode: 'CONFIG_FAILED' };
+    }
+  });
 };

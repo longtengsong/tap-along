@@ -434,7 +434,11 @@ test('IPC 注册应暴露保存和读取通道', () => {
 
   assert.deepEqual(
     new Set(handlers.keys()),
-    new Set(Object.values(PAGE_CHANNELS)),
+    new Set([
+      ...Object.values(PAGE_CHANNELS),
+      TITLE_CHANNELS.generate,
+      TITLE_CHANNELS.update,
+    ]),
   );
   assert.deepEqual(handlers.get(PAGE_CHANNELS.save)(null, { body: '笔记' }), {
     ok: true,
@@ -593,4 +597,203 @@ test('保存失败或窗口已销毁时不应触发标题生成', async () => {
   );
 
   assert.equal(triggered, 0);
+});
+
+test('标题生成通道应校验参数并返回结果', async () => {
+  const handlers = new Map();
+  const ipcMain = {
+    handle(channel, handler) {
+      handlers.set(channel, handler);
+    },
+  };
+  const repository = {
+    create: () => samplePage,
+    findById: () => samplePage,
+    listRecentReading: () => [],
+    listClosed: () => [],
+    appendText: () => ({ ok: true, page: samplePage }),
+    editText: () => ({ ok: true, page: samplePage }),
+    closePage: () => ({ ok: true, page: samplePage }),
+    clearAll: () => 0,
+  };
+  const titleService = {
+    run: () => Promise.resolve(),
+    generate: async (pageId) => ({ ok: true, title: `标题-${pageId}` }),
+  };
+
+  registerPageHandlers(ipcMain, repository, undefined, titleService);
+
+  assert.deepEqual(
+    await handlers.get(TITLE_CHANNELS.generate)(null, { pageId: 2 }),
+    {
+      ok: true,
+      title: '标题-2',
+    },
+  );
+  assert.deepEqual(
+    await handlers.get(TITLE_CHANNELS.generate)(null, { pageId: 0 }),
+    {
+      ok: false,
+      errorCode: 'INVALID_PAGE_ID',
+    },
+  );
+  assert.deepEqual(await handlers.get(TITLE_CHANNELS.generate)(null, null), {
+    ok: false,
+    errorCode: 'INVALID_PAGE_ID',
+  });
+  assert.deepEqual(
+    await handlers.get(TITLE_CHANNELS.generate)(null, { pageId: 1.5 }),
+    { ok: false, errorCode: 'INVALID_PAGE_ID' },
+  );
+});
+
+test('没有标题服务时生成通道应返回受控错误', async () => {
+  const handlers = new Map();
+  const ipcMain = {
+    handle(channel, handler) {
+      handlers.set(channel, handler);
+    },
+  };
+  const repository = {
+    create: () => samplePage,
+    findById: () => samplePage,
+    listRecentReading: () => [],
+    listClosed: () => [],
+    appendText: () => ({ ok: true, page: samplePage }),
+    editText: () => ({ ok: true, page: samplePage }),
+    closePage: () => ({ ok: true, page: samplePage }),
+    clearAll: () => 0,
+  };
+
+  registerPageHandlers(ipcMain, repository);
+
+  assert.deepEqual(
+    await handlers.get(TITLE_CHANNELS.generate)(null, { pageId: 1 }),
+    { ok: false, errorCode: 'CONFIG_FAILED' },
+  );
+});
+
+test('标题生成抛出异常时应返回受控错误而不是让 invoke 拒绝', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  const handlers = new Map();
+  const ipcMain = {
+    handle(channel, handler) {
+      handlers.set(channel, handler);
+    },
+  };
+  const repository = {
+    create: () => samplePage,
+    findById: () => samplePage,
+    listRecentReading: () => [],
+    listClosed: () => [],
+    appendText: () => ({ ok: true, page: samplePage }),
+    editText: () => ({ ok: true, page: samplePage }),
+    closePage: () => ({ ok: true, page: samplePage }),
+    clearAll: () => 0,
+  };
+  const titleService = {
+    run: () => Promise.resolve(),
+    generate: () => Promise.reject(new Error('db down')),
+  };
+
+  registerPageHandlers(ipcMain, repository, undefined, titleService);
+
+  assert.deepEqual(
+    await handlers.get(TITLE_CHANNELS.generate)(null, { pageId: 1 }),
+    { ok: false, errorCode: 'CONFIG_FAILED' },
+  );
+});
+
+test('手动改标题应校验输入并标记为用户标题', async () => {
+  const handlers = new Map();
+  const ipcMain = {
+    handle(channel, handler) {
+      handlers.set(channel, handler);
+    },
+  };
+  const calls = [];
+  const repository = {
+    create: () => samplePage,
+    findById: () => samplePage,
+    listRecentReading: () => [],
+    listClosed: () => [],
+    appendText: () => ({ ok: true, page: samplePage }),
+    editText: () => ({ ok: true, page: samplePage }),
+    closePage: () => ({ ok: true, page: samplePage }),
+    clearAll: () => 0,
+    updateTitle(pageId, title, source) {
+      calls.push({ pageId, title, source });
+      return { ...samplePage, title: title.trim() };
+    },
+  };
+
+  registerPageHandlers(ipcMain, repository);
+
+  assert.deepEqual(
+    await handlers.get(TITLE_CHANNELS.update)(null, {
+      pageId: 1,
+      title: '  注意力与分配  ',
+    }),
+    { ok: true, title: '注意力与分配' },
+  );
+  assert.deepEqual(calls, [
+    { pageId: 1, title: '  注意力与分配  ', source: 'user' },
+  ]);
+
+  for (const payload of [
+    null,
+    {},
+    { pageId: 0, title: '标题' },
+    { pageId: 1.5, title: '标题' },
+    { pageId: 1, title: '   ' },
+    { pageId: 1, title: 42 },
+  ]) {
+    const result = await handlers.get(TITLE_CHANNELS.update)(null, payload);
+    assert.equal(result.ok, false);
+    assert.ok(
+      result.errorCode === 'INVALID_PAGE_ID' ||
+        result.errorCode === 'INVALID_BODY',
+    );
+  }
+});
+
+test('手动改标题应在页面不存在或写入异常时返回受控错误', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  const handlers = new Map();
+  const ipcMain = {
+    handle(channel, handler) {
+      handlers.set(channel, handler);
+    },
+  };
+  const repository = {
+    create: () => samplePage,
+    findById: () => samplePage,
+    listRecentReading: () => [],
+    listClosed: () => [],
+    appendText: () => ({ ok: true, page: samplePage }),
+    editText: () => ({ ok: true, page: samplePage }),
+    closePage: () => ({ ok: true, page: samplePage }),
+    clearAll: () => 0,
+    updateTitle: () => null,
+  };
+
+  registerPageHandlers(ipcMain, repository);
+  assert.deepEqual(
+    await handlers.get(TITLE_CHANNELS.update)(null, {
+      pageId: 9,
+      title: '标题',
+    }),
+    { ok: false, errorCode: 'PAGE_NOT_FOUND' },
+  );
+
+  repository.updateTitle = () => {
+    throw new Error('db down');
+  };
+  assert.deepEqual(
+    await handlers.get(TITLE_CHANNELS.update)(null, {
+      pageId: 1,
+      title: '标题',
+    }),
+    { ok: false, errorCode: 'SAVE_FAILED' },
+  );
 });

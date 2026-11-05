@@ -40,6 +40,8 @@ export interface PageMessageSnapshot {
 export interface PageSnapshot {
   id: number;
   title: string;
+  /** 手动编辑过的标题不会被自动生成覆盖。 */
+  titleSource?: 'model' | 'user';
   body: string;
   source: string;
   status: PageLifecycleStatus;
@@ -107,11 +109,34 @@ export const PAGE_CHANNELS = {
 
 export const TITLE_CHANNELS = {
   updated: 'title:updated',
+  generate: 'title:generate',
+  update: 'title:update',
 } as const;
 
 export interface PageTitleUpdatedEvent {
   pageId: number;
   title: string;
+}
+
+export interface GeneratePageTitlePayload {
+  pageId: number;
+}
+
+export interface GeneratePageTitleResult {
+  ok: boolean;
+  title?: string;
+  errorCode?: AppErrorCode;
+}
+
+export interface UpdatePageTitlePayload {
+  pageId: number;
+  title: string;
+}
+
+export interface UpdatePageTitleResult {
+  ok: boolean;
+  title?: string;
+  errorCode?: AppErrorCode;
 }
 
 export interface TeacherAskPayload {
@@ -224,6 +249,12 @@ export interface TapAlongBridge
   onPageTitleUpdated?: (
     callback: (event: PageTitleUpdatedEvent) => void,
   ) => () => void;
+  generatePageTitle?: (
+    payload: GeneratePageTitlePayload,
+  ) => Promise<GeneratePageTitleResult>;
+  updatePageTitle?: (
+    payload: UpdatePageTitlePayload,
+  ) => Promise<UpdatePageTitleResult>;
   askTeacher?: (payload: TeacherAskPayload) => Promise<TeacherStartResult>;
   resumeTeacher?: (
     payload: TeacherResumePayload,

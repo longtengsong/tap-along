@@ -30,6 +30,8 @@ const {
   state,
   currentPage,
   retryableTurn,
+  canGenerateTitle,
+  canEditTitle,
   canGoBack,
   stackIsDeep,
   submitNewPage,
@@ -52,6 +54,10 @@ const {
   retrySave,
   retryTeacher,
   retryTurn,
+  generateTitle,
+  startTitleEdit,
+  cancelTitleEdit,
+  saveTitleEdit,
   answerWithoutSearch,
   cancelTeacher,
   canCancelTeacher,
@@ -248,6 +254,8 @@ onMounted(async () => {
         :can-cancel="canCancelTeacher"
         :cancelling="state.cancelling"
         :retryable-turn="retryableTurn"
+        :can-generate-title="canGenerateTitle"
+        :can-edit-title="canEditTitle"
         @back="goBack"
         @archive="openArchive"
         @settings="openSettings"
@@ -261,6 +269,10 @@ onMounted(async () => {
         @use-guidance="useGuidanceSuggestion"
         @retry-guidance="retryGuidance"
         @retry-turn="retryTurn"
+        @generate-title="generateTitle"
+        @start-title-edit="startTitleEdit"
+        @cancel-title-edit="cancelTitleEdit"
+        @save-title-edit="saveTitleEdit"
         @toggle-say-more="state.sayMoreOpen = !state.sayMoreOpen"
         @edit="startEditing"
         @append="startAppending"

@@ -631,3 +631,29 @@ test('标题更新应写入题眼且清空后保留正文', async (t) => {
   assert.equal(repository.updateTitle(9999, '标题'), null);
   assert.equal(repository.updateTitle(0, '标题'), null);
 });
+
+test('手动标题应在改批注后保留，模型标题仍会重置', async (t) => {
+  const { repository } = await createRepository(t);
+  const page = repository.create('注意力像带宽。', '课程');
+
+  const updated = repository.updateTitle(page.id, '我自己的标题', 'user');
+  assert.equal(updated.title, '我自己的标题');
+  assert.equal(updated.titleSource, 'user');
+  assert.equal(repository.findById(page.id).titleSource, 'user');
+
+  const edited = repository.editText(page.id, '改过的正文。', 'edit-1');
+  assert.equal(edited.ok, true);
+  assert.equal(edited.page.title, '我自己的标题');
+  assert.equal(edited.page.titleSource, 'user');
+
+  const modelPage = repository.create('另一条正文。', '课程');
+  repository.updateTitle(modelPage.id, '模型标题');
+  const modelEdited = repository.editText(
+    modelPage.id,
+    '另一条改过的正文。',
+    'edit-2',
+  );
+  assert.equal(modelEdited.ok, true);
+  assert.equal(modelEdited.page.title, '另一条改过的正文。');
+  assert.equal(modelEdited.page.titleSource, undefined);
+});

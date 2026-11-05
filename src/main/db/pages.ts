@@ -16,6 +16,7 @@ import type {
 interface PageRow {
   id: number;
   edge_title: string | null;
+  title_source: string | null;
   body: string;
   source: string | null;
   parse_status: ParseStatus;
@@ -224,6 +225,7 @@ const mapPageRow = (row: PageRow): PageSnapshot => {
   return {
     id: row.id,
     title: row.edge_title?.trim() || deriveFallbackTitle(row.body),
+    ...(row.title_source === 'user' ? { titleSource: 'user' as const } : {}),
     body: row.body,
     source: row.source ?? '',
     status: PAGE_STATUSES.has(row.page_status) ? row.page_status : 'reading',
@@ -252,6 +254,7 @@ export class PagesRepository {
   private readonly updateLogAndRoundStatement;
   private readonly updateBodyAndLogStatement;
   private readonly updateEditedBodyStatement;
+  private readonly updateEditedBodyKeepTitleStatement;
   private readonly updateGuidanceStatement;
   private readonly updateGuidanceAndLogStatement;
   private readonly updateTitleStatement;
@@ -280,6 +283,7 @@ export class PagesRepository {
       SELECT
         id,
         edge_title,
+        title_source,
         body,
         source,
         parse_status,
@@ -294,6 +298,7 @@ export class PagesRepository {
       SELECT
         id,
         edge_title,
+        title_source,
         body,
         source,
         parse_status,
@@ -311,6 +316,7 @@ export class PagesRepository {
       SELECT
         id,
         edge_title,
+        title_source,
         body,
         source,
         parse_status,
@@ -328,6 +334,7 @@ export class PagesRepository {
       SELECT
         id,
         edge_title,
+        title_source,
         body,
         source,
         parse_status,
@@ -360,6 +367,17 @@ export class PagesRepository {
       UPDATE pages
       SET body = ?,
           edge_title = NULL,
+          title_source = NULL,
+          parse_status = 'pending',
+          companion_log = ?,
+          guidance = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    // 用户手动起过名时，改正文不丢标题。
+    this.updateEditedBodyKeepTitleStatement = this.db.prepare(`
+      UPDATE pages
+      SET body = ?,
           parse_status = 'pending',
           companion_log = ?,
           guidance = NULL,
@@ -376,10 +394,10 @@ export class PagesRepository {
       SET guidance = ?, companion_log = ?
       WHERE id = ?
     `);
-    // 标题由模型异步补写；不改 updated_at，避免标题更新把旧页顶到最前。
+    // 标题由模型异步生成；不改 updated_at，避免标题更新把旧页顶到最前。
     this.updateTitleStatement = this.db.prepare(`
       UPDATE pages
-      SET edge_title = ?
+      SET edge_title = ?, title_source = ?
       WHERE id = ?
     `);
     this.listRetrievalStatement = this.db.prepare(`
@@ -1063,11 +1081,11 @@ export class PagesRepository {
         },
       ];
 
-      this.updateEditedBodyStatement.run(
-        normalizedBody,
-        JSON.stringify(messages),
-        pageId,
-      );
+      const updateStatement =
+        page.titleSource === 'user'
+          ? this.updateEditedBodyKeepTitleStatement
+          : this.updateEditedBodyStatement;
+      updateStatement.run(normalizedBody, JSON.stringify(messages), pageId);
       this.replaceFtsIndex(pageId, normalizedBody, page.source);
 
       const updatedPage = this.findById(pageId);
@@ -1079,7 +1097,11 @@ export class PagesRepository {
     });
   }
 
-  updateTitle(pageId: number, title: string): PageSnapshot | null {
+  updateTitle(
+    pageId: number,
+    title: string,
+    source: 'model' | 'user' = 'model',
+  ): PageSnapshot | null {
     if (!Number.isInteger(pageId) || pageId <= 0) {
       return null;
     }
@@ -1090,7 +1112,7 @@ export class PagesRepository {
       return null;
     }
 
-    this.updateTitleStatement.run(normalized, pageId);
+    this.updateTitleStatement.run(normalized, source, pageId);
     return this.findById(pageId);
   }
 

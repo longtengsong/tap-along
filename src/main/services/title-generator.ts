@@ -1,11 +1,14 @@
-import { buildTitleMessages } from '../prompts/title.ts';
+import {
+  buildTitleMessages,
+  type TitlePromptOptions,
+} from '../prompts/title.ts';
 import type { StructuredCompletion } from './structured-completion.ts';
 
 /** 存储上限的前置约束；比提示词里的 20 字稍宽松，留给英文标题。 */
 export const MAX_TITLE_LENGTH = 28;
 
 export interface TitleGenerator {
-  generate(body: string): Promise<string>;
+  generate(body: string, options?: TitlePromptOptions): Promise<string>;
 }
 
 const stripWrapping = (value: string) => {
@@ -47,11 +50,17 @@ export class ModelTitleGenerator implements TitleGenerator {
     this.completion = completion;
   }
 
-  async generate(body: string): Promise<string> {
-    const content = await this.completion.complete(buildTitleMessages(body), {
-      maxTokens: 64,
-      timeoutMs: 8_000,
-    });
+  async generate(
+    body: string,
+    options: TitlePromptOptions = {},
+  ): Promise<string> {
+    const content = await this.completion.complete(
+      buildTitleMessages(body, options),
+      {
+        maxTokens: 64,
+        timeoutMs: 8_000,
+      },
+    );
 
     return normalizeTitle(content);
   }

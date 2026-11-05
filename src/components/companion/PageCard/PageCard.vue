@@ -6,12 +6,18 @@ import type { PageRecord } from '@/types/session';
 
 defineProps<{
   page: PageRecord;
+  canGenerateTitle?: boolean;
+  canEditTitle?: boolean;
 }>();
 
 const emit = defineEmits<{
   'update-edit-draft': [value: string];
   saveEdit: [];
   cancelEdit: [];
+  generateTitle: [];
+  startTitleEdit: [];
+  cancelTitleEdit: [];
+  saveTitleEdit: [value: string];
 }>();
 </script>
 
@@ -21,6 +27,16 @@ const emit = defineEmits<{
       :title="page.title"
       :source="page.source"
       :status="page.status"
+      :can-generate="canGenerateTitle && !page.editing"
+      :generating="page.titleGenerating"
+      :can-edit="canEditTitle && !page.editing"
+      :editing="page.titleEditing"
+      :saving="page.titleSaving"
+      :error="page.titleError"
+      @generate-title="emit('generateTitle')"
+      @start-edit="emit('startTitleEdit')"
+      @cancel-edit="emit('cancelTitleEdit')"
+      @save-edit="emit('saveTitleEdit', $event)"
     />
     <PageCardEditMode
       v-if="page.editing"

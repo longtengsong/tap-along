@@ -48,6 +48,10 @@ export interface PageRecord {
   editDraft: string;
   historyOpen: boolean;
   suggestClose: boolean;
+  titleGenerating?: boolean;
+  titleEditing?: boolean;
+  titleSaving?: boolean;
+  titleError?: string;
 }
 
 export interface PageDraft {
