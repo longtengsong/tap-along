@@ -29,6 +29,7 @@ const ONBOARDING_STORAGE_KEY = 'tap-along:onboarding-done';
 const {
   state,
   currentPage,
+  retryableTurn,
   canGoBack,
   stackIsDeep,
   submitNewPage,
@@ -50,6 +51,8 @@ const {
   toggleHistory,
   retrySave,
   retryTeacher,
+  retryTurn,
+  answerWithoutSearch,
   cancelTeacher,
   canCancelTeacher,
   clearConversationData,
@@ -149,7 +152,9 @@ const closeSettings = async () => {
 };
 
 const openModelSettings = () => {
-  settingsInitialTab.value = 'model';
+  settingsInitialTab.value = String(state.errorCode ?? '').startsWith('SEARCH_')
+    ? 'search'
+    : 'model';
   settingsOpen.value = true;
 };
 
@@ -242,6 +247,7 @@ onMounted(async () => {
         :say-more-open="state.sayMoreOpen"
         :can-cancel="canCancelTeacher"
         :cancelling="state.cancelling"
+        :retryable-turn="retryableTurn"
         @back="goBack"
         @archive="openArchive"
         @settings="openSettings"
@@ -254,6 +260,7 @@ onMounted(async () => {
         @cancel-teacher="cancelTeacher"
         @use-guidance="useGuidanceSuggestion"
         @retry-guidance="retryGuidance"
+        @retry-turn="retryTurn"
         @toggle-say-more="state.sayMoreOpen = !state.sayMoreOpen"
         @edit="startEditing"
         @append="startAppending"
@@ -268,6 +275,7 @@ onMounted(async () => {
       @back-to-edit="dismissOverlay"
       @retry-save="retrySave"
       @retry-teacher="retryTeacher"
+      @answer-without-search="answerWithoutSearch"
       @open-settings="openModelSettings"
     />
 

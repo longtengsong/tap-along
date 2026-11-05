@@ -5,7 +5,9 @@ import {
   WebSearchService,
 } from '../src/main/services/web-search.ts';
 
-const configService = (result = { ok: true, apiKey: 'tvly-key' }) => ({
+const configService = (
+  result = { ok: true, provider: 'tavily', apiKey: 'tvly-key' },
+) => ({
   resolve: async () => result,
 });
 
@@ -272,5 +274,165 @@ test('连接测试应成功、失败和超时都有结果', async (t) => {
       ok: false,
       errorCode: 'SEARCH_TIMEOUT',
     });
+  });
+});
+
+const deepseekResult = (overrides = {}) => ({
+  title: 'DeepSeek 文档',
+  url: 'https://api-docs.deepseek.com/zh-cn/guides/search',
+  snippet: '短摘要。',
+  summary: '长摘要，通常 600 到 800 字。',
+  content: '',
+  date: '2026-10-17T00:00:00+00:00',
+  authority: 3,
+  rerank_score: 2.4,
+  ...overrides,
+});
+
+const deepseekResponse = (results, status = 200) => ({
+  ok: status >= 200 && status < 300,
+  status,
+  json: async () => ({ results }),
+});
+
+test('DeepSeek 检索应映射 summary、date、authority 和 rerank_score', async () => {
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push({ url, body: JSON.parse(init.body) });
+    return deepseekResponse([
+      deepseekResult(),
+      deepseekResult({
+        title: '论坛',
+        url: 'https://zhihu.com/question/1',
+        authority: 1,
+        rerank_score: 0.4,
+        date: null,
+      }),
+    ]);
+  };
+  const service = new WebSearchService({
+    configService: configService({
+      ok: true,
+      provider: 'deepseek',
+      apiKey: 'ds-key',
+    }),
+    fetchImpl,
+  });
+  const evidence = await service.search(['DeepSeek 搜索 API']);
+
+  assert.equal(calls[0].url, 'https://api.deepseek.com/v1/tools/search');
+  assert.deepEqual(calls[0].body.query, 'DeepSeek 搜索 API');
+  assert.equal(evidence.length, 2);
+  assert.equal(evidence[0].snippet, '长摘要，通常 600 到 800 字。');
+  assert.equal(evidence[0].source.publishedAt, '2026-10-17T00:00:00+00:00');
+  assert.equal(evidence[1].source.domain, 'zhihu.com');
+});
+
+test('DeepSeek 余额不足、鉴权失败应映射为受控错误码', async (t) => {
+  const cases = [
+    [402, 'SEARCH_INSUFFICIENT_BALANCE'],
+    [401, 'SEARCH_UNAUTHORIZED'],
+    [429, 'SEARCH_RATE_LIMITED'],
+  ];
+
+  for (const [status, errorCode] of cases) {
+    await t.test(String(status), async () => {
+      const service = new WebSearchService({
+        configService: configService({
+          ok: true,
+          provider: 'deepseek',
+          apiKey: 'ds-key',
+        }),
+        fetchImpl: async () => deepseekResponse([], status),
+      });
+      await assert.rejects(
+        () => service.search(['query']),
+        (error) => error.errorCode === errorCode,
+      );
+    });
+  }
+});
+
+test('DeepSeek 失败时应回退到 Tavily', async () => {
+  const urls = [];
+  const fetchImpl = async (url) => {
+    urls.push(url);
+
+    if (url.includes('/v1/tools/search')) {
+      return deepseekResponse([], 429);
+    }
+
+    return response([result()]);
+  };
+  const service = new WebSearchService({
+    configService: configService({
+      ok: true,
+      provider: 'deepseek',
+      apiKey: 'ds-key',
+      fallback: { provider: 'tavily', apiKey: 'tvly-key' },
+    }),
+    fetchImpl,
+  });
+  const evidence = await service.search(['query']);
+
+  assert.deepEqual(urls, [
+    'https://api.deepseek.com/v1/tools/search',
+    'https://api.tavily.com/search',
+  ]);
+  assert.equal(evidence.length, 1);
+});
+
+test('回退未配置或调用方取消时不应触发 Tavily', async (t) => {
+  await t.test('没有回退配置', async () => {
+    const service = new WebSearchService({
+      configService: configService({
+        ok: true,
+        provider: 'deepseek',
+        apiKey: 'ds-key',
+      }),
+      fetchImpl: async () => deepseekResponse([], 500),
+    });
+    await assert.rejects(
+      () => service.search(['query']),
+      (error) => error.errorCode === 'SEARCH_REQUEST_FAILED',
+    );
+  });
+
+  await t.test('原因为空结果', async () => {
+    const service = new WebSearchService({
+      configService: configService({
+        ok: true,
+        provider: 'deepseek',
+        apiKey: 'ds-key',
+        fallback: { provider: 'tavily', apiKey: 'tvly-key' },
+      }),
+      fetchImpl: async () => deepseekResponse([]),
+    });
+    await assert.rejects(
+      () => service.search(['query']),
+      (error) => error.errorCode === 'SEARCH_NO_RESULTS',
+    );
+  });
+
+  await t.test('调用方取消', async () => {
+    const controller = new AbortController();
+    const service = new WebSearchService({
+      configService: configService({
+        ok: true,
+        provider: 'deepseek',
+        apiKey: 'ds-key',
+        fallback: { provider: 'tavily', apiKey: 'tvly-key' },
+      }),
+      fetchImpl: async () => {
+        controller.abort();
+        const error = new Error('aborted');
+        error.name = 'AbortError';
+        throw error;
+      },
+    });
+    await assert.rejects(
+      () => service.search(['query'], controller.signal),
+      (error) => error.name === 'AbortError',
+    );
   });
 });

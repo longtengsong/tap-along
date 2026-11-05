@@ -231,6 +231,12 @@ if (!hasSingleInstanceLock) {
           write: (settings) => settingsStore.set('webSearch', settings),
         },
         new ElectronSecretCipher(),
+        {
+          deepseekKeyProvider: async () => {
+            const resolved = await providerService.resolve('deepseek');
+            return resolved.ok ? resolved.config.apiKey : null;
+          },
+        },
       );
       const webSearchService = new WebSearchService({
         configService: searchConfigService,

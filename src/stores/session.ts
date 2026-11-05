@@ -1,4 +1,4 @@
-import { computed, reactive, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { extractKeyword, tapAlongApi } from '@/api/tap-along';
 import { i18n } from '@/i18n';
 import { translateFixedMessage } from '@/i18n/fixed-messages';
@@ -30,6 +30,7 @@ import type {
   OverlayState,
   PageDraft,
   PageRecord,
+  RetryableTurn,
   TalkMessage,
 } from '@/types/session';
 
@@ -64,9 +65,18 @@ interface PendingTeacherRequest {
   userText?: string;
   contextPageId?: number;
   maintenanceKind?: 'edit' | 'append';
+  skipResearch?: boolean;
 }
 
 let pendingTeacherRequest: PendingTeacherRequest | null = null;
+
+/** 最近一次失败的提问，用于只在对应消息下展示失败原因。 */
+const failedTurn = ref<{
+  pageId: number;
+  requestId: string;
+  errorCode: AppErrorCode;
+} | null>(null);
+
 let pendingAppendRequest: AppendPagePayload | null = null;
 let pendingEditRequest: EditPagePayload | null = null;
 let pendingCloseRequest: ClosePagePayload | null = null;
@@ -184,6 +194,7 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
       page.pendingGuidanceRefresh = false;
     }
 
+    failedTurn.value = null;
     state.typing = false;
     state.cancelling = false;
     state.teacherRequestActive = false;
@@ -198,13 +209,18 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
 
     if (failedPage) {
       failedPage.pendingGuidanceRefresh = false;
+      // 失败时丢掉已经流出的半截回答，重试从头再来。
+      failedPage.messages = failedPage.messages.filter(
+        (item) => item.id !== pending.tempMessageId,
+      );
     }
 
-    state.typing = false;
-    state.cancelling = false;
-    state.teacherRequestActive = false;
-    state.overlay = 'teacher-no-response';
-    state.errorCode = event.errorCode ?? 'TEACHER_NO_RESPONSE';
+    failedTurn.value = {
+      pageId: event.pageId,
+      requestId: event.requestId,
+      errorCode: event.errorCode ?? 'TEACHER_NO_RESPONSE',
+    };
+    markTeacherFailure(event.errorCode ?? 'TEACHER_NO_RESPONSE');
     return;
   }
 
@@ -230,6 +246,7 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
     streamedMessage.mode = event.mode;
     streamedMessage.sources = event.sources;
     streamedMessage.citationStatus = event.citationStatus;
+    streamedMessage.researchSkipped = event.researchSkipped;
   } else {
     page.messages.push({
       ...message(
@@ -242,6 +259,7 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
       ...(event.mode ? { mode: event.mode } : {}),
       ...(event.sources ? { sources: event.sources } : {}),
       ...(event.citationStatus ? { citationStatus: event.citationStatus } : {}),
+      ...(event.researchSkipped ? { researchSkipped: true } : {}),
     });
   }
 
@@ -258,6 +276,7 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
   state.overlay = null;
   state.errorCode = null;
   pendingTeacherRequest = null;
+  failedTurn.value = null;
 
   if (shouldRefreshGuidance && page.status === 'reading') {
     void refreshGuidance(page);
@@ -330,6 +349,73 @@ const restoreLatestPage = async () => {
 };
 
 const currentPage = computed(() => state.pages[state.currentIndex] ?? null);
+
+const lastUserMessageIndex = (page: PageRecord) => {
+  for (let index = page.messages.length - 1; index >= 0; index -= 1) {
+    if (page.messages[index].role === 'user') {
+      return index;
+    }
+  }
+
+  return -1;
+};
+
+/**
+ * 最后一条提问还没有任何回应（或被取消、中断、应用重启）时，
+ * 允许用户直接重试这一轮；重试复用原来的 requestId，不会重复写入提问。
+ */
+const retryableTurn = computed<RetryableTurn | null>(() => {
+  const page = currentPage.value;
+
+  if (!page || state.typing || state.teacherRequestActive) {
+    return null;
+  }
+
+  if (page.status !== 'reading') {
+    return null;
+  }
+
+  if (!tapAlongApi.supportsTeacherStreaming()) {
+    return null;
+  }
+
+  if (
+    state.overlay === 'teacher-no-response' ||
+    state.overlay === 'search-unavailable'
+  ) {
+    // 覆盖层自己带重试入口，避免同时出现两套按钮。
+    return null;
+  }
+
+  const index = lastUserMessageIndex(page);
+
+  if (index < 0) {
+    return null;
+  }
+
+  const target = page.messages[index];
+
+  if (!target.requestId) {
+    return null;
+  }
+
+  if (page.messages.slice(index + 1).some((item) => item.role === 'teacher')) {
+    return null;
+  }
+
+  const failure = failedTurn.value;
+
+  return {
+    pageId: page.id,
+    messageId: target.id,
+    errorCode:
+      failure &&
+      failure.pageId === page.id &&
+      failure.requestId === target.requestId
+        ? failure.errorCode
+        : null,
+  };
+});
 
 const canGoBack = computed(
   () =>
@@ -511,7 +597,10 @@ const markTeacherFailure = (
   state.typing = false;
   state.cancelling = false;
   state.teacherRequestActive = false;
-  state.overlay = 'teacher-no-response';
+  state.overlay =
+    errorCode === 'SEARCH_NOT_CONFIGURED' || errorCode === 'SEARCH_DISABLED'
+      ? 'search-unavailable'
+      : 'teacher-no-response';
   state.errorCode = errorCode;
 };
 
@@ -540,13 +629,24 @@ const startTeacherRequest = async (pending: PendingTeacherRequest) => {
         pageId: pending.pageId,
         userText: pending.userText ?? '',
         requestId: pending.requestId,
+        ...(pending.skipResearch ? { skipResearch: true } : {}),
       });
     }
 
     if (!response.ok) {
+      failedTurn.value = {
+        pageId: pending.pageId,
+        requestId: pending.requestId,
+        errorCode: response.errorCode ?? 'TEACHER_NO_RESPONSE',
+      };
       markTeacherFailure(response.errorCode);
     }
   } catch {
+    failedTurn.value = {
+      pageId: pending.pageId,
+      requestId: pending.requestId,
+      errorCode: 'TEACHER_NO_RESPONSE',
+    };
     markTeacherFailure();
   }
 };
@@ -608,7 +708,8 @@ const sendReply = async () => {
 
   const requestId = createId();
   const userMessageId = `user-${requestId}`;
-  page.messages.push(message('user', text, false, userMessageId));
+  page.messages.push(message('user', text, false, userMessageId, requestId));
+  failedTurn.value = null;
   state.replyDraft = '';
   state.typing = true;
   state.cancelling = false;
@@ -733,6 +834,74 @@ const retryTeacher = async () => {
   state.cancelling = false;
   state.teacherRequestActive = false;
   await startTeacherRequest(pending);
+};
+
+const answerWithoutSearch = async () => {
+  const pending = pendingTeacherRequest;
+
+  if (!pending || pending.kind !== 'ask') {
+    state.overlay = null;
+    state.errorCode = null;
+    return;
+  }
+
+  const page = findPage(pending.pageId);
+  const streamedMessage = page?.messages.find(
+    (item) => item.id === pending.tempMessageId,
+  );
+
+  if (streamedMessage) {
+    streamedMessage.text = '';
+  }
+
+  pending.skipResearch = true;
+  state.overlay = null;
+  state.errorCode = null;
+  state.typing = true;
+  state.cancelling = false;
+  state.teacherRequestActive = false;
+  await startTeacherRequest(pending);
+};
+
+const retryTurn = async () => {
+  const page = currentPage.value;
+
+  if (!page || state.typing || state.teacherRequestActive) {
+    return;
+  }
+
+  if (page.status !== 'reading') {
+    return;
+  }
+
+  const index = lastUserMessageIndex(page);
+  const target = index >= 0 ? page.messages[index] : null;
+
+  if (!target?.requestId) {
+    return;
+  }
+
+  const existing = pendingTeacherRequest;
+  const request: PendingTeacherRequest =
+    existing &&
+    existing.pageId === page.id &&
+    existing.requestId === target.requestId
+      ? existing
+      : {
+          kind: 'ask',
+          pageId: page.id,
+          userText: target.text,
+          requestId: target.requestId,
+          tempMessageId: `teacher-${target.requestId}`,
+        };
+
+  pendingTeacherRequest = request;
+  state.overlay = null;
+  state.errorCode = null;
+  state.typing = true;
+  state.cancelling = false;
+  state.teacherRequestActive = false;
+  await startTeacherRequest(request);
 };
 
 const cancelTeacher = async () => {
@@ -1295,6 +1464,7 @@ export const useSessionStore = () => {
   return {
     state,
     currentPage,
+    retryableTurn,
     canGoBack,
     stackIsDeep,
     submitNewPage,
@@ -1316,6 +1486,8 @@ export const useSessionStore = () => {
     toggleHistory,
     retrySave,
     retryTeacher,
+    retryTurn,
+    answerWithoutSearch,
     cancelTeacher,
     canCancelTeacher,
     clearConversationData,

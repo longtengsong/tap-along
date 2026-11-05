@@ -2,17 +2,19 @@
 import { nextTick, ref, watch } from 'vue';
 import MessageList from '@/components/companion/TalkStream/MessageList.vue';
 import TypingIndicator from '@/components/ui/TypingIndicator.vue';
-import type { TalkMessage } from '@/types/session';
+import type { RetryableTurn, TalkMessage } from '@/types/session';
 
 const props = defineProps<{
   messages: TalkMessage[];
   historyOpen: boolean;
   typing: boolean;
   developerMode: boolean;
+  retryableTurn?: RetryableTurn | null;
 }>();
 
 const emit = defineEmits<{
   toggleHistory: [];
+  retry: [];
 }>();
 
 const scroller = ref<HTMLElement | null>(null);
@@ -25,7 +27,12 @@ const scrollToBottom = async () => {
 };
 
 watch(
-  () => [props.messages.length, props.historyOpen, props.typing],
+  () => [
+    props.messages.length,
+    props.historyOpen,
+    props.typing,
+    props.retryableTurn,
+  ],
   scrollToBottom,
   { immediate: true },
 );
@@ -37,7 +44,9 @@ watch(
       :messages="messages"
       :history-open="historyOpen"
       :developer-mode="developerMode"
+      :retryable-turn="retryableTurn"
       @toggle-history="emit('toggleHistory')"
+      @retry="emit('retry')"
     />
     <TypingIndicator v-if="typing" />
   </div>

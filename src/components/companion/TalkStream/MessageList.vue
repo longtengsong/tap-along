@@ -1,20 +1,33 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import HistoryToggle from '@/components/ui/HistoryToggle.vue';
 import MaintenanceMessage from '@/components/companion/TalkStream/MaintenanceMessage.vue';
+import RetryNotice from '@/components/companion/TalkStream/RetryNotice.vue';
 import TeacherMessage from '@/components/companion/TalkStream/TeacherMessage.vue';
 import UserMessage from '@/components/companion/TalkStream/UserMessage.vue';
-import type { TalkMessage } from '@/types/session';
+import { ERROR_MESSAGE_KEYS } from '@/shared/errors';
+import type { RetryableTurn, TalkMessage } from '@/types/session';
 
 const props = defineProps<{
   messages: TalkMessage[];
   historyOpen: boolean;
   developerMode: boolean;
+  retryableTurn?: RetryableTurn | null;
 }>();
 
 const emit = defineEmits<{
   toggleHistory: [];
+  retry: [];
 }>();
+
+const { t } = useI18n();
+
+const retryMessage = computed(() =>
+  props.retryableTurn?.errorCode
+    ? t(ERROR_MESSAGE_KEYS[props.retryableTurn.errorCode])
+    : t('companion.noReply'),
+);
 
 const hasHistory = computed(() => props.messages.length > 4);
 
@@ -44,11 +57,18 @@ const visibleMessages = computed(() => {
         :request-id="item.requestId"
         :sources="item.sources"
         :citation-status="item.citationStatus"
+        :research-skipped="item.researchSkipped"
       />
       <UserMessage v-else-if="item.role === 'user'" :text="item.text" />
       <MaintenanceMessage v-else :text="item.text" />
     </template>
   </TransitionGroup>
+
+  <RetryNotice
+    v-if="retryableTurn"
+    :message="retryMessage"
+    @retry="emit('retry')"
+  />
 </template>
 
 <style scoped>

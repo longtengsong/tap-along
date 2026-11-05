@@ -29,12 +29,15 @@
     "saving": "正在记下……",
     "failed": "这个念头没记上。",
     "backToEdit": "回到这条",
-    "tryAgain": "再试一次"
+    "tryAgain": "再试一次",
+    "searchUnavailableHint": "可以在设置里重新开启检索；也可以这次先不查，直接基于已有知识回答。",
+    "answerWithoutSearch": "先不查，直接回答"
   },
   "companion": {
     "title": "伴读",
     "historyCollapsed": "前面聊过的",
     "historyExpanded": "收起前面聊过的",
+    "noReply": "这条还没有等到回应。",
     "inputPlaceholder": "写下你的想法……",
     "inputAria": "写下你的回应",
     "send": "落笔",
@@ -51,7 +54,8 @@
   },
   "research": {
     "sources": "来源",
-    "uncited": "这段回答没有标注来源，请谨慎参考。"
+    "uncited": "这段回答没有标注来源，请谨慎参考。",
+    "notOnline": "未联网 · 这次只基于已有知识回答。"
   },
   "guidance": {
     "pending": "正在旧念头里找能接住的线……",
@@ -133,10 +137,11 @@
     "invalidPromptProfile": "提示词配置格式无效，请检查字段和 JSON 结构。",
     "promptProfileTooLarge": "提示词配置过大，无法保存。",
     "teacherNoResponse": "伴读暂时没接上，要再试一次吗？",
-    "searchNotConfigured": "还没接上查资料的服务，请先在设置里填写检索 API Key。",
+    "searchNotConfigured": "当前没有可用的联网检索。可以先在设置里开启，或这次直接按已有知识回答。",
     "searchDisabled": "联网检索已关闭，请在设置里开启。",
     "searchUnauthorized": "检索服务的 API Key 无效或没有权限。",
     "searchRateLimited": "检索服务请求过于频繁，请稍后再试。",
+    "searchInsufficientBalance": "检索账户余额不足，请充值或改用 Tavily。",
     "searchTimeout": "检索超时，请稍后重试。",
     "searchNetworkError": "无法连接检索服务，请检查网络。",
     "searchRequestFailed": "检索服务没有完成这次请求，请稍后重试。",
@@ -299,11 +304,16 @@
     "testConnection": "测试连接",
     "connectionSuccess": "连接成功，模型可用。",
     "webSearch": "联网检索",
-    "webSearchHint": "查资料时使用的搜索服务，和模型供应商分开配置。",
+    "webSearchHint": "查资料时使用的搜索服务。默认复用 DeepSeek 模型 Key，Tavily 作为备选。",
     "webSearchEnabled": "启用联网检索",
     "webSearchEnabledHint": "关闭后，明确提问只会走伴读叩问，不会联网。",
-    "searchApiKey": "检索 API Key",
+    "deepseekSearchEnabled": "使用 DeepSeek 联网搜索",
+    "deepseekSearchHint": "复用已保存的 DeepSeek API Key 调用 Search API，按次计费（约 ¥0.005 / 次）。关闭后改用 Tavily。",
+    "deepseekReady": "已检测到 DeepSeek API Key，可以直接联网。",
+    "deepseekMissing": "还没有保存 DeepSeek API Key，联网会改用 Tavily（如果配置了）。",
+    "searchApiKey": "Tavily API Key（备选）",
     "searchApiKeyPlaceholder": "输入 Tavily API Key",
+    "searchChannelMissing": "当前没有可用的检索渠道。提问需要资料时会弹出提示，可以先去设置开启。",
     "searchPrivacyHint": "查资料时只发送问题中的关键词，不发送整段念头；Key 仅加密保存在主进程。",
     "searchConfigSaved": "联网检索配置已保存。",
     "searchKeyCleared": "联网检索 Key 已清除。",

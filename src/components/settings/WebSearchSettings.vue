@@ -11,6 +11,7 @@ const loading = ref(true);
 const saving = ref(false);
 const testing = ref(false);
 const enabled = ref(true);
+const deepseekEnabled = ref(true);
 const apiKey = ref('');
 const settings = ref<WebSearchSettingsView | null>(null);
 const message = ref('');
@@ -19,6 +20,7 @@ const error = ref('');
 const applySettings = (next: WebSearchSettingsView) => {
   settings.value = next;
   enabled.value = next.enabled;
+  deepseekEnabled.value = next.deepseekEnabled;
   apiKey.value = '';
 };
 
@@ -54,6 +56,7 @@ const save = async () => {
   try {
     const result = await searchApi.save({
       enabled: enabled.value,
+      deepseekEnabled: deepseekEnabled.value,
       ...(apiKey.value.trim() ? { apiKey: apiKey.value } : {}),
     });
 
@@ -146,10 +149,31 @@ onMounted(load);
         </span>
       </label>
 
+      <div class="search-channel">
+        <label class="search-toggle">
+          <input v-model="deepseekEnabled" type="checkbox" />
+          <span>
+            <strong>{{ t('settings.deepseekSearchEnabled') }}</strong>
+            <small>{{ t('settings.deepseekSearchHint') }}</small>
+          </span>
+        </label>
+        <p
+          v-if="settings"
+          class="search-feedback"
+          :class="{ 'search-feedback--missing': !settings.deepseekConfigured }"
+        >
+          {{
+            settings.deepseekConfigured
+              ? t('settings.deepseekReady')
+              : t('settings.deepseekMissing')
+          }}
+        </p>
+      </div>
+
       <label class="search-field">
         <span class="search-field__heading">
           <span>{{ t('settings.searchApiKey') }}</span>
-          <span v-if="settings?.configured" class="search-field__saved">
+          <span v-if="settings?.tavilyConfigured" class="search-field__saved">
             <span aria-hidden="true">✓</span>
             {{ t('settings.keySavedBadge') }}
           </span>
@@ -158,7 +182,7 @@ onMounted(load);
           v-model="apiKey"
           type="password"
           :placeholder="
-            settings?.configured
+            settings?.tavilyConfigured
               ? t('settings.apiKeySavedPlaceholder')
               : t('settings.searchApiKeyPlaceholder')
           "
@@ -167,6 +191,15 @@ onMounted(load);
         />
         <small>{{ t('settings.searchPrivacyHint') }}</small>
       </label>
+
+      <p
+        v-if="
+          settings && !settings.deepseekEnabled && !settings.tavilyConfigured
+        "
+        class="search-warning"
+      >
+        {{ t('settings.searchChannelMissing') }}
+      </p>
 
       <p
         v-if="settings && !settings.secureStorageAvailable"
@@ -190,7 +223,7 @@ onMounted(load);
           {{ t('settings.testConnection') }}
         </AppButton>
         <AppButton
-          v-if="settings?.configured"
+          v-if="settings?.tavilyConfigured"
           variant="text"
           :disabled="saving || testing"
           @click="clearKey"
@@ -239,12 +272,21 @@ onMounted(load);
   color: var(--ink-faint);
 }
 
+.search-feedback--missing {
+  color: var(--amber);
+}
+
 .search-warning {
   color: var(--amber);
 }
 
 .search-error {
   color: #96645a;
+}
+
+.search-channel {
+  display: grid;
+  gap: 6px;
 }
 
 .search-toggle {

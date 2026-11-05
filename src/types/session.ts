@@ -1,3 +1,4 @@
+import type { AppErrorCode } from '@/shared/errors';
 import type { GuidanceView } from '@/shared/guidance';
 import type { TeacherSource } from '@/shared/search';
 
@@ -5,7 +6,12 @@ export type PageStatus = 'reading' | 'closed' | 'saving' | 'failed';
 
 export type MessageRole = 'teacher' | 'user' | 'maintenance';
 
-export type OverlayState = 'saving' | 'failed' | 'teacher-no-response' | null;
+export type OverlayState =
+  | 'saving'
+  | 'failed'
+  | 'teacher-no-response'
+  | 'search-unavailable'
+  | null;
 
 export type ComposerMode = 'normal' | 'append';
 
@@ -18,6 +24,13 @@ export interface TalkMessage {
   mode?: 'reflect' | 'answer';
   sources?: TeacherSource[];
   citationStatus?: 'cited' | 'uncited';
+  researchSkipped?: boolean;
+}
+
+export interface RetryableTurn {
+  pageId: number;
+  messageId: string;
+  errorCode?: AppErrorCode | null;
 }
 
 export interface PageRecord {

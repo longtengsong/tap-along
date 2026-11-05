@@ -2,6 +2,7 @@ import type { AppErrorCode } from '../../shared/errors.ts';
 import type {
   ResearchEvidence,
   TeacherSource,
+  WebSearchProviderId,
   WebSearchTestResult,
 } from '../../shared/search.ts';
 import type { SearchConfigService } from './search-config.ts';
@@ -26,27 +27,50 @@ export class SearchError extends Error {
   }
 }
 
+export interface SearchProvider {
+  search(
+    query: string,
+    apiKey: string,
+    signal: AbortSignal,
+  ): Promise<WebSearchItem[]>;
+}
+
 interface WebSearchOptions {
   configService: Pick<SearchConfigService, 'resolve'>;
   fetchImpl?: FetchLike;
   timeoutMs?: number;
+  deepseekBaseUrl?: string;
 }
 
 const TAVILY_URL = 'https://api.tavily.com/search';
+const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
 const MAX_QUERIES = 3;
 const MAX_SOURCES = 5;
 const MAX_SNIPPET_LENGTH = 1200;
+
+const FALLBACK_ERROR_CODES = new Set<AppErrorCode>([
+  'SEARCH_UNAUTHORIZED',
+  'SEARCH_RATE_LIMITED',
+  'SEARCH_INSUFFICIENT_BALANCE',
+  'SEARCH_TIMEOUT',
+  'SEARCH_NETWORK_ERROR',
+  'SEARCH_REQUEST_FAILED',
+]);
 
 const providerErrorForStatus = (status: number): AppErrorCode => {
   if (status === 401 || status === 403) {
     return 'SEARCH_UNAUTHORIZED';
   }
 
+  if (status === 402) {
+    return 'SEARCH_INSUFFICIENT_BALANCE';
+  }
+
   if (status === 429) {
     return 'SEARCH_RATE_LIMITED';
   }
 
-  if (status === 408) {
+  if (status === 408 || status === 504) {
     return 'SEARCH_TIMEOUT';
   }
 
@@ -59,13 +83,94 @@ const readString = (value: unknown): string =>
 const readScore = (value: unknown): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : 0;
 
+const readAuthority = (value: unknown): number =>
+  typeof value === 'number' && Number.isFinite(value) ? value : -1;
+
 const createAbortError = () => {
   const error = new Error('aborted');
   error.name = 'AbortError';
   return error;
 };
 
-export class TavilySearchProvider {
+const readResults = async (
+  fetchImpl: FetchLike,
+  url: string,
+  init: RequestInit,
+  signal: AbortSignal,
+): Promise<unknown[]> => {
+  let response: Awaited<ReturnType<FetchLike>>;
+
+  try {
+    response = await fetchImpl(url, { ...init, signal });
+  } catch (error) {
+    if (signal.aborted) {
+      throw createAbortError();
+    }
+
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new SearchError('SEARCH_TIMEOUT');
+    }
+
+    throw new SearchError('SEARCH_NETWORK_ERROR');
+  }
+
+  if (!response.ok) {
+    throw new SearchError(providerErrorForStatus(response.status));
+  }
+
+  let payload: unknown;
+
+  try {
+    payload = await response.json();
+  } catch {
+    throw new SearchError('SEARCH_REQUEST_FAILED');
+  }
+
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new SearchError('SEARCH_REQUEST_FAILED');
+  }
+
+  const results = (payload as { results?: unknown }).results;
+
+  return Array.isArray(results) ? results : [];
+};
+
+interface ItemInput {
+  url: unknown;
+  title: unknown;
+  snippet: unknown;
+  publishedAt: string;
+  score: number;
+  authoritative?: boolean;
+}
+
+const buildItem = (input: ItemInput): WebSearchItem[] => {
+  const normalizedUrl = normalizeHttpUrl(input.url);
+  const domain = normalizedUrl ? domainFromUrl(normalizedUrl) : null;
+
+  if (!normalizedUrl || !domain) {
+    return [];
+  }
+
+  const title = readString(input.title).trim() || domain;
+  const snippet = readString(input.snippet).trim().slice(0, MAX_SNIPPET_LENGTH);
+  const publishedAt = input.publishedAt.trim();
+
+  return [
+    {
+      title: title.slice(0, 300),
+      url: normalizedUrl,
+      domain,
+      snippet,
+      ...(publishedAt ? { publishedAt: publishedAt.slice(0, 40) } : {}),
+      // DeepSeek 的权威性评分可以直接提级，其余仍按域名分级。
+      tier: input.authoritative ? 'official' : classifyDomain(domain),
+      score: input.score,
+    },
+  ];
+};
+
+export class TavilySearchProvider implements SearchProvider {
   private readonly fetchImpl: FetchLike;
 
   constructor(fetchImpl: FetchLike = globalThis.fetch) {
@@ -77,10 +182,10 @@ export class TavilySearchProvider {
     apiKey: string,
     signal: AbortSignal,
   ): Promise<WebSearchItem[]> {
-    let response: Awaited<ReturnType<FetchLike>>;
-
-    try {
-      response = await this.fetchImpl(TAVILY_URL, {
+    const results = await readResults(
+      this.fetchImpl,
+      TAVILY_URL,
+      {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -93,90 +198,98 @@ export class TavilySearchProvider {
           include_answer: false,
           include_raw_content: false,
         }),
-        signal,
-      });
-    } catch (error) {
-      if (signal.aborted) {
-        throw createAbortError();
-      }
+      },
+      signal,
+    );
 
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new SearchError('SEARCH_TIMEOUT');
-      }
-
-      throw new SearchError('SEARCH_NETWORK_ERROR');
-    }
-
-    if (!response.ok) {
-      throw new SearchError(providerErrorForStatus(response.status));
-    }
-
-    let payload: unknown;
-
-    try {
-      payload = await response.json();
-    } catch {
-      throw new SearchError('SEARCH_REQUEST_FAILED');
-    }
-
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      throw new SearchError('SEARCH_REQUEST_FAILED');
-    }
-
-    const rawResults = (payload as { results?: unknown }).results;
-
-    if (!Array.isArray(rawResults)) {
-      return [];
-    }
-
-    return rawResults.flatMap((entry) => {
+    return results.flatMap((entry) => {
       if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
         return [];
       }
 
       const record = entry as Record<string, unknown>;
-      const normalizedUrl = normalizeHttpUrl(record.url);
-      const domain = normalizedUrl ? domainFromUrl(normalizedUrl) : null;
 
-      if (!normalizedUrl || !domain) {
+      return buildItem({
+        url: record.url,
+        title: record.title,
+        snippet: readString(record.raw_content) || readString(record.content),
+        publishedAt: readString(record.published_date),
+        score: readScore(record.score),
+      });
+    });
+  }
+}
+
+export class DeepSeekSearchProvider implements SearchProvider {
+  private readonly fetchImpl: FetchLike;
+  private readonly baseUrl: string;
+
+  constructor(
+    fetchImpl: FetchLike = globalThis.fetch,
+    baseUrl: string = DEEPSEEK_BASE_URL,
+  ) {
+    this.fetchImpl = fetchImpl;
+    this.baseUrl = baseUrl.replace(/\/+$/, '');
+  }
+
+  async search(
+    query: string,
+    apiKey: string,
+    signal: AbortSignal,
+  ): Promise<WebSearchItem[]> {
+    const results = await readResults(
+      this.fetchImpl,
+      `${this.baseUrl}/v1/tools/search`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          count: 5,
+          need_content: false,
+        }),
+      },
+      signal,
+    );
+
+    return results.flatMap((entry) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
         return [];
       }
 
-      const title = readString(record.title).trim() || domain;
-      const snippet = (
-        readString(record.raw_content) || readString(record.content)
-      )
-        .trim()
-        .slice(0, MAX_SNIPPET_LENGTH);
-      const publishedAt = readString(record.published_date).trim();
+      const record = entry as Record<string, unknown>;
 
-      return [
-        {
-          title: title.slice(0, 300),
-          url: normalizedUrl,
-          domain,
-          snippet,
-          ...(publishedAt ? { publishedAt: publishedAt.slice(0, 40) } : {}),
-          tier: classifyDomain(domain),
-          score: readScore(record.score),
-        },
-      ];
+      return buildItem({
+        url: record.url,
+        title: record.title,
+        snippet: readString(record.summary) || readString(record.snippet),
+        publishedAt: readString(record.date),
+        score: readScore(record.rerank_score),
+        authoritative: readAuthority(record.authority) >= 3,
+      });
     });
   }
 }
 
 export class WebSearchService {
   private readonly configService: Pick<SearchConfigService, 'resolve'>;
-  private readonly provider: TavilySearchProvider;
+  private readonly providers: Record<WebSearchProviderId, SearchProvider>;
   private readonly timeoutMs: number;
 
   constructor({
     configService,
     fetchImpl = globalThis.fetch,
     timeoutMs = 20_000,
+    deepseekBaseUrl,
   }: WebSearchOptions) {
     this.configService = configService;
-    this.provider = new TavilySearchProvider(fetchImpl);
+    this.providers = {
+      deepseek: new DeepSeekSearchProvider(fetchImpl, deepseekBaseUrl),
+      tavily: new TavilySearchProvider(fetchImpl),
+    };
     this.timeoutMs = timeoutMs;
   }
 
@@ -200,38 +313,33 @@ export class WebSearchService {
       throw new SearchError('SEARCH_REQUEST_FAILED');
     }
 
-    const controller = new AbortController();
-    const abortFromCaller = () => controller.abort();
-
-    if (signal?.aborted) {
-      controller.abort();
-    } else {
-      signal?.addEventListener('abort', abortFromCaller, { once: true });
-    }
-
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     let results: WebSearchItem[];
 
     try {
-      const batches = await Promise.all(
-        normalizedQueries.map((query) =>
-          this.provider.search(query, resolved.apiKey, controller.signal),
-        ),
+      results = await this.runQueries(
+        resolved.provider,
+        resolved.apiKey,
+        normalizedQueries,
+        signal,
       );
-      results = batches.flat();
     } catch (error) {
-      if (signal?.aborted) {
-        throw createAbortError();
+      const fallback = resolved.fallback;
+
+      if (
+        !fallback ||
+        signal?.aborted ||
+        !(error instanceof SearchError) ||
+        !FALLBACK_ERROR_CODES.has(error.errorCode)
+      ) {
+        throw error;
       }
 
-      if (controller.signal.aborted) {
-        throw new SearchError('SEARCH_TIMEOUT');
-      }
-
-      throw error;
-    } finally {
-      clearTimeout(timeout);
-      signal?.removeEventListener('abort', abortFromCaller);
+      results = await this.runQueries(
+        fallback.provider,
+        fallback.apiKey,
+        normalizedQueries,
+        signal,
+      );
     }
 
     const deduped = new Map<string, WebSearchItem>();
@@ -284,7 +392,7 @@ export class WebSearchService {
     );
 
     try {
-      await this.provider.search(
+      await this.providers[resolved.provider].search(
         'TapAlong reading companion',
         resolved.apiKey,
         controller.signal,
@@ -303,6 +411,47 @@ export class WebSearchService {
       };
     } finally {
       clearTimeout(timeout);
+    }
+  }
+
+  private async runQueries(
+    providerId: WebSearchProviderId,
+    apiKey: string,
+    queries: string[],
+    signal?: AbortSignal,
+  ): Promise<WebSearchItem[]> {
+    const provider = this.providers[providerId];
+    const controller = new AbortController();
+    const abortFromCaller = () => controller.abort();
+
+    if (signal?.aborted) {
+      controller.abort();
+    } else {
+      signal?.addEventListener('abort', abortFromCaller, { once: true });
+    }
+
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    try {
+      const batches = await Promise.all(
+        queries.map((query) =>
+          provider.search(query, apiKey, controller.signal),
+        ),
+      );
+      return batches.flat();
+    } catch (error) {
+      if (signal?.aborted) {
+        throw createAbortError();
+      }
+
+      if (controller.signal.aborted) {
+        throw new SearchError('SEARCH_TIMEOUT');
+      }
+
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+      signal?.removeEventListener('abort', abortFromCaller);
     }
   }
 }

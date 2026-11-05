@@ -109,6 +109,8 @@ export interface TeacherAskPayload {
   pageId: number;
   userText: string;
   requestId: string;
+  /** 用户放弃检索后，本轮直接用模型已有知识回答。 */
+  skipResearch?: boolean;
 }
 
 export interface TeacherResumePayload {
@@ -147,6 +149,8 @@ export interface TeacherDoneEvent {
   mode?: 'reflect' | 'answer';
   sources?: TeacherSource[];
   citationStatus?: 'cited' | 'uncited';
+  /** 本轮未联网，回答只基于模型已有知识。 */
+  researchSkipped?: boolean;
 }
 
 export interface TeacherCancelPayload {

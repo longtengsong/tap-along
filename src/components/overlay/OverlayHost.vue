@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import FailedOverlay from '@/components/overlay/FailedOverlay.vue';
 import SavingOverlay from '@/components/overlay/SavingOverlay.vue';
+import SearchUnavailableOverlay from '@/components/overlay/SearchUnavailableOverlay.vue';
 import TeacherNoResponseOverlay from '@/components/overlay/TeacherNoResponseOverlay.vue';
 import type { OverlayState } from '@/types/session';
 
@@ -14,6 +15,7 @@ const emit = defineEmits<{
   retrySave: [];
   retryTeacher: [];
   openSettings: [];
+  answerWithoutSearch: [];
 }>();
 </script>
 
@@ -31,6 +33,12 @@ const emit = defineEmits<{
       :message="errorMessage"
       @retry="emit('retryTeacher')"
       @open-settings="emit('openSettings')"
+    />
+    <SearchUnavailableOverlay
+      v-else-if="overlay === 'search-unavailable'"
+      :message="errorMessage"
+      @open-settings="emit('openSettings')"
+      @answer-without-search="emit('answerWithoutSearch')"
     />
   </Transition>
 </template>

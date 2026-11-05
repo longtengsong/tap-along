@@ -29,12 +29,15 @@
     "saving": "Keeping it…",
     "failed": "This thought wasn't saved.",
     "backToEdit": "Back to this thought",
-    "tryAgain": "Try again"
+    "tryAgain": "Try again",
+    "searchUnavailableHint": "You can turn search back on in settings, or skip the search this time and answer from what the model already knows.",
+    "answerWithoutSearch": "Skip search and answer"
   },
   "companion": {
     "title": "Companion",
     "historyCollapsed": "Earlier",
     "historyExpanded": "Hide earlier",
+    "noReply": "No reply to this message yet.",
     "inputPlaceholder": "Write your thought…",
     "inputAria": "Your response",
     "send": "Send",
@@ -51,7 +54,8 @@
   },
   "research": {
     "sources": "Sources",
-    "uncited": "This answer has no source markers. Please check it carefully."
+    "uncited": "This answer has no source markers. Please check it carefully.",
+    "notOnline": "Not online · answered from existing knowledge only."
   },
   "guidance": {
     "pending": "Looking through your earlier thoughts…",
@@ -133,10 +137,11 @@
     "invalidPromptProfile": "The prompt configuration is invalid. Check its fields and JSON structure.",
     "promptProfileTooLarge": "The prompt configuration is too large to save.",
     "teacherNoResponse": "The companion didn't catch that. Try again?",
-    "searchNotConfigured": "Web search is not configured yet. Add a search API key in settings.",
+    "searchNotConfigured": "No web search channel is available. Turn one on in settings, or answer from existing knowledge this time.",
     "searchDisabled": "Web search is turned off. Enable it in settings.",
     "searchUnauthorized": "The search API key is invalid or lacks permission.",
     "searchRateLimited": "The search service is busy. Try again later.",
+    "searchInsufficientBalance": "The search account is out of balance. Top it up or switch to Tavily.",
     "searchTimeout": "Search timed out. Try again later.",
     "searchNetworkError": "Could not reach the search service. Check your network.",
     "searchRequestFailed": "The search service did not complete this request. Try again later.",
@@ -299,11 +304,16 @@
     "testConnection": "Test connection",
     "connectionSuccess": "Connected. The model is available.",
     "webSearch": "Web search",
-    "webSearchHint": "The search service used for research, configured separately from the model provider.",
+    "webSearchHint": "The search service used for research. It reuses the DeepSeek model key by default, with Tavily as a fallback.",
     "webSearchEnabled": "Enable web search",
     "webSearchEnabledHint": "When off, explicit questions only go through the companion and will not search the web.",
-    "searchApiKey": "Search API key",
+    "deepseekSearchEnabled": "Use DeepSeek web search",
+    "deepseekSearchHint": "Calls the Search API with your saved DeepSeek key and bills per request (about ¥0.005 each). Turn it off to use Tavily instead.",
+    "deepseekReady": "A DeepSeek API key is available, so search can run right away.",
+    "deepseekMissing": "No DeepSeek API key yet. Search will use Tavily if it is configured.",
+    "searchApiKey": "Tavily API key (fallback)",
     "searchApiKeyPlaceholder": "Enter a Tavily API key",
+    "searchChannelMissing": "No search channel is available right now. When a question needs sources, a prompt will offer to turn search on.",
     "searchPrivacyHint": "Only keywords from your question are sent to the search service, never the full thought. The key is encrypted in the main process.",
     "searchConfigSaved": "Web search settings saved.",
     "searchKeyCleared": "Search API key cleared.",

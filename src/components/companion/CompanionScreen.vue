@@ -7,7 +7,7 @@ import ContentColumn from '@/components/layout/ContentColumn.vue';
 import PageCard from '@/components/companion/PageCard/PageCard.vue';
 import GuidancePanel from '@/components/companion/GuidancePanel.vue';
 import TalkStream from '@/components/companion/TalkStream/TalkStream.vue';
-import type { ComposerMode, PageRecord } from '@/types/session';
+import type { ComposerMode, PageRecord, RetryableTurn } from '@/types/session';
 
 const { t } = useI18n();
 
@@ -23,6 +23,7 @@ const props = defineProps<{
   sayMoreOpen: boolean;
   canCancel: boolean;
   cancelling: boolean;
+  retryableTurn?: RetryableTurn | null;
 }>();
 
 const emit = defineEmits<{
@@ -43,6 +44,7 @@ const emit = defineEmits<{
   close: [];
   useGuidance: [suggestionId: string];
   retryGuidance: [];
+  retryTurn: [];
 }>();
 
 const displayMessages = computed(() => {
@@ -108,7 +110,9 @@ const showGuidance = computed(() => {
         :history-open="page.historyOpen"
         :typing="typing"
         :developer-mode="developerMode"
+        :retryable-turn="retryableTurn"
         @toggle-history="emit('toggleHistory')"
+        @retry="emit('retryTurn')"
       />
       <BottomBar
         v-if="!page.editing"

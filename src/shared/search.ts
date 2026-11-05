@@ -1,6 +1,6 @@
 import type { AppErrorCode } from './errors.ts';
 
-export const WEB_SEARCH_PROVIDER_IDS = ['tavily'] as const;
+export const WEB_SEARCH_PROVIDER_IDS = ['deepseek', 'tavily'] as const;
 
 export type WebSearchProviderId = (typeof WEB_SEARCH_PROVIDER_IDS)[number];
 
@@ -19,13 +19,18 @@ export interface ResearchEvidence {
 
 export interface WebSearchSettingsView {
   enabled: boolean;
+  deepseekEnabled: boolean;
   provider: WebSearchProviderId;
+  deepseekConfigured: boolean;
+  tavilyConfigured: boolean;
+  /** 至少有一个可用检索渠道（不判断总开关）。 */
   configured: boolean;
   secureStorageAvailable: boolean;
 }
 
 export interface SaveWebSearchPayload {
   enabled: boolean;
+  deepseekEnabled?: boolean;
   apiKey?: string;
 }
 

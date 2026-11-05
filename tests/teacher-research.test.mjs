@@ -105,10 +105,10 @@ const research = (route, search) => ({
   search: async (input) => search(input),
 });
 
-const start = async (service, requestId = 'ask-1') => {
+const start = async (service, requestId = 'ask-1', extra = {}) => {
   const events = [];
   const outcome = service.start(
-    { pageId: 1, userText: '什么是认知负荷？', requestId },
+    { pageId: 1, userText: '什么是认知负荷？', requestId, ...extra },
     (event) => events.push(event),
   );
   assert.equal(outcome.result.ok, true);
@@ -256,4 +256,46 @@ test('取消搜索应发送 cancelled 且不保存部分回答', async (t) => {
     events.some((event) => event.cancelled === true),
     true,
   );
+});
+
+test('用户放弃检索时应直接生成回答并标记未联网', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  const { repository, state } = createRepository();
+  const calls = [];
+  let searched = 0;
+  const service = new TeacherService(
+    repository,
+    generator(['先按已有知识说。'], calls),
+    research({ mode: 'research', queries: ['认知负荷'] }, async () => {
+      searched += 1;
+      return evidence;
+    }),
+  );
+
+  const { done } = await start(service, 'ask-skip', { skipResearch: true });
+
+  assert.equal(done.ok, true);
+  assert.equal(done.researchSkipped, true);
+  assert.equal(searched, 0);
+  assert.equal(state.calls.reflect.length, 1);
+  assert.equal(state.calls.research.length, 0);
+  assert.equal(calls[0].research, undefined);
+});
+
+test('skipResearch 只接受布尔 true，其余值按正常检索处理', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  const { repository, state } = createRepository();
+  const service = new TeacherService(
+    repository,
+    generator(['好的 [1]。'], []),
+    research({ mode: 'research', queries: ['认知负荷'] }, async () => evidence),
+  );
+
+  const { done } = await start(service, 'ask-not-bool', {
+    skipResearch: 'yes',
+  });
+
+  assert.equal(done.ok, true);
+  assert.equal(done.researchSkipped, undefined);
+  assert.equal(state.calls.research.length, 1);
 });

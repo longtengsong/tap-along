@@ -14,6 +14,7 @@ const props = defineProps<{
   requestId?: string;
   sources?: TeacherSource[];
   citationStatus?: 'cited' | 'uncited';
+  researchSkipped?: boolean;
 }>();
 
 const { t } = useI18n();
@@ -81,6 +82,9 @@ watch(
     </div>
 
     <SourceList v-if="sources && sources.length > 0" :sources="sources" />
+    <p v-if="researchSkipped" class="teacher-message__uncited">
+      {{ t('research.notOnline') }}
+    </p>
     <p v-if="citationStatus === 'uncited'" class="teacher-message__uncited">
       {{ t('research.uncited') }}
     </p>

@@ -117,6 +117,7 @@ const parseTeacherPayload = (payload: unknown): TeacherAskPayload | null => {
     pageId: input.pageId as number,
     userText: input.userText.trim(),
     requestId: input.requestId.trim(),
+    ...(input.skipResearch === true ? { skipResearch: true } : {}),
   };
 };
 
@@ -982,7 +983,7 @@ export class TeacherService {
     let route: ResearchRoute = { mode: 'reflect', queries: [] };
     const research = this.research;
 
-    if (research) {
+    if (research && !input.skipResearch) {
       try {
         route = await research.route({
           page,
@@ -1010,7 +1011,7 @@ export class TeacherService {
       }
     }
 
-    if (route.mode === 'research' && research) {
+    if (route.mode === 'research' && research && !input.skipResearch) {
       return this.streamResearch(
         page,
         input,
@@ -1069,6 +1070,7 @@ export class TeacherService {
         requestId: input.requestId,
         reply,
         suggestClose,
+        ...(input.skipResearch ? { researchSkipped: true } : {}),
       };
       emit(doneEvent);
       return doneEvent;
