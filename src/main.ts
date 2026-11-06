@@ -10,6 +10,7 @@ import {
   openDatabase,
 } from './main/db/client';
 import { PagesRepository } from './main/db/pages';
+import { RequestInspectionRepository } from './main/db/request-inspections';
 import { registerDeveloperPromptHandlers } from './main/ipc/developer-prompts';
 import { registerPageHandlers } from './main/ipc/pages';
 import { registerContextHandlers } from './main/ipc/context';
@@ -233,6 +234,9 @@ if (!hasSingleInstanceLock) {
     try {
       database = openDatabase(allocateDatabasePath(app.getPath('userData')));
       const pagesRepository = new PagesRepository(database);
+      const requestInspectionRepository = new RequestInspectionRepository(
+        database,
+      );
       const settingsStore = new Store<{
         modelProviders?: StoredProviderSettings;
         developerMode?: boolean;
@@ -263,6 +267,8 @@ if (!hasSingleInstanceLock) {
       );
       const teacherRequestInspector = new TeacherRequestInspector(
         developerModeService,
+        100,
+        requestInspectionRepository,
       );
 
       registerSettingsHandlers(ipcMain, developerModeService);

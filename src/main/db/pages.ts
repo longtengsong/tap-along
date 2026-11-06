@@ -1217,6 +1217,7 @@ export class PagesRepository {
         .get() as { count: number };
       this.db.prepare('DELETE FROM pages').run();
       this.db.prepare('DELETE FROM pages_fts').run();
+      this.db.prepare('DELETE FROM request_inspections').run();
       return Number(count.count);
     });
   }

@@ -28,6 +28,23 @@ export const PAGES_FTS_TABLE_SQL = `
 
 export const FTS_INDEX_VERSION = 1;
 
+export const REQUEST_INSPECTIONS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS request_inspections (
+    request_id   TEXT PRIMARY KEY,
+    status       TEXT NOT NULL,
+    provider_id  TEXT,
+    model        TEXT,
+    messages     TEXT NOT NULL,
+    error_code   TEXT,
+    created_at   INTEGER NOT NULL
+  )
+`;
+
+export const REQUEST_INSPECTIONS_CREATED_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS idx_request_inspections_created
+  ON request_inspections(created_at DESC)
+`;
+
 export const PAGES_STATUS_INDEX_SQL = `
   CREATE INDEX IF NOT EXISTS idx_pages_status ON pages(page_status)
 `;
@@ -42,6 +59,8 @@ export const PAGES_PARENT_INDEX_SQL = `
 
 export const initializeSchema = (db: DatabaseSync) => {
   db.exec(PAGES_TABLE_SQL);
+  db.exec(REQUEST_INSPECTIONS_TABLE_SQL);
+  db.exec(REQUEST_INSPECTIONS_CREATED_INDEX_SQL);
 
   const columns = db
     .prepare("PRAGMA table_info('pages')")

@@ -99,3 +99,88 @@ test('开发者模式关闭时不记录且拒绝检查请求', () => {
     errorCode: 'TEACHER_INVALID_REQUEST',
   });
 });
+
+test('请求记录应持久化，重启后仍可按 requestId 读取', async (t) => {
+  const { mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const path = await import('node:path');
+  const { openDatabase, allocateDatabasePath, closeDatabase } =
+    await import('../src/main/db/client.ts');
+  const { RequestInspectionRepository } =
+    await import('../src/main/db/request-inspections.ts');
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'tap-along-request-inspection-'),
+  );
+  const db = openDatabase(allocateDatabasePath(directory));
+  t.after(async () => {
+    closeDatabase(db);
+    await rm(directory, { recursive: true, force: true });
+  });
+  const store = new RequestInspectionRepository(db);
+  const developerMode = {
+    get() {
+      return { ok: true, enabled: true };
+    },
+  };
+  const first = new TeacherRequestInspector(developerMode, 2, store);
+
+  first.recordSent({
+    requestId: 'persisted-1',
+    providerId: 'custom',
+    model: 'persisted-model',
+    messages,
+  });
+
+  const second = new TeacherRequestInspector(developerMode, 2, store);
+  const saved = second.get('persisted-1').request;
+  assert.equal(saved.requestId, 'persisted-1');
+  assert.equal(saved.status, 'sent');
+  assert.equal(saved.providerId, 'custom');
+  assert.equal(saved.model, 'persisted-model');
+  assert.deepEqual(saved.messages, messages);
+
+  second.recordFailed('persisted-1', 'PROVIDER_TIMEOUT');
+  const third = new TeacherRequestInspector(developerMode, 2, store);
+  const failed = third.get('persisted-1').request;
+  assert.equal(failed.status, 'failed');
+  assert.equal(failed.errorCode, 'PROVIDER_TIMEOUT');
+});
+
+test('持久化记录也应按数量上限清理最旧的一批', async (t) => {
+  const { mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const path = await import('node:path');
+  const { openDatabase, allocateDatabasePath, closeDatabase } =
+    await import('../src/main/db/client.ts');
+  const { RequestInspectionRepository } =
+    await import('../src/main/db/request-inspections.ts');
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'tap-along-request-prune-'),
+  );
+  const db = openDatabase(allocateDatabasePath(directory));
+  t.after(async () => {
+    closeDatabase(db);
+    await rm(directory, { recursive: true, force: true });
+  });
+  const store = new RequestInspectionRepository(db);
+  const developerMode = {
+    get() {
+      return { ok: true, enabled: true };
+    },
+  };
+  const first = new TeacherRequestInspector(developerMode, 2, store);
+
+  for (const requestId of ['one', 'two', 'three']) {
+    first.recordSent({
+      requestId,
+      providerId: 'custom',
+      model: 'model',
+      messages,
+    });
+  }
+
+  const second = new TeacherRequestInspector(developerMode, 2, store);
+  assert.equal(second.get('one').request, undefined);
+  assert.equal(second.get('two').request.requestId, 'two');
+  assert.equal(second.get('three').request.requestId, 'three');
+});

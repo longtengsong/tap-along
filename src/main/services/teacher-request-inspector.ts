@@ -4,6 +4,7 @@ import type {
   TeacherRequestInspectionMessage,
   TeacherRequestInspectionResult,
 } from '../../shared/pages.ts';
+import type { RequestInspectionStore } from '../db/request-inspections.ts';
 import type { DeveloperModeService } from './developer-mode.ts';
 
 interface RecordTeacherRequestInput {
@@ -13,17 +14,46 @@ interface RecordTeacherRequestInput {
   messages: TeacherRequestInspectionMessage[];
 }
 
+const createMemoryStore = (): RequestInspectionStore => {
+  const requests = new Map<string, TeacherRequestInspection>();
+
+  return {
+    save(request) {
+      requests.delete(request.requestId);
+      requests.set(request.requestId, request);
+    },
+    get(requestId) {
+      return requests.get(requestId);
+    },
+    prune(maxEntries) {
+      const limit = Math.max(1, Math.floor(maxEntries));
+
+      while (requests.size > limit) {
+        const oldestRequestId = requests.keys().next().value;
+
+        if (oldestRequestId === undefined) {
+          break;
+        }
+
+        requests.delete(oldestRequestId);
+      }
+    },
+  };
+};
+
 export class TeacherRequestInspector {
   private readonly developerMode: Pick<DeveloperModeService, 'get'>;
   private readonly maxEntries: number;
-  private readonly requests = new Map<string, TeacherRequestInspection>();
+  private readonly store: RequestInspectionStore;
 
   constructor(
     developerMode: Pick<DeveloperModeService, 'get'>,
     maxEntries = 20,
+    store?: RequestInspectionStore,
   ) {
     this.developerMode = developerMode;
     this.maxEntries = maxEntries;
+    this.store = store ?? createMemoryStore();
   }
 
   private isEnabled() {
@@ -31,19 +61,9 @@ export class TeacherRequestInspector {
     return result.ok && result.enabled === true;
   }
 
-  private store(request: TeacherRequestInspection) {
-    this.requests.delete(request.requestId);
-    this.requests.set(request.requestId, request);
-
-    while (this.requests.size > this.maxEntries) {
-      const oldestRequestId = this.requests.keys().next().value;
-
-      if (oldestRequestId === undefined) {
-        break;
-      }
-
-      this.requests.delete(oldestRequestId);
-    }
+  private put(request: TeacherRequestInspection) {
+    this.store.save(request);
+    this.store.prune(this.maxEntries);
   }
 
   recordSent(input: RecordTeacherRequestInput) {
@@ -51,7 +71,7 @@ export class TeacherRequestInspector {
       return;
     }
 
-    this.store({
+    this.put({
       requestId: input.requestId,
       status: 'sent',
       providerId: input.providerId,
@@ -66,13 +86,13 @@ export class TeacherRequestInspector {
       return;
     }
 
-    const request = this.requests.get(requestId);
+    const request = this.store.get(requestId);
 
     if (!request) {
       return;
     }
 
-    this.store({
+    this.put({
       ...request,
       status: 'failed',
       errorCode,
@@ -84,7 +104,7 @@ export class TeacherRequestInspector {
       return;
     }
 
-    this.store({
+    this.put({
       requestId,
       status: 'fallback',
       messages: [],
@@ -103,7 +123,7 @@ export class TeacherRequestInspector {
 
     return {
       ok: true,
-      request: this.requests.get(requestId),
+      request: this.store.get(requestId),
     };
   }
 }
