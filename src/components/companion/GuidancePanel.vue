@@ -44,10 +44,19 @@ const { t } = useI18n();
         <p v-if="suggestion.anchorQuote" class="guidance__anchor">
           {{ t('guidance.anchor', { quote: suggestion.anchorQuote }) }}
         </p>
-        <p class="guidance__meta">
-          {{ t('guidance.fromPage', { title: suggestion.title }) }}
-          <span v-if="suggestion.source"> · {{ suggestion.source }}</span>
-        </p>
+        <p class="guidance__meta">{{ t('guidance.linked') }}</p>
+        <ul class="guidance__notes">
+          <li
+            v-for="note in suggestion.notes"
+            :key="note.pageId"
+            class="guidance__note"
+          >
+            《{{ note.title }}》
+            <span v-if="note.source" class="guidance__note-source">
+              · {{ note.source }}
+            </span>
+          </li>
+        </ul>
         <p class="guidance__why">{{ suggestion.why }}</p>
         <button
           class="guidance__action"
@@ -162,6 +171,28 @@ const { t } = useI18n();
   color: var(--ink-ghost);
   font-size: 9.5px;
   letter-spacing: 0.03em;
+}
+
+.guidance__notes {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guidance__note {
+  overflow: hidden;
+  color: var(--ink-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guidance__note-source {
+  color: var(--ink-ghost);
+  font-size: 9.5px;
 }
 
 .guidance__why {

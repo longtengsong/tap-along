@@ -12,6 +12,7 @@ import {
 import { PagesRepository } from './main/db/pages';
 import { registerDeveloperPromptHandlers } from './main/ipc/developer-prompts';
 import { registerPageHandlers } from './main/ipc/pages';
+import { registerContextHandlers } from './main/ipc/context';
 import { registerBackupHandlers } from './main/ipc/backup';
 import { registerGuidanceHandlers } from './main/ipc/guidance';
 import { registerSearchHandlers } from './main/ipc/search';
@@ -315,6 +316,7 @@ if (!hasSingleInstanceLock) {
         guidanceService,
         titleService,
       );
+      registerContextHandlers(ipcMain, pagesRepository);
       registerBackupHandlers(ipcMain, pagesRepository, {
         documentsPath: app.getPath('documents'),
         showSaveDialog: async (options) => {

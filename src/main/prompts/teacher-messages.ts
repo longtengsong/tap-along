@@ -6,6 +6,7 @@ import { buildResearchMessages } from './research.ts';
 import {
   buildCompressedPageContext,
   buildCurrentPageContext,
+  buildGuidanceThreadContext,
   buildResumePageContext,
   toPageMessages,
   toTimelineMessages,
@@ -45,6 +46,12 @@ const normalizeCompressedPages = (pages: CompressedPagePrompt[]) => {
 
 const toSystemMessage = (content: string): ChatMessage[] =>
   content.trim() ? [{ role: 'system', content }] : [];
+
+const buildGuidanceThread = (page: PageSnapshot): ChatMessage[] => {
+  const thread = buildGuidanceThreadContext(page);
+
+  return thread ? [thread] : [];
+};
 
 const buildCompressedContextPolicy = (
   pages: CompressedPagePrompt[],
@@ -90,6 +97,7 @@ export const buildTeacherMessages = (
     ...toSystemMessage(promptCatalog.teacher.contextBoundary),
     ...buildCompressedContextPolicy(normalizedCompressedPages, promptCatalog),
     ...toSystemMessage(buildCurrentPageContext(page, promptCatalog)),
+    ...buildGuidanceThread(page),
     // 最新提问已落盘时保留在最后，无锚点的老上下文插在它之前。
     ...buildTimeline(page, normalizedCompressedPages, promptCatalog, {
       trailingPlacement: userTextInHistory ? 'beforeLastMessage' : 'end',
@@ -131,6 +139,7 @@ export const buildResumeTeacherMessages = (
     ...toSystemMessage(
       buildResumePageContext(page, 'targetPage', promptCatalog),
     ),
+    ...buildGuidanceThread(page),
     ...buildTimeline(page, normalizedCompressedPages, promptCatalog),
   ];
 
@@ -159,6 +168,7 @@ export const buildMaintenanceTeacherMessages = (
     ...toSystemMessage(promptCatalog.teacher.contextBoundary),
     ...buildCompressedContextPolicy(normalizedCompressedPages, promptCatalog),
     ...toSystemMessage(buildCurrentPageContext(page, promptCatalog)),
+    ...buildGuidanceThread(page),
     ...buildTimeline(page, normalizedCompressedPages, promptCatalog),
     { role: 'user', content: userText },
   ];

@@ -10,11 +10,24 @@ export const GUIDANCE_STATUSES = [
 
 export type GuidanceStatus = (typeof GUIDANCE_STATUSES)[number];
 
-export interface GuidanceSuggestion {
-  id: string;
-  relatedPageId: number;
+export const GUIDANCE_RELATED_NOTE_EXCERPT_LIMIT = 1200;
+
+export interface GuidanceRelatedNote {
+  pageId: number;
   title: string;
   source: string;
+  /** 旧念头正文摘录；对谈继续时用它把这条线留在模型眼前。 */
+  excerpt?: string;
+}
+
+export interface GuidanceSuggestion {
+  id: string;
+  /**
+   * 这条接点串起来的旧念头，按问题里引用的顺序排列。
+   * 标题与出处由主进程从候选页填充，不信模型。
+   */
+  relatedPageIds: number[];
+  notes: GuidanceRelatedNote[];
   why: string;
   question: string;
   anchorQuote?: string;
@@ -79,33 +92,108 @@ const isGuidanceStatus = (value: unknown): value is GuidanceStatus =>
   typeof value === 'string' &&
   GUIDANCE_STATUSES.includes(value as GuidanceStatus);
 
+const isPositiveInteger = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value > 0;
+
+const parseRelatedNote = (value: unknown): GuidanceRelatedNote | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const { pageId, title, source, excerpt } = value;
+
+  if (
+    !isPositiveInteger(pageId) ||
+    typeof title !== 'string' ||
+    !title.trim() ||
+    typeof source !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    pageId,
+    title,
+    source,
+    ...(typeof excerpt === 'string' && excerpt.trim()
+      ? {
+          excerpt: excerpt.trim().slice(0, GUIDANCE_RELATED_NOTE_EXCERPT_LIMIT),
+        }
+      : {}),
+  };
+};
+
+/**
+ * 旧版本每个接点只连一页（relatedPageId/title/source）。
+ * 这里同时接受旧结构，让升级前的引导结果仍能正常展示。
+ */
 const parseSuggestion = (value: unknown): GuidanceSuggestion | null => {
   if (!isRecord(value)) {
     return null;
   }
 
-  const { id, relatedPageId, title, source, why, question, anchorQuote, used } =
-    value;
+  const {
+    id,
+    relatedPageIds,
+    notes,
+    relatedPageId,
+    title,
+    source,
+    why,
+    question,
+    anchorQuote,
+    used,
+  } = value;
 
   if (
     typeof id !== 'string' ||
     !id.trim() ||
-    typeof relatedPageId !== 'number' ||
-    !Number.isInteger(relatedPageId) ||
-    relatedPageId <= 0 ||
-    typeof title !== 'string' ||
-    typeof source !== 'string' ||
     typeof why !== 'string' ||
     typeof question !== 'string'
   ) {
     return null;
   }
 
+  const ids = Array.isArray(relatedPageIds)
+    ? relatedPageIds.filter(isPositiveInteger)
+    : isPositiveInteger(relatedPageId)
+      ? [relatedPageId]
+      : [];
+
+  if (ids.length === 0 || ids.length > 4 || new Set(ids).size !== ids.length) {
+    return null;
+  }
+
+  const parsedNotes = Array.isArray(notes)
+    ? notes.flatMap((note) => {
+        const parsed = parseRelatedNote(note);
+        return parsed ? [parsed] : [];
+      })
+    : [];
+
+  const orderedNotes = ids.flatMap((pageId) => {
+    const note = parsedNotes.find((entry) => entry.pageId === pageId);
+    return note ? [note] : [];
+  });
+
+  if (
+    orderedNotes.length !== ids.length &&
+    ids.length === 1 &&
+    typeof title === 'string' &&
+    title.trim() &&
+    typeof source === 'string'
+  ) {
+    orderedNotes.push({ pageId: ids[0], title, source });
+  }
+
+  if (orderedNotes.length !== ids.length) {
+    return null;
+  }
+
   return {
     id,
-    relatedPageId,
-    title,
-    source,
+    relatedPageIds: ids,
+    notes: orderedNotes,
     why,
     question,
     ...(typeof anchorQuote === 'string' && anchorQuote.trim()

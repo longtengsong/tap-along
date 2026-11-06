@@ -35,6 +35,8 @@ export interface RetryableTurn {
 
 export interface PageRecord {
   id: number;
+  /** 另起这一页时的父页编号；为空表示从应用最外层新建。 */
+  parentPageId?: number | null;
   title: string;
   body: string;
   source: string;

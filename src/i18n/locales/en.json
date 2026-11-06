@@ -66,8 +66,9 @@
   },
   "guidance": {
     "pending": "Looking through your earlier thoughts…",
+    "untitled": "Untitled thought",
     "heading": "Maybe this connects",
-    "fromPage": "Earlier thought · from “{title}”",
+    "linked": "Earlier thoughts on this thread",
     "action": "Follow this thread",
     "used": "Connected",
     "notNeeded": "This thought is already clear. No forcing a connection this time.",
@@ -76,6 +77,19 @@
     "retryHint": "No earlier thought could catch this one this time.",
     "retryAction": "Look again",
     "retryFailed": "That attempt didn't work. You can try again later."
+  },
+  "thoughts": {
+    "heading": "Session thoughts",
+    "sub": "The thread and branches, all here",
+    "lineGroup": "Earlier thoughts on this thread",
+    "branchGroup": "Branched thoughts",
+    "collapseAll": "Collapse all",
+    "expandAll": "Expand all",
+    "hideRail": "Collapse panel",
+    "showRail": "Show thoughts in this conversation",
+    "dockLabel": "Thoughts",
+    "readOnly": "Read-only · full text",
+    "noDiscussion": "No conversation from that time"
   },
   "status": {
     "reading": "Talking",

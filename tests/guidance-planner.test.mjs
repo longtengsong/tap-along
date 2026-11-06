@@ -22,6 +22,7 @@ const candidates = [
     pageId: 12,
     title: '注意力与任务',
     source: '课程',
+    body: '注意力需要主动分配。',
     snippet: '注意力需要主动分配。',
     score: 4,
   },
@@ -29,6 +30,7 @@ const candidates = [
     pageId: 18,
     title: '任务牵引',
     source: '课程',
+    body: '任务会牵引注意力。',
     snippet: '任务会牵引注意力。',
     score: 2,
   },
@@ -80,12 +82,13 @@ const createPlanner = ({ responses, resolveActive, timeoutMs } = {}) => {
 
 const validDecision = {
   needDeeperUnderstanding: true,
-  reason: '两页都在讨论注意力如何分配。',
+  reason: '三页都在讨论注意力如何分配。',
   suggestions: [
     {
-      relatedPageId: 12,
-      why: '旧页讨论主动分配，这页讨论有限。',
-      question: '你说注意力有限，那有限的是总量还是分配？',
+      relatedPageIds: [12, 18],
+      why: '旧页里一页说主动分配，一页说任务牵引，这页说注意力有限。',
+      question:
+        '你说注意力有限，又写过它会被任务牵引，那“主动分配”还剩多少空间？',
     },
   ],
 };
@@ -108,6 +111,23 @@ test('引导判定应返回合法 JSON 并复用当前模型配置', async () =>
   assert.equal(body.model, config.model);
   assert.match(JSON.stringify(body.messages), /related_page/);
   assert.match(JSON.stringify(body.messages), /注意力与任务/);
+});
+
+test('应把所有匹配到的旧念头正文一起交给模型', async () => {
+  const { planner, calls } = createPlanner({
+    responses: [contentResponse(jsonContent(validDecision))],
+  });
+
+  await planner.plan({ page, candidates });
+
+  const messages = JSON.parse(calls[0].init.body).messages;
+  const serialized = JSON.stringify(messages);
+
+  assert.match(serialized, /注意力需要主动分配/);
+  assert.match(serialized, /任务会牵引注意力/);
+  assert.match(serialized, /Read every related page before deciding/);
+  assert.match(serialized, /Do not ask the user to pick one page/);
+  assert.match(serialized, /relatedPageIds/);
 });
 
 test('不应答深挖时应丢弃模型多给的接点', async () => {
@@ -171,11 +191,11 @@ test('非法 JSON 应重试一次后使用第二次结果', async () => {
   );
 });
 
-test('未知 relatedPageId 和非法问题应被丢弃，并可触发重试', async () => {
+test('未知 relatedPageIds 和非法问题应被丢弃，并可触发重试', async () => {
   const invalid = {
     needDeeperUnderstanding: true,
     suggestions: [
-      { relatedPageId: 999, why: '未知页', question: '这是什么？' },
+      { relatedPageIds: [999], why: '未知页', question: '这是什么？' },
     ],
   };
   const { planner, calls } = createPlanner({
@@ -189,49 +209,93 @@ test('未知 relatedPageId 和非法问题应被丢弃，并可触发重试', as
   assert.equal(calls.length, 2);
 });
 
+test('relatedPageIds 应拒绝空数组、重复、未知编号和超过四页', async () => {
+  const invalidIds = [
+    [],
+    [12, 12],
+    [12, 999],
+    [12, 18, 12],
+    [12, 18, 12, 18, 12],
+  ];
+
+  for (const relatedPageIds of invalidIds) {
+    const { planner, calls } = createPlanner({
+      responses: [
+        contentResponse(
+          jsonContent({
+            needDeeperUnderstanding: true,
+            suggestions: [
+              { relatedPageIds, why: '无效', question: '这条为什么成立？' },
+            ],
+          }),
+        ),
+        contentResponse(jsonContent(validDecision)),
+      ],
+    });
+
+    assert.deepEqual(await planner.plan({ page, candidates }), validDecision);
+    assert.equal(calls.length, 2, JSON.stringify(relatedPageIds));
+  }
+});
+
 test('应过滤不以问号结尾、含换行或超长的问题', async () => {
-  const mixed = {
+  const invalidQuestions = [
+    '这条没有问号',
+    '这条\n有换行？',
+    `${'很长'.repeat(90)}？`,
+  ];
+
+  for (const question of invalidQuestions) {
+    const { planner, calls } = createPlanner({
+      responses: [
+        contentResponse(
+          jsonContent({
+            needDeeperUnderstanding: true,
+            suggestions: [
+              {
+                relatedPageIds: [12, 18],
+                why: '无效',
+                question,
+              },
+            ],
+          }),
+        ),
+        contentResponse(jsonContent(validDecision)),
+      ],
+    });
+
+    assert.deepEqual(await planner.plan({ page, candidates }), validDecision);
+    assert.equal(calls.length, 2, question);
+  }
+
+  const atLimit = {
     needDeeperUnderstanding: true,
     suggestions: [
       {
-        relatedPageId: 12,
+        relatedPageIds: [12, 18],
         why: '有效',
-        question: '这条为什么成立？',
-      },
-      {
-        relatedPageId: 18,
-        why: '无效',
-        question: '这条没有问号',
-      },
-      {
-        relatedPageId: 18,
-        why: '无效',
-        question: '这条\n有换行？',
-      },
-      {
-        relatedPageId: 12,
-        why: '重复',
-        question: '重复的问题？',
+        question: `${'长'.repeat(159)}？`,
       },
     ],
   };
   const { planner } = createPlanner({
-    responses: [contentResponse(jsonContent(mixed))],
+    responses: [contentResponse(jsonContent(atLimit))],
   });
   const result = await planner.plan({ page, candidates });
 
   assert.equal(result.suggestions.length, 1);
-  assert.equal(result.suggestions[0].relatedPageId, 12);
-  assert.equal(result.suggestions[0].question, '这条为什么成立？');
 });
 
-test('最多保留两个接点', async () => {
+test('最多保留一个把多页串起来的接点', async () => {
   const many = {
     needDeeperUnderstanding: true,
     suggestions: [
-      { relatedPageId: 12, why: '一', question: '第一个问题？' },
-      { relatedPageId: 18, why: '二', question: '第二个问题？' },
-      { relatedPageId: 12, why: '三', question: '第三个问题？' },
+      {
+        relatedPageIds: [12, 18],
+        why: '一',
+        question: '第一个问题？',
+      },
+      { relatedPageIds: [18], why: '二', question: '第二个问题？' },
     ],
   };
   const { planner } = createPlanner({
@@ -239,11 +303,28 @@ test('最多保留两个接点', async () => {
   });
   const result = await planner.plan({ page, candidates });
 
-  assert.equal(result.suggestions.length, 2);
-  assert.deepEqual(
-    result.suggestions.map((item) => item.relatedPageId),
-    [12, 18],
-  );
+  assert.equal(result.suggestions.length, 1);
+  assert.deepEqual(result.suggestions[0].relatedPageIds, [12, 18]);
+});
+
+test('应兼容旧版单页 relatedPageId 输出', async () => {
+  const legacy = {
+    needDeeperUnderstanding: true,
+    suggestions: [
+      {
+        relatedPageId: 12,
+        why: '旧页讨论主动分配，这页讨论有限。',
+        question: '你说注意力有限，那有限的是总量还是分配？',
+      },
+    ],
+  };
+  const { planner } = createPlanner({
+    responses: [contentResponse(jsonContent(legacy))],
+  });
+  const result = await planner.plan({ page, candidates });
+
+  assert.equal(result.suggestions.length, 1);
+  assert.deepEqual(result.suggestions[0].relatedPageIds, [12]);
 });
 
 test('reason 应截断到 300 字', async () => {

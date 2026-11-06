@@ -4,6 +4,8 @@ export interface RelatedNoteCandidate {
   pageId: number;
   title: string;
   source: string;
+  /** 旧念头正文；引导判定需要把匹配到的笔记一起交给模型。 */
+  body?: string;
   snippet: string;
   score: number;
 }
@@ -157,6 +159,7 @@ export const findRelatedNotes = (
         pageId: page.id,
         title: page.title,
         source: page.source,
+        body: page.body,
         snippet: buildSnippet(page.body, terms),
         score,
       };

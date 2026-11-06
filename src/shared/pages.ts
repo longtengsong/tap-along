@@ -1,5 +1,6 @@
 import type { AppErrorCode } from './errors.ts';
 import type { BackupBridge } from './backup.ts';
+import type { ContextBridge } from './context.ts';
 import type { GuidanceBridge, GuidanceView } from './guidance.ts';
 import type { DeveloperPromptsBridge } from './prompts.ts';
 import type { ProviderBridge } from './providers.ts';
@@ -39,6 +40,11 @@ export interface PageMessageSnapshot {
 
 export interface PageSnapshot {
   id: number;
+  /**
+   * 另起这一页时所在的父页编号；从应用最外层新建的页面为空。
+   * 重启后前端沿这条链恢复 A → B → C 的阅读页叠。
+   */
+  parentPageId?: number | null;
   title: string;
   /** 手动编辑过的标题不会被自动生成覆盖。 */
   titleSource?: 'model' | 'user';
@@ -232,6 +238,7 @@ export const TEACHER_CHANNELS = {
 export interface TapAlongBridge
   extends
     ProviderBridge,
+    ContextBridge,
     BackupBridge,
     SettingsBridge,
     DeveloperPromptsBridge,

@@ -19,6 +19,10 @@ import type {
 import type { AppErrorCode } from '@/shared/errors';
 import type { ExportBackupResult } from '@/shared/backup';
 import type {
+  ContextThoughtsPayload,
+  ContextThoughtsResult,
+} from '@/shared/context';
+import type {
   GuidanceRunPayload,
   GuidanceRunResult,
   GuidanceUpdatedEvent,
@@ -65,6 +69,7 @@ const toPageRecord = (page: PageSnapshot): PageRecord => {
 
   return {
     id: page.id,
+    parentPageId: page.parentPageId ?? null,
     title: page.title,
     body: page.body,
     source: page.source,
@@ -109,8 +114,13 @@ const toPageRecord = (page: PageSnapshot): PageRecord => {
   };
 };
 
-const createMockPage = ({ body, source }: SavePagePayload): PageRecord => ({
+const createMockPage = ({
+  body,
+  source,
+  parentPageId,
+}: SavePagePayload): PageRecord => ({
   id: (mockPageId += 1),
+  parentPageId: parentPageId ?? null,
   title: extractKeyword(body),
   body,
   source,
@@ -125,6 +135,18 @@ const createMockPage = ({ body, source }: SavePagePayload): PageRecord => ({
 });
 
 export const tapAlongApi = {
+  supportsContextThoughts: () => Boolean(bridge?.listContextThoughts),
+
+  async listContextThoughts(
+    payload: ContextThoughtsPayload,
+  ): Promise<ContextThoughtsResult> {
+    if (!bridge?.listContextThoughts) {
+      return { ok: false, errorCode: 'READ_FAILED' };
+    }
+
+    return bridge.listContextThoughts(payload);
+  },
+
   supportsTeacherStreaming: () =>
     Boolean(
       bridge?.askTeacher && bridge?.onTeacherChunk && bridge?.onTeacherDone,

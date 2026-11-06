@@ -15,6 +15,7 @@ import type {
 
 interface PageRow {
   id: number;
+  parent_page_id: number | null;
   edge_title: string | null;
   title_source: string | null;
   body: string;
@@ -224,6 +225,7 @@ const mapPageRow = (row: PageRow): PageSnapshot => {
 
   return {
     id: row.id,
+    parentPageId: row.parent_page_id,
     title: row.edge_title?.trim() || deriveFallbackTitle(row.body),
     ...(row.title_source === 'user' ? { titleSource: 'user' as const } : {}),
     body: row.body,
@@ -282,6 +284,7 @@ export class PagesRepository {
     this.findStatement = this.db.prepare(`
       SELECT
         id,
+        parent_page_id,
         edge_title,
         title_source,
         body,
@@ -297,6 +300,7 @@ export class PagesRepository {
     this.listRecentReadingStatement = this.db.prepare(`
       SELECT
         id,
+        parent_page_id,
         edge_title,
         title_source,
         body,
@@ -315,6 +319,7 @@ export class PagesRepository {
     this.listClosedStatement = this.db.prepare(`
       SELECT
         id,
+        parent_page_id,
         edge_title,
         title_source,
         body,
@@ -333,6 +338,7 @@ export class PagesRepository {
     this.listAllStatement = this.db.prepare(`
       SELECT
         id,
+        parent_page_id,
         edge_title,
         title_source,
         body,

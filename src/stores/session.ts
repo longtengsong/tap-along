@@ -7,6 +7,7 @@ import {
   loadDraftSnapshot,
   saveDraftSnapshot,
 } from '@/shared/draft';
+import { collectReadingStack } from '@/shared/page-stack';
 import { ERROR_MESSAGE_KEYS, type AppErrorCode } from '@/shared/errors';
 import {
   createPendingGuidance,
@@ -355,11 +356,15 @@ const restoreLatestPage = async () => {
   restoreStarted = true;
 
   try {
-    const [page] = await tapAlongApi.listRecentPages(1);
+    const [latest] = await tapAlongApi.listRecentPages(1);
 
-    if (page) {
-      state.pages = [page];
-      state.currentIndex = 0;
+    if (latest) {
+      // 只恢复一页会丢掉父页；沿 parentPageId 补齐，合上最上层时才有处可回。
+      const stack = await collectReadingStack(latest, (pageId) =>
+        tapAlongApi.getPage(pageId),
+      );
+      state.pages = stack;
+      state.currentIndex = stack.length - 1;
       state.view = 'companion';
     }
   } catch {
@@ -1360,6 +1365,37 @@ const resumeFromContext = async (
   pendingTeacherRequest = null;
 };
 
+/**
+ * 合上当前页后该回到哪一页。
+ * 优先用内存页叠里的上一页；重启后父页可能不在内存里，再按 parentPageId 从库里补回来。
+ * 这里只负责找到目标页，补进页叠的时机留给合上动画结束后，避免关闭途中界面跳页。
+ */
+const resolveReturnPage = async (
+  page: PageRecord,
+  previousReadingPage: PageRecord | null,
+): Promise<PageRecord | null> => {
+  if (previousReadingPage) {
+    return previousReadingPage;
+  }
+
+  const parentPageId = page.parentPageId;
+  if (!parentPageId) {
+    return null;
+  }
+
+  const inMemoryPage = state.pages.find((item) => item.id === parentPageId);
+  if (inMemoryPage) {
+    return inMemoryPage.status === 'reading' ? inMemoryPage : null;
+  }
+
+  try {
+    const parentPage = await tapAlongApi.getPage(parentPageId);
+    return parentPage && parentPage.status === 'reading' ? parentPage : null;
+  } catch {
+    return null;
+  }
+};
+
 const closeCurrentPage = async () => {
   const page = currentPage.value;
   if (!page || closeRequestInFlight) {
@@ -1429,6 +1465,9 @@ const closeCurrentPage = async () => {
     pendingTeacherRequest = null;
   }
 
+  // 先把要返回的页面准备好（重启后父页可能只在数据库里），避免合上动画结束后界面闪空。
+  const returnPage = await resolveReturnPage(page, previousReadingPage);
+
   await wait(1000);
 
   const closedPageIndex = state.pages.findIndex((item) => item.id === page.id);
@@ -1437,21 +1476,23 @@ const closeCurrentPage = async () => {
   }
   closingPageId = null;
 
-  if (state.pages.length === 0) {
+  // 父页可能刚从数据库补回来；合上动画结束后再放进页叠，避免关闭途中界面跳页。
+  if (returnPage && !state.pages.some((item) => item.id === returnPage.id)) {
+    state.pages.unshift(returnPage);
+  }
+
+  if (state.pages.length === 0 && !returnPage) {
     state.currentIndex = -1;
     state.view = 'new';
     return;
   }
 
-  if (
-    previousReadingPage &&
-    state.pages.some((item) => item.id === previousReadingPage.id)
-  ) {
+  if (returnPage && state.pages.some((item) => item.id === returnPage.id)) {
     state.currentIndex = state.pages.findIndex(
-      (item) => item.id === previousReadingPage.id,
+      (item) => item.id === returnPage.id,
     );
     state.view = 'companion';
-    void resumeFromContext(previousReadingPage, page);
+    void resumeFromContext(returnPage, page);
     return;
   }
 

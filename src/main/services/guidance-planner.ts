@@ -17,7 +17,7 @@ export interface GuidancePlanInput {
 }
 
 export interface GuidanceDecisionSuggestion {
-  relatedPageId: number;
+  relatedPageIds: number[];
   why: string;
   question: string;
 }
@@ -107,6 +107,38 @@ const extractJson = (content: string): unknown => {
   }
 };
 
+const parseRelatedPageIds = (
+  entry: Record<string, unknown>,
+  candidateIds: Set<number>,
+): number[] | null => {
+  const raw = Array.isArray(entry.relatedPageIds)
+    ? entry.relatedPageIds
+    : typeof entry.relatedPageId === 'number'
+      ? [entry.relatedPageId]
+      : null;
+
+  if (!raw || raw.length === 0 || raw.length > 4) {
+    return null;
+  }
+
+  const ids: number[] = [];
+
+  for (const id of raw) {
+    if (
+      typeof id !== 'number' ||
+      !Number.isInteger(id) ||
+      !candidateIds.has(id) ||
+      ids.includes(id)
+    ) {
+      return null;
+    }
+
+    ids.push(id);
+  }
+
+  return ids;
+};
+
 const parseDecision = (
   content: string,
   candidates: RelatedNoteCandidate[],
@@ -124,21 +156,18 @@ const parseDecision = (
   const rawSuggestions = Array.isArray(parsed.suggestions)
     ? parsed.suggestions
     : [];
-  const seen = new Set<number>();
   const suggestions: GuidanceDecisionSuggestion[] = [];
 
   for (const entry of rawSuggestions) {
-    if (suggestions.length >= 2 || !isRecord(entry)) {
+    if (suggestions.length >= 1 || !isRecord(entry)) {
       continue;
     }
 
-    const { relatedPageId, why, question } = entry;
+    const { why, question } = entry;
+    const relatedPageIds = parseRelatedPageIds(entry, candidateIds);
 
     if (
-      typeof relatedPageId !== 'number' ||
-      !Number.isInteger(relatedPageId) ||
-      !candidateIds.has(relatedPageId) ||
-      seen.has(relatedPageId) ||
+      !relatedPageIds ||
       typeof why !== 'string' ||
       typeof question !== 'string'
     ) {
@@ -152,16 +181,15 @@ const parseDecision = (
       !normalizedWhy ||
       normalizedWhy.length > 120 ||
       !normalizedQuestion ||
-      normalizedQuestion.length > 120 ||
+      normalizedQuestion.length > 160 ||
       /[\r\n]/.test(normalizedQuestion) ||
       !/[?？]$/.test(normalizedQuestion)
     ) {
       continue;
     }
 
-    seen.add(relatedPageId);
     suggestions.push({
-      relatedPageId,
+      relatedPageIds,
       why: normalizedWhy,
       question: normalizedQuestion,
     });

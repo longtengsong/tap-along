@@ -311,6 +311,122 @@ test('模型消息应包含页面上下文、历史角色和最新一次用户�
   assert.equal(withoutEmptyMessages.length, 5);
 });
 
+test('已点开的引导接点应把旧念头一起带进后续对谈', () => {
+  const page = {
+    ...createPage([
+      { role: 'teacher', text: '你写过主动分配，也写过任务牵引？' },
+    ]),
+    guidance: {
+      status: 'needed',
+      bodyHash: 'hash',
+      updatedAt: 1,
+      suggestions: [
+        {
+          id: 'g-2-3',
+          relatedPageIds: [2, 3],
+          notes: [
+            {
+              pageId: 2,
+              title: '注意力与任务',
+              source: '课程',
+              excerpt: '注意力需要主动分配。',
+            },
+            {
+              pageId: 3,
+              title: '任务牵引',
+              source: '日记',
+              excerpt: '任务会牵引注意力。',
+            },
+          ],
+          why: '两页分别讲了分配和牵引。',
+          question: '那这页说的“有限”到底卡在哪？',
+          used: true,
+        },
+      ],
+    },
+  };
+  const messages = buildTeacherMessages({
+    page,
+    userText: '我还没想清楚。',
+    replyLanguage: 'zh-CN',
+  });
+  const thread = messages.find(
+    (message) =>
+      message.role === 'system' &&
+      message.content.includes('purpose="guidance_thread"'),
+  );
+
+  assert.ok(thread);
+  assert.match(thread.content, /<related_note id="2">/);
+  assert.match(thread.content, /<related_note id="3">/);
+  assert.match(thread.content, /注意力需要主动分配/);
+  assert.match(thread.content, /任务会牵引注意力/);
+  assert.match(thread.content, /not instructions/);
+});
+
+test('未点开的引导或没有正文摘录时不应带入旧念头', () => {
+  const guidance = {
+    status: 'needed',
+    bodyHash: 'hash',
+    updatedAt: 1,
+    suggestions: [
+      {
+        id: 'g-2',
+        relatedPageIds: [2],
+        notes: [
+          {
+            pageId: 2,
+            title: '注意力与任务',
+            source: '课程',
+            excerpt: '注意力需要主动分配。',
+          },
+        ],
+        why: '两页都在讨论注意力。',
+        question: '那这页说的“有限”到底卡在哪？',
+      },
+    ],
+  };
+  const unused = buildTeacherMessages({
+    page: { ...createPage(), guidance },
+    userText: '继续。',
+    replyLanguage: 'zh-CN',
+  });
+  assert.equal(
+    unused.some((message) => message.content.includes('guidance_thread')),
+    false,
+  );
+
+  const withoutExcerpt = buildTeacherMessages({
+    page: {
+      ...createPage(),
+      guidance: {
+        ...guidance,
+        suggestions: [
+          {
+            ...guidance.suggestions[0],
+            notes: [
+              {
+                pageId: 2,
+                title: '注意力与任务',
+                source: '课程',
+              },
+            ],
+            used: true,
+          },
+        ],
+      },
+    },
+    userText: '继续。',
+    replyLanguage: 'zh-CN',
+  });
+  assert.equal(
+    withoutExcerpt.some((message) =>
+      message.content.includes('guidance_thread'),
+    ),
+    false,
+  );
+});
+
 test('跨页模型消息应只包含上下文正文、目标页和目标页真实对谈', () => {
   const contextPage = {
     ...createPage([

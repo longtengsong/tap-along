@@ -66,8 +66,9 @@
   },
   "guidance": {
     "pending": "正在旧念头里找能接住的线……",
+    "untitled": "未命名念头",
     "heading": "也许能接上",
-    "fromPage": "旧念头 · 出自《{title}》",
+    "linked": "这条线上的旧念头",
     "action": "顺着这条线问",
     "used": "已经接过",
     "notNeeded": "这个念头已经很清楚，这一轮先不硬接。",
@@ -76,6 +77,19 @@
     "retryHint": "这次没找到能接住的旧念头。",
     "retryAction": "再找找",
     "retryFailed": "这次没找成，稍后再试也行。"
+  },
+  "thoughts": {
+    "heading": "这次会话的念头",
+    "sub": "这条线上的、另记的，都在这里",
+    "lineGroup": "这条线上的旧念头",
+    "branchGroup": "另记的念头",
+    "collapseAll": "全部收起",
+    "expandAll": "全部展开",
+    "hideRail": "收起右侧",
+    "showRail": "展开这次会话的念头",
+    "dockLabel": "会话念头",
+    "readOnly": "只读 · 全文",
+    "noDiscussion": "不含当时的对谈"
   },
   "status": {
     "reading": "在聊",

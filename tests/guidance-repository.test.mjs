@@ -10,6 +10,7 @@ import {
   openDatabase,
 } from '../src/main/db/client.ts';
 import { PagesRepository } from '../src/main/db/pages.ts';
+import { parseGuidanceView } from '../src/shared/guidance.ts';
 
 const hash = (body) => createHash('sha256').update(body).digest('hex');
 
@@ -33,9 +34,8 @@ const guidance = (body, overrides = {}) => ({
   suggestions: [
     {
       id: 'g-2',
-      relatedPageId: 2,
-      title: '注意力与任务',
-      source: '课程',
+      relatedPageIds: [2],
+      notes: [{ pageId: 2, title: '注意力与任务', source: '课程' }],
       why: '两页都在讨论注意力如何分配。',
       question: '你说注意力有限，那有限的是总量还是分配？',
     },
@@ -68,9 +68,8 @@ test('应持久化并读回引导卡片的锚点句', async (t) => {
     suggestions: [
       {
         id: 'g-2',
-        relatedPageId: 2,
-        title: '注意力与任务',
-        source: '课程',
+        relatedPageIds: [2],
+        notes: [{ pageId: 2, title: '注意力与任务', source: '课程' }],
         why: '两条念头都在讨论注意力如何分配。',
         question: '你说注意力有限，那有限的是总量还是分配？',
         anchorQuote: '注意力是有限资源',
@@ -89,6 +88,66 @@ test('应持久化并读回引导卡片的锚点句', async (t) => {
     repository.findById(page.id).guidance.suggestions[0].anchorQuote,
     '注意力是有限资源',
   );
+});
+
+test('多个旧念头应一起持久化并可读回', async (t) => {
+  const { repository } = await createRepository(t);
+  const page = repository.create('注意力是有限资源。', '课程', opening);
+  const view = guidance(page.body, {
+    suggestions: [
+      {
+        id: 'g-2-3',
+        relatedPageIds: [2, 3],
+        notes: [
+          { pageId: 2, title: '注意力与任务', source: '课程' },
+          { pageId: 3, title: '任务牵引', source: '日记' },
+        ],
+        why: '两页分别讲了分配和牵引，当前页讲有限。',
+        question:
+          '你写过注意力需要主动分配，也写过任务会牵引它，那这页说的“有限”到底卡在哪？',
+      },
+    ],
+  });
+
+  const saved = repository.finalizeGuidance(page.id, view, {
+    removeOpening: true,
+    expectedBody: page.body,
+  });
+  const reloaded = repository.findById(page.id);
+
+  assert.ok(saved);
+  assert.deepEqual(reloaded.guidance.suggestions[0].relatedPageIds, [2, 3]);
+  assert.deepEqual(reloaded.guidance.suggestions[0].notes, [
+    { pageId: 2, title: '注意力与任务', source: '课程' },
+    { pageId: 3, title: '任务牵引', source: '日记' },
+  ]);
+});
+
+test('旧版单页引导数据应能读回为一条接点', () => {
+  const parsed = parseGuidanceView(
+    JSON.stringify({
+      status: 'needed',
+      suggestions: [
+        {
+          id: 'g-2',
+          relatedPageId: 2,
+          title: '注意力与任务',
+          source: '课程',
+          why: '两页都在讨论注意力如何分配。',
+          question: '你说注意力有限，那有限的是总量还是分配？',
+        },
+      ],
+      bodyHash: 'hash',
+      updatedAt: 1,
+    }),
+  );
+
+  assert.ok(parsed);
+  assert.deepEqual(parsed.suggestions[0].relatedPageIds, [2]);
+  assert.deepEqual(parsed.suggestions[0].notes, [
+    { pageId: 2, title: '注意力与任务', source: '课程' },
+  ]);
+  assert.equal(parsed.suggestions[0].why, '两页都在讨论注意力如何分配。');
 });
 
 test('失败或没有候选时应保留开场问题', async (t) => {

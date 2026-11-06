@@ -33,7 +33,7 @@ const validDecision = {
   reason: '两页都在讨论注意力如何分配。',
   suggestions: [
     {
-      relatedPageId: 2,
+      relatedPageIds: [2],
       why: '旧页讨论主动分配，这页讨论有限。',
       question: '你说注意力有限，那有限的是总量还是分配？',
     },
@@ -99,12 +99,73 @@ test('有相关旧页时应持久化 needed 并移除开场问题', async (t) =>
   assert.equal(calls.finalize[0].guidance.status, 'needed');
   assert.equal(calls.finalize[0].guidance.suggestions.length, 1);
   assert.equal(calls.finalize[0].guidance.suggestions[0].id, 'g-2');
-  assert.equal(calls.finalize[0].guidance.suggestions[0].title, '注意力与任务');
-  assert.equal(calls.finalize[0].guidance.suggestions[0].source, '课程');
+  assert.deepEqual(
+    calls.finalize[0].guidance.suggestions[0].relatedPageIds,
+    [2],
+  );
+  assert.deepEqual(calls.finalize[0].guidance.suggestions[0].notes, [
+    {
+      pageId: 2,
+      title: '注意力与任务',
+      source: '课程',
+      excerpt: '注意力需要主动分配。',
+    },
+  ]);
   assert.equal(calls.finalize[0].guidance.suggestions[0].anchorQuote, '注意力');
   assert.equal(emitted.length, 1);
   assert.equal(emitted[0].pageId, 1);
   assert.equal(emitted[0].guidance.status, 'needed');
+});
+
+test('多个匹配旧念头应合并成一张接点卡片', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  const secondPage = {
+    id: 3,
+    title: '任务牵引',
+    body: '任务会牵引注意力。',
+    source: '课程',
+    updatedAt: '2026-11-03 00:00:00',
+  };
+  const { repository, calls } = createRepository({
+    pages: [retrievalPage, secondPage],
+  });
+  const emitted = [];
+  const service = new GuidanceService(
+    repository,
+    createPlanner(async () => ({
+      needDeeperUnderstanding: true,
+      suggestions: [
+        {
+          relatedPageIds: [2, 3],
+          why: '两页分别讲了分配和牵引，当前页讲有限。',
+          question:
+            '你写过注意力需要主动分配，也写过任务会牵引它，那这页说的“有限”到底卡在哪？',
+        },
+      ],
+    })),
+  );
+
+  await service.run(1, (event) => emitted.push(event));
+
+  const suggestion = calls.finalize[0].guidance.suggestions[0];
+  assert.equal(suggestion.id, 'g-2-3');
+  assert.deepEqual(suggestion.relatedPageIds, [2, 3]);
+  assert.deepEqual(suggestion.notes, [
+    {
+      pageId: 2,
+      title: '注意力与任务',
+      source: '课程',
+      excerpt: '注意力需要主动分配。',
+    },
+    {
+      pageId: 3,
+      title: '任务牵引',
+      source: '课程',
+      excerpt: '任务会牵引注意力。',
+    },
+  ]);
+  assert.equal(suggestion.anchorQuote, '注意力');
+  assert.equal(emitted[0].guidance.suggestions.length, 1);
 });
 
 test('模型判断不需要时应写 not_needed 并移除开场问题', async (t) => {
@@ -324,7 +385,7 @@ test('服务与真实仓储应完成一次引导闭环', async (t) => {
     needDeeperUnderstanding: true,
     suggestions: [
       {
-        relatedPageId: related.id,
+        relatedPageIds: [related.id],
         why: '两页都在讨论注意力。',
         question: '你说的有限，是总量有限还是分配有限？',
       },

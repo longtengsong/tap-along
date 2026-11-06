@@ -6,6 +6,11 @@ import {
   type WebSearchTestResult,
 } from './shared/search.ts';
 import { BACKUP_CHANNELS, type ExportBackupResult } from './shared/backup.ts';
+import {
+  CONTEXT_CHANNELS,
+  type ContextThoughtsPayload,
+  type ContextThoughtsResult,
+} from './shared/context.ts';
 import { SHELL_CHANNELS, type OpenExternalResult } from './shared/shell.ts';
 import {
   GUIDANCE_CHANNELS,
@@ -48,6 +53,10 @@ const tapAlongBridge: TapAlongBridge = {
   savePage: (payload: SavePagePayload) =>
     ipcRenderer.invoke(PAGE_CHANNELS.save, payload),
   getPage: (pageId: number) => ipcRenderer.invoke(PAGE_CHANNELS.get, pageId),
+  listContextThoughts: (
+    payload: ContextThoughtsPayload,
+  ): Promise<ContextThoughtsResult> =>
+    ipcRenderer.invoke(CONTEXT_CHANNELS.list, payload),
   listPages: (payload: ListPagesPayload) =>
     ipcRenderer.invoke(PAGE_CHANNELS.list, payload),
   listClosedPages: (payload: ListPagesPayload) =>

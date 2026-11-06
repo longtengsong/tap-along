@@ -445,8 +445,28 @@ test('页面仓储应持久化父子关系并查询已合上后代正文', async
   const pageB = repository.create('B 的正文。', '', undefined, pageA.id);
   const pageC = repository.create('C 的正文。', '', undefined, pageB.id);
 
+  assert.equal(pageA.parentPageId, null, '最外层新建的页面没有父页');
+  assert.equal(pageB.parentPageId, pageA.id, '创建结果应带上父页编号');
+  assert.equal(repository.findById(pageC.id).parentPageId, pageB.id);
+  assert.equal(
+    repository.listRecentReading(10).find((item) => item.id === pageB.id)
+      .parentPageId,
+    pageA.id,
+  );
+
   repository.closePage(pageC.id, 'close-c');
   repository.closePage(pageB.id, 'close-b');
+
+  assert.equal(
+    repository.listClosed(10).find((item) => item.id === pageC.id).parentPageId,
+    pageB.id,
+    '旧念头列表也应带父页编号',
+  );
+  assert.equal(
+    repository.listAll().find((item) => item.id === pageC.id).parentPageId,
+    pageB.id,
+    '全量列表也应带父页编号',
+  );
 
   assert.deepEqual(repository.listClosedDescendantBodies(pageB.id, true), [
     { pageId: pageB.id, body: 'B 的正文。', depth: 0, rootPageId: pageB.id },

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { GUIDANCE_RELATED_NOTE_EXCERPT_LIMIT } from '../../shared/guidance.ts';
 import type {
   GuidanceRunPayload,
   GuidanceRunResult,
@@ -50,20 +51,36 @@ const buildView = (
   );
   const suggestions = decision.needDeeperUnderstanding
     ? decision.suggestions.flatMap((suggestion) => {
-        const candidate = byId.get(suggestion.relatedPageId);
+        const related = suggestion.relatedPageIds.flatMap((pageId) => {
+          const candidate = byId.get(pageId);
+          return candidate ? [candidate] : [];
+        });
 
-        if (!candidate) {
+        if (related.length !== suggestion.relatedPageIds.length) {
           return [];
         }
 
-        const anchorQuote = deriveAnchorQuote(currentBody, candidate.snippet);
+        const anchorQuote = deriveAnchorQuote(
+          currentBody,
+          related.map((candidate) => candidate.snippet).join('\n'),
+        );
 
         return [
           {
-            id: `g-${suggestion.relatedPageId}`,
-            relatedPageId: suggestion.relatedPageId,
-            title: candidate.title,
-            source: candidate.source,
+            id: `g-${suggestion.relatedPageIds.join('-')}`,
+            relatedPageIds: suggestion.relatedPageIds,
+            notes: related.map((candidate) => {
+              const excerpt = (
+                candidate.body?.trim() || candidate.snippet
+              ).slice(0, GUIDANCE_RELATED_NOTE_EXCERPT_LIMIT);
+
+              return {
+                pageId: candidate.pageId,
+                title: candidate.title,
+                source: candidate.source,
+                ...(excerpt ? { excerpt } : {}),
+              };
+            }),
             why: suggestion.why,
             question: suggestion.question,
             ...(anchorQuote ? { anchorQuote } : {}),
