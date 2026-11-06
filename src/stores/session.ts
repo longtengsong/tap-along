@@ -286,19 +286,27 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
   }
 };
 
+const guidanceRequestId = (suggestion: { id: string; requestId?: string }) =>
+  suggestion.requestId ?? `guidance-${suggestion.id}`;
+
 const appendGuidanceOpening = (page: PageRecord) => {
   const opened = page.guidance?.suggestions.find((item) => item.used);
-  const requestId = opened ? `guidance-${opened.id}` : null;
+  const requestId = opened ? guidanceRequestId(opened) : null;
 
-  if (
-    opened &&
-    requestId &&
-    !page.messages.some((item) => item.requestId === requestId)
-  ) {
-    page.messages.push(
-      message('teacher', opened.question, false, requestId, requestId),
-    );
+  if (!opened || !requestId) {
+    return;
   }
+
+  const existing = page.messages.find((item) => item.requestId === requestId);
+
+  if (existing) {
+    existing.text = opened.question;
+    return;
+  }
+
+  page.messages.push(
+    message('teacher', opened.question, false, requestId, requestId),
+  );
 };
 
 const applyGuidanceToPage = (
@@ -311,6 +319,17 @@ const applyGuidanceToPage = (
   if (guidance.status === 'needed' || guidance.status === 'not_needed') {
     page.messages = page.messages.filter(
       (item) => item.requestId !== 'opening',
+    );
+  }
+
+  const opened = guidance.suggestions.find((item) => item.used);
+
+  if (opened) {
+    const keep = guidanceRequestId(opened);
+    page.messages = page.messages.filter(
+      (item) =>
+        item.requestId === keep ||
+        !(item.role === 'teacher' && item.requestId?.startsWith('guidance-')),
     );
   }
 
@@ -1691,21 +1710,47 @@ export const useSessionStore = () => {
       return;
     }
 
-    const suggestion = guidance.suggestions.find((item) => !item.used);
+    const suggestion =
+      guidance.suggestions.find((item) => !item.used) ??
+      guidance.suggestions.find((item) => item.used);
 
-    if (
-      !suggestion ||
-      page.messages.some(
-        (item) => item.requestId === `guidance-${suggestion.id}`,
-      )
-    ) {
+    if (!suggestion) {
       return;
     }
 
+    const alreadyUsed = suggestion.used === true;
     autoOpeningPageIds.add(page.id);
 
     try {
-      await useGuidanceSuggestion(suggestion.id);
+      const requestId = guidanceRequestId(suggestion);
+
+      if (tapAlongApi.supportsGuidanceRefresh()) {
+        const inspection = await tapAlongApi.inspectTeacherRequest(requestId);
+
+        if (inspection.ok) {
+          if (inspection.request) {
+            if (!alreadyUsed) {
+              await useGuidanceSuggestion(suggestion.id);
+            }
+            return;
+          }
+
+          // 旧版本生成的问题没有对应的请求记录；重新走一次判定，
+          // 让“查看请求”展示的确实是为这个问题发出的 prompt。
+          const result = await tapAlongApi.runGuidance({
+            pageId: page.id,
+            mode: 'open',
+          });
+
+          if (result.ok) {
+            return;
+          }
+        }
+      }
+
+      if (!alreadyUsed) {
+        await useGuidanceSuggestion(suggestion.id);
+      }
     } finally {
       autoOpeningPageIds.delete(page.id);
     }

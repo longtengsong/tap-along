@@ -30,6 +30,8 @@ export interface GuidanceSuggestion {
   notes: GuidanceRelatedNote[];
   why: string;
   question: string;
+  /** 生成这个问题的那次模型请求；旧数据没有，回退到 guidance-${id}。 */
+  requestId?: string;
   anchorQuote?: string;
   used?: boolean;
 }
@@ -60,7 +62,7 @@ export interface GuidanceUsePayload {
 
 export interface GuidanceRunPayload {
   pageId: number;
-  mode: 'refresh' | 'retry';
+  mode: 'refresh' | 'retry' | 'open';
 }
 
 export interface GuidanceRunResult {
@@ -141,6 +143,7 @@ const parseSuggestion = (value: unknown): GuidanceSuggestion | null => {
     source,
     why,
     question,
+    requestId,
     anchorQuote,
     used,
   } = value;
@@ -196,6 +199,9 @@ const parseSuggestion = (value: unknown): GuidanceSuggestion | null => {
     notes: orderedNotes,
     why,
     question,
+    ...(typeof requestId === 'string' && requestId.trim()
+      ? { requestId: requestId.trim() }
+      : {}),
     ...(typeof anchorQuote === 'string' && anchorQuote.trim()
       ? { anchorQuote: anchorQuote.trim() }
       : {}),

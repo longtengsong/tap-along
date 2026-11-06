@@ -2,12 +2,9 @@ import type { ProviderConnectionResult } from '../../shared/providers.ts';
 import type { PromptCatalogValues } from '../../shared/prompts.ts';
 import { PROMPT_CATALOG } from '../prompts/index.ts';
 import type { DeveloperPromptConfigService } from './developer-prompts.ts';
-import type {
-  ProviderConfigService,
-  ProviderRuntimeConfig,
-} from './providers.ts';
-
-type FetchLike = typeof fetch;
+import type { ModelGateway } from './model-gateway.ts';
+import { ProviderRequestError } from './provider-errors.ts';
+import type { ProviderConfigService } from './providers.ts';
 
 export const buildChatCompletionsUrl = (baseUrl: string) => {
   const normalized = baseUrl.replace(/\/+$/, '');
@@ -17,71 +14,44 @@ export const buildChatCompletionsUrl = (baseUrl: string) => {
     : `${normalized}/chat/completions`;
 };
 
+const errorCodeFor = (error: unknown) => {
+  if (error instanceof ProviderRequestError) {
+    return error.errorCode === 'PROVIDER_REQUEST_FAILED'
+      ? 'PROVIDER_TEST_FAILED'
+      : error.errorCode;
+  }
+
+  return 'PROVIDER_TEST_FAILED';
+};
+
 export class ProviderConnectionTester {
-  private readonly fetchImpl: FetchLike;
+  private readonly gateway: Pick<ModelGateway, 'probe'>;
   private readonly timeoutMs: number;
 
-  constructor(fetchImpl: FetchLike = globalThis.fetch, timeoutMs = 15_000) {
-    this.fetchImpl = fetchImpl;
+  constructor(gateway: Pick<ModelGateway, 'probe'>, timeoutMs = 15_000) {
+    this.gateway = gateway;
     this.timeoutMs = timeoutMs;
   }
 
   async test(
-    config: ProviderRuntimeConfig,
+    config: Parameters<ModelGateway['probe']>[0],
     promptCatalog: PromptCatalogValues = PROMPT_CATALOG,
   ): Promise<ProviderConnectionResult> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
-
     try {
-      const response = await this.fetchImpl(
-        buildChatCompletionsUrl(config.baseUrl),
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${config.apiKey}`,
-            'Content-Type': 'application/json',
+      await this.gateway.probe(
+        config,
+        [
+          {
+            role: 'user',
+            content: promptCatalog.provider.connectionTest,
           },
-          body: JSON.stringify({
-            model: config.model,
-            messages: [
-              {
-                role: 'user',
-                content: promptCatalog.provider.connectionTest,
-              },
-            ],
-            max_tokens: 1,
-            stream: false,
-          }),
-          signal: controller.signal,
-        },
+        ],
+        this.timeoutMs,
       );
 
-      if (response.ok) {
-        return { ok: true };
-      }
-
-      if (response.status === 401 || response.status === 403) {
-        return { ok: false, errorCode: 'PROVIDER_UNAUTHORIZED' };
-      }
-
-      if (response.status === 400 || response.status === 404) {
-        return { ok: false, errorCode: 'MODEL_UNAVAILABLE' };
-      }
-
-      if (response.status === 429) {
-        return { ok: false, errorCode: 'PROVIDER_RATE_LIMITED' };
-      }
-
-      return { ok: false, errorCode: 'PROVIDER_TEST_FAILED' };
+      return { ok: true };
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        return { ok: false, errorCode: 'PROVIDER_TIMEOUT' };
-      }
-
-      return { ok: false, errorCode: 'PROVIDER_NETWORK_ERROR' };
-    } finally {
-      clearTimeout(timeout);
+      return { ok: false, errorCode: errorCodeFor(error) };
     }
   }
 }

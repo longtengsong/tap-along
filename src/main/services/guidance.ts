@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { GUIDANCE_RELATED_NOTE_EXCERPT_LIMIT } from '../../shared/guidance.ts';
 import type {
   GuidanceRunPayload,
@@ -26,7 +26,7 @@ type GuidanceRepository = Pick<
 >;
 
 type GuidanceEmitter = (event: GuidanceUpdatedEvent) => void;
-type GuidanceRunMode = 'initial' | 'refresh' | 'retry';
+type GuidanceRunMode = 'initial' | 'refresh' | 'retry' | 'open';
 
 interface GuidanceRunOptions {
   mode?: GuidanceRunMode;
@@ -147,12 +147,14 @@ export class GuidanceService {
       typeof input.pageId !== 'number' ||
       !Number.isInteger(input.pageId) ||
       input.pageId <= 0 ||
-      (input.mode !== 'refresh' && input.mode !== 'retry')
+      (input.mode !== 'refresh' &&
+        input.mode !== 'retry' &&
+        input.mode !== 'open')
     ) {
       return { ok: false, errorCode: 'TEACHER_INVALID_REQUEST' };
     }
 
-    const mode = input.mode === 'retry' ? 'retry' : 'refresh';
+    const mode = input.mode;
 
     void this.run(input.pageId, emit, { mode }).catch((error) => {
       console.error('运行理解引导失败：', error);
@@ -175,7 +177,7 @@ export class GuidanceService {
 
     if (running) {
       if (
-        (mode === 'refresh' || mode === 'retry') &&
+        (mode === 'refresh' || mode === 'retry' || mode === 'open') &&
         running.mode === 'initial'
       ) {
         let chained: Promise<void>;
@@ -229,6 +231,10 @@ export class GuidanceService {
       }
     }
 
+    if (mode === 'open' && hasUserMessages) {
+      return;
+    }
+
     if (mode === 'refresh' && page.guidance) {
       return;
     }
@@ -259,12 +265,21 @@ export class GuidanceService {
         page,
         this.repository.searchPagesForRetrieval(pageId, terms, 100),
       );
-      const decision = await this.planner.plan({ page, candidates });
+      const requestId = `guidance-${pageId}-${randomUUID()}`;
+      const decision = await this.planner.plan({
+        page,
+        candidates,
+        requestId,
+      });
       view = buildView(decision, candidates, bodyHash, body);
+
+      if (view.suggestions[0]) {
+        view.suggestions[0].requestId = requestId;
+      }
     } catch (error) {
       console.error('生成理解引导失败：', error);
 
-      if (mode === 'refresh') {
+      if (mode === 'refresh' || mode === 'open') {
         return;
       }
 
@@ -276,12 +291,12 @@ export class GuidanceService {
       };
     }
 
-    if (mode === 'refresh' && view.status !== 'needed') {
+    if ((mode === 'refresh' || mode === 'open') && view.status !== 'needed') {
       return;
     }
 
     const removeOpening =
-      (mode === 'initial' || mode === 'retry') &&
+      (mode === 'initial' || mode === 'retry' || mode === 'open') &&
       (view.status === 'needed' || view.status === 'not_needed');
     const finalizeOptions = {
       removeOpening,

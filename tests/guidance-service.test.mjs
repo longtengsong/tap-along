@@ -141,6 +141,28 @@ test('有相关旧页时应持久化 needed 并移除开场问题', async (t) =>
   assert.equal(emitted[0].guidance.suggestions[0].used, true);
 });
 
+test('引导判定应把唯一 requestId 传给 planner 并写进 suggestion', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  const { repository, calls } = createRepository();
+  let plannedRequestId;
+  const service = new GuidanceService(
+    repository,
+    createPlanner(async ({ requestId }) => {
+      plannedRequestId = requestId;
+      return validDecision;
+    }),
+  );
+
+  await service.run(1, () => {});
+
+  assert.match(plannedRequestId, /^guidance-1-/);
+  assert.equal(
+    calls.finalize[0].guidance.suggestions[0].requestId,
+    plannedRequestId,
+  );
+  assert.equal(calls.use.length, 1);
+});
+
 test('多个匹配旧念头应合并成一张接点卡片', async (t) => {
   t.mock.method(console, 'error', () => {});
   const secondPage = {
@@ -437,7 +459,11 @@ test('服务与真实仓储应完成一次引导闭环', async (t) => {
   assert.equal(used.ok, true);
   const updated = repository.findById(current.id);
   assert.equal(updated.messages.length, 1);
-  assert.equal(updated.messages[0].requestId, `guidance-g-${related.id}`);
+  assert.match(saved.guidance.suggestions[0].requestId, /^guidance-[0-9]+-/);
+  assert.equal(
+    updated.messages[0].requestId,
+    saved.guidance.suggestions[0].requestId,
+  );
   assert.equal(emitted.length, 1);
   assert.equal(emitted[0].guidance.status, 'needed');
 });
@@ -496,6 +522,52 @@ test('refresh 模式应允许用户消息且只处理 needed', async (t) => {
   });
   assert.equal(failed.calls.finalize.length, 0);
   assert.deepEqual(failedEmitted, []);
+});
+
+test('open 模式应允许已有 guidance 且无用户消息时重新判定并开场', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  const currentPage = page({
+    guidance: {
+      status: 'needed',
+      suggestions: [
+        {
+          id: 'g-2',
+          relatedPageIds: [2],
+          notes: [
+            {
+              pageId: 2,
+              title: '注意力与任务',
+              source: '课程',
+              excerpt: '注意力需要主动分配。',
+            },
+          ],
+          why: '旧页讨论分配。',
+          question: '旧问题？',
+        },
+      ],
+      bodyHash: 'old-hash',
+      updatedAt: 1,
+    },
+  });
+  const { repository, calls } = createRepository({ currentPage });
+  let plannedRequestId;
+  const service = new GuidanceService(
+    repository,
+    createPlanner(async ({ requestId }) => {
+      plannedRequestId = requestId;
+      return validDecision;
+    }),
+  );
+
+  await service.run(1, () => {}, { mode: 'open' });
+
+  assert.equal(calls.finalize.length, 1);
+  assert.equal(calls.finalize[0].options.removeOpening, true);
+  assert.equal(calls.use.length, 1);
+  assert.equal(
+    calls.finalize[0].guidance.suggestions[0].requestId,
+    plannedRequestId,
+  );
 });
 
 test('refresh 应拒绝已有关闭或已有 guidance 的页面', async (t) => {

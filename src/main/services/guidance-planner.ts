@@ -1,19 +1,20 @@
 import type { PageSnapshot } from '../../shared/pages.ts';
-import type { ChatMessage } from '../prompts/teacher-context.ts';
 import { buildGuidanceMessages } from '../prompts/guidance.ts';
-import { buildChatCompletionsUrl } from './provider-connection.ts';
-import { ProviderRequestError } from './model-teacher.ts';
-import type {
-  ProviderConfigService,
-  ProviderRuntimeConfig,
-} from './providers.ts';
+import {
+  createStructuredCompletion,
+  type StructuredCompletion,
+} from './structured-completion.ts';
+import type { ProviderConfigService } from './providers.ts';
 import type { RelatedNoteCandidate } from './related-notes.ts';
+import type { TeacherRequestInspector } from './teacher-request-inspector.ts';
 
 type FetchLike = typeof fetch;
 
 export interface GuidancePlanInput {
   page: PageSnapshot;
   candidates: RelatedNoteCandidate[];
+  /** 模型请求的 requestId；由 GuidanceService 生成，用于开发者模式查看请求。 */
+  requestId?: string;
 }
 
 export interface GuidanceDecisionSuggestion {
@@ -41,52 +42,14 @@ export class GuidanceOutputError extends Error {
 
 interface GuidancePlannerOptions {
   configService: Pick<ProviderConfigService, 'resolveActive'>;
+  completion?: StructuredCompletion;
+  inspector?: Pick<TeacherRequestInspector, 'recordSent' | 'recordFailed'>;
   fetchImpl?: FetchLike;
   timeoutMs?: number;
 }
 
-const PROVIDER_ERROR_FOR_STATUS = (status: number) => {
-  if (status === 401 || status === 403) {
-    return 'PROVIDER_UNAUTHORIZED';
-  }
-
-  if (status === 400 || status === 404) {
-    return 'MODEL_UNAVAILABLE';
-  }
-
-  if (status === 408) {
-    return 'PROVIDER_TIMEOUT';
-  }
-
-  if (status === 429) {
-    return 'PROVIDER_RATE_LIMITED';
-  }
-
-  return 'PROVIDER_REQUEST_FAILED';
-};
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-
-const readContent = (payload: unknown): string => {
-  if (!isRecord(payload)) {
-    throw new ProviderRequestError('PROVIDER_REQUEST_FAILED');
-  }
-
-  const choices = payload.choices;
-
-  if (!Array.isArray(choices)) {
-    throw new GuidanceOutputError();
-  }
-
-  const content = choices[0]?.message?.content;
-
-  if (typeof content !== 'string' || !content.trim()) {
-    throw new GuidanceOutputError();
-  }
-
-  return content.trim();
-};
 
 const extractJson = (content: string): unknown => {
   const withoutFence = content
@@ -215,104 +178,54 @@ const parseDecision = (
   };
 };
 
-const requestCompletion = async (
-  messages: ChatMessage[],
-  config: ProviderRuntimeConfig,
-  fetchImpl: FetchLike,
-  timeoutMs: number,
-): Promise<string> => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    let response: Awaited<ReturnType<FetchLike>>;
-
-    try {
-      response = await fetchImpl(buildChatCompletionsUrl(config.baseUrl), {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${config.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: config.model,
-          messages,
-          stream: false,
-          temperature: 0,
-          max_tokens: 600,
-        }),
-        signal: controller.signal,
-      });
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new ProviderRequestError('PROVIDER_TIMEOUT');
-      }
-
-      throw new ProviderRequestError('PROVIDER_NETWORK_ERROR');
-    }
-
-    if (!response.ok) {
-      throw new ProviderRequestError(
-        PROVIDER_ERROR_FOR_STATUS(response.status),
-      );
-    }
-
-    let payload: unknown;
-
-    try {
-      payload = await response.json();
-    } catch {
-      throw new ProviderRequestError('PROVIDER_REQUEST_FAILED');
-    }
-
-    return readContent(payload);
-  } finally {
-    clearTimeout(timeout);
-  }
-};
-
 export const createGuidancePlanner = ({
   configService,
-  fetchImpl = globalThis.fetch,
+  completion,
+  inspector,
+  fetchImpl,
   timeoutMs = 8_000,
-}: GuidancePlannerOptions): GuidancePlanner => ({
-  async plan({ page, candidates }) {
-    const resolved = await configService.resolveActive();
+}: GuidancePlannerOptions): GuidancePlanner => {
+  const complete =
+    completion ??
+    createStructuredCompletion({
+      configService,
+      inspector,
+      fetchImpl,
+      timeoutMs,
+    });
 
-    if (!resolved.ok) {
-      throw new ProviderRequestError(resolved.errorCode);
-    }
+  return {
+    async plan({ page, candidates, requestId }) {
+      const baseMessages = buildGuidanceMessages({ page, candidates });
 
-    const baseMessages = buildGuidanceMessages({ page, candidates });
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const messages =
+          attempt === 0
+            ? baseMessages
+            : [
+                ...baseMessages,
+                {
+                  role: 'user' as const,
+                  content:
+                    'Your previous output was invalid. Return only a JSON object that matches the requested shape.',
+                },
+              ];
+        const content = await complete.complete(messages, {
+          maxTokens: 600,
+          requestId,
+          timeoutMs,
+        });
 
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const messages =
-        attempt === 0
-          ? baseMessages
-          : [
-              ...baseMessages,
-              {
-                role: 'user' as const,
-                content:
-                  'Your previous output was invalid. Return only a JSON object that matches the requested shape.',
-              },
-            ];
-      const content = await requestCompletion(
-        messages,
-        resolved.config,
-        fetchImpl,
-        timeoutMs,
-      );
-
-      try {
-        return parseDecision(content, candidates);
-      } catch (error) {
-        if (!(error instanceof GuidanceOutputError) || attempt > 0) {
-          throw error;
+        try {
+          return parseDecision(content, candidates);
+        } catch (error) {
+          if (!(error instanceof GuidanceOutputError) || attempt > 0) {
+            throw error;
+          }
         }
       }
-    }
 
-    throw new GuidanceOutputError();
-  },
-});
+      throw new GuidanceOutputError();
+    },
+  };
+};

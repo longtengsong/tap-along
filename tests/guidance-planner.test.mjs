@@ -470,7 +470,7 @@ test('网络异常、超时和无效响应应映射为受控错误码', async (t
 
     await assert.rejects(
       () => planner.plan({ page, candidates }),
-      (error) => error instanceof GuidanceOutputError,
+      (error) => error.errorCode === 'PROVIDER_REQUEST_FAILED',
     );
   });
 });

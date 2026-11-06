@@ -6,6 +6,7 @@ import {
   buildChatCompletionsUrl,
 } from '../src/main/services/provider-connection.ts';
 import { PROMPT_CATALOG } from '../src/main/prompts/index.ts';
+import { createModelGateway } from '../src/main/services/model-gateway.ts';
 
 const runtimeConfig = {
   id: 'custom',
@@ -25,10 +26,25 @@ test('连接测试应规范化 chat completions 地址', () => {
   );
 });
 
+const createTester = (fetchImpl, timeoutMs) =>
+  new ProviderConnectionTester(
+    createModelGateway({
+      configService: {
+        resolveActive: async () => ({
+          ok: false,
+          errorCode: 'PROVIDER_NOT_CONFIGURED',
+        }),
+      },
+      fetchImpl,
+      timeoutMs,
+    }),
+    timeoutMs,
+  );
+
 test('连接测试应发送 Bearer Key 和最小请求，不携带笔记内容', async () => {
   let requestUrl = '';
   let requestOptions;
-  const tester = new ProviderConnectionTester(async (url, options) => {
+  const tester = createTester(async (url, options) => {
     requestUrl = url;
     requestOptions = options;
     return { ok: true, status: 200 };
@@ -58,7 +74,7 @@ test('连接测试应使用开发者配置的测试提示词', async () => {
   let requestOptions;
   const promptCatalog = structuredClone(PROMPT_CATALOG);
   promptCatalog.provider.connectionTest = 'Custom connection check.';
-  const tester = new ProviderConnectionTester(async (_url, options) => {
+  const tester = createTester(async (_url, options) => {
     requestOptions = options;
     return { ok: true, status: 200 };
   });
@@ -84,7 +100,7 @@ test('连接测试应把常见 HTTP 错误映射为可展示错误', async (t) =
 
   for (const [status, errorCode] of cases) {
     await t.test(`HTTP ${status}`, async () => {
-      const tester = new ProviderConnectionTester(async () => ({
+      const tester = createTester(async () => ({
         ok: false,
         status,
       }));
@@ -98,7 +114,7 @@ test('连接测试应把常见 HTTP 错误映射为可展示错误', async (t) =
 });
 
 test('连接测试应区分网络异常和超时，并避免泄露密钥', async () => {
-  const networkTester = new ProviderConnectionTester(async () => {
+  const networkTester = createTester(async () => {
     throw 'network unavailable';
   });
   const networkResult = await networkTester.test(runtimeConfig);
@@ -109,7 +125,7 @@ test('连接测试应区分网络异常和超时，并避免泄露密钥', async
   });
   assert.equal(JSON.stringify(networkResult).includes('sk-private'), false);
 
-  const timeoutTester = new ProviderConnectionTester(
+  const timeoutTester = createTester(
     async (_url, options) =>
       new Promise((_resolve, reject) => {
         options.signal.addEventListener(

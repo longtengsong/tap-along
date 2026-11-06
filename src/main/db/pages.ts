@@ -788,7 +788,12 @@ export class PagesRepository {
 
       if (removeOpening) {
         const messages = page.messages.filter(
-          (message) => message.requestId !== 'opening',
+          (message) =>
+            message.requestId !== 'opening' &&
+            !(
+              message.role === 'teacher' &&
+              message.requestId?.startsWith('guidance-')
+            ),
         );
         this.updateGuidanceAndLogStatement.run(
           guidanceJson,
@@ -844,7 +849,7 @@ export class PagesRepository {
         };
       }
 
-      const requestId = `guidance-${suggestion.id}`;
+      const requestId = suggestion.requestId ?? `guidance-${suggestion.id}`;
       const hasMessage = page.messages.some(
         (message) =>
           message.role === 'teacher' && message.requestId === requestId,

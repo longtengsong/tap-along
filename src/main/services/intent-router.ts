@@ -90,7 +90,7 @@ export const createIntentRouter = ({
     async route({ page, userText, signal }) {
       const content = await complete.complete(
         buildIntentRouterMessages({ page, userText }),
-        { maxTokens: 250, signal },
+        { maxTokens: 250, signal, timeoutMs },
       );
       const parsed = extractJson(content);
 

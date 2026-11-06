@@ -35,6 +35,7 @@ import { DeveloperPromptConfigService } from './main/services/developer-prompts'
 import { TeacherRequestInspector } from './main/services/teacher-request-inspector';
 import { buildStartupFailureContent } from './main/services/startup-error';
 import { createModelAwareTeacherStream } from './main/services/model-teacher';
+import { createModelGateway } from './main/services/model-gateway';
 import { createGuidancePlanner } from './main/services/guidance-planner';
 import { GuidanceService } from './main/services/guidance';
 import {
@@ -44,7 +45,6 @@ import {
 import { WebSearchService } from './main/services/web-search';
 import { createIntentRouter } from './main/services/intent-router';
 import { ResearchService } from './main/services/research';
-import { createStructuredCompletion } from './main/services/structured-completion';
 import { ModelTitleGenerator } from './main/services/title-generator';
 import { TitleService } from './main/services/title-service';
 import {
@@ -271,18 +271,25 @@ if (!hasSingleInstanceLock) {
         providerStore,
         new ElectronSecretCipher(),
       );
+      const modelGateway = createModelGateway({
+        configService: providerService,
+        inspector: teacherRequestInspector,
+      });
       registerProviderHandlers(
         ipcMain,
         providerService,
         new ProviderConnectionService(
           providerService,
-          new ProviderConnectionTester(),
+          new ProviderConnectionTester(modelGateway),
           developerPromptService,
         ),
       );
       const guidanceService = new GuidanceService(
         pagesRepository,
-        createGuidancePlanner({ configService: providerService }),
+        createGuidancePlanner({
+          configService: providerService,
+          completion: modelGateway,
+        }),
       );
       const searchConfigService = new SearchConfigService(
         {
@@ -301,14 +308,15 @@ if (!hasSingleInstanceLock) {
         configService: searchConfigService,
       });
       const researchService = new ResearchService(
-        createIntentRouter({ configService: providerService }),
+        createIntentRouter({
+          configService: providerService,
+          completion: modelGateway,
+        }),
         webSearchService,
       );
       const titleService = new TitleService(
         pagesRepository,
-        new ModelTitleGenerator(
-          createStructuredCompletion({ configService: providerService }),
-        ),
+        new ModelTitleGenerator(modelGateway),
       );
       registerPageHandlers(
         ipcMain,
@@ -337,6 +345,7 @@ if (!hasSingleInstanceLock) {
           pagesRepository,
           createModelAwareTeacherStream({
             configService: providerService,
+            gateway: modelGateway,
             fallback: createMockTeacherStream,
             promptService: developerPromptService,
             inspector: teacherRequestInspector,
