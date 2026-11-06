@@ -4,12 +4,10 @@ import type { GuidanceView } from '@/shared/guidance';
 
 defineProps<{
   guidance: GuidanceView;
-  typing: boolean;
   error?: string;
 }>();
 
 const emit = defineEmits<{
-  use: [suggestionId: string];
   retry: [];
 }>();
 
@@ -58,14 +56,9 @@ const { t } = useI18n();
           </li>
         </ul>
         <p class="guidance__why">{{ suggestion.why }}</p>
-        <button
-          class="guidance__action"
-          type="button"
-          :disabled="suggestion.used || typing"
-          @click="emit('use', suggestion.id)"
-        >
-          {{ suggestion.used ? t('guidance.used') : t('guidance.action') }}
-        </button>
+        <p class="guidance__background">
+          {{ t('guidance.backgroundHint') }}
+        </p>
       </li>
     </ul>
 
@@ -203,31 +196,12 @@ const { t } = useI18n();
   line-height: 1.7;
 }
 
-.guidance__action {
-  justify-self: start;
-  margin-top: 2px;
-  padding: 3px 0;
-  border: 0;
-  background: transparent;
-  color: var(--moss);
-  font: inherit;
-  font-size: 10.5px;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-}
-
-.guidance__action:hover:not(:disabled) {
-  color: var(--ink);
-}
-
-.guidance__action:disabled {
+.guidance__background {
+  margin: 0;
   color: var(--ink-ghost);
-  cursor: default;
-}
-
-.guidance__action:focus-visible {
-  outline: 2px solid var(--moss);
-  outline-offset: 2px;
+  font-size: 9.5px;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
 }
 
 .guidance--retry {

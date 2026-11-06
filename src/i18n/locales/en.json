@@ -73,6 +73,7 @@
     "used": "Connected",
     "notNeeded": "This thought is already clear. No forcing a connection this time.",
     "useFailed": "This thread didn't connect. Keep writing if you like.",
+    "backgroundHint": "These earlier thoughts are passed to the companion as background.",
     "anchor": "Starting from “{quote}”",
     "retryHint": "No earlier thought could catch this one this time.",
     "retryAction": "Look again",

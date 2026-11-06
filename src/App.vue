@@ -36,7 +36,6 @@ const {
   stackIsDeep,
   submitNewPage,
   sendReply,
-  useGuidanceSuggestion,
   retryGuidance,
   submitAppend,
   startEditing,
@@ -266,7 +265,6 @@ onMounted(async () => {
         @update-reply-draft="state.replyDraft = $event"
         @submit-reply="submitComposer"
         @cancel-teacher="cancelTeacher"
-        @use-guidance="useGuidanceSuggestion"
         @retry-guidance="retryGuidance"
         @retry-turn="retryTurn"
         @generate-title="generateTitle"

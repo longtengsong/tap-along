@@ -73,6 +73,7 @@
     "used": "已经接过",
     "notNeeded": "这个念头已经很清楚，这一轮先不硬接。",
     "useFailed": "这条线这次没接上，先继续写也行。",
+    "backgroundHint": "这些旧念头会作为背景一起带给伴读。",
     "anchor": "从“{quote}”这处接上",
     "retryHint": "这次没找到能接住的旧念头。",
     "retryAction": "再找找",

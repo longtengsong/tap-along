@@ -6,7 +6,7 @@ import { buildResearchMessages } from './research.ts';
 import {
   buildCompressedPageContext,
   buildCurrentPageContext,
-  buildGuidanceThreadContext,
+  buildSessionNotesContext,
   buildResumePageContext,
   toPageMessages,
   toTimelineMessages,
@@ -47,10 +47,10 @@ const normalizeCompressedPages = (pages: CompressedPagePrompt[]) => {
 const toSystemMessage = (content: string): ChatMessage[] =>
   content.trim() ? [{ role: 'system', content }] : [];
 
-const buildGuidanceThread = (page: PageSnapshot): ChatMessage[] => {
-  const thread = buildGuidanceThreadContext(page);
+const buildSessionNotes = (page: PageSnapshot): ChatMessage[] => {
+  const notes = buildSessionNotesContext(page);
 
-  return thread ? [thread] : [];
+  return notes ? [notes] : [];
 };
 
 const buildCompressedContextPolicy = (
@@ -97,7 +97,7 @@ export const buildTeacherMessages = (
     ...toSystemMessage(promptCatalog.teacher.contextBoundary),
     ...buildCompressedContextPolicy(normalizedCompressedPages, promptCatalog),
     ...toSystemMessage(buildCurrentPageContext(page, promptCatalog)),
-    ...buildGuidanceThread(page),
+    ...buildSessionNotes(page),
     // 最新提问已落盘时保留在最后，无锚点的老上下文插在它之前。
     ...buildTimeline(page, normalizedCompressedPages, promptCatalog, {
       trailingPlacement: userTextInHistory ? 'beforeLastMessage' : 'end',
@@ -139,7 +139,7 @@ export const buildResumeTeacherMessages = (
     ...toSystemMessage(
       buildResumePageContext(page, 'targetPage', promptCatalog),
     ),
-    ...buildGuidanceThread(page),
+    ...buildSessionNotes(page),
     ...buildTimeline(page, normalizedCompressedPages, promptCatalog),
   ];
 
@@ -168,7 +168,7 @@ export const buildMaintenanceTeacherMessages = (
     ...toSystemMessage(promptCatalog.teacher.contextBoundary),
     ...buildCompressedContextPolicy(normalizedCompressedPages, promptCatalog),
     ...toSystemMessage(buildCurrentPageContext(page, promptCatalog)),
-    ...buildGuidanceThread(page),
+    ...buildSessionNotes(page),
     ...buildTimeline(page, normalizedCompressedPages, promptCatalog),
     { role: 'user', content: userText },
   ];
@@ -179,10 +179,18 @@ export const composeTeacherMessages = (
   promptCatalog: PromptCatalogValues = PROMPT_CATALOG,
 ): ChatMessage[] => {
   if (input.research && input.research.length > 0) {
+    const background = [
+      ...buildSessionNotes(input.page),
+      ...normalizeCompressedPages(input.compressedPages ?? []).map(
+        (compressedPage) => renderCompressedPage(compressedPage, promptCatalog),
+      ),
+    ];
+
     return buildResearchMessages({
       page: input.page,
       userText: input.userText,
       evidence: input.research,
+      background,
     });
   }
 

@@ -44,7 +44,7 @@ const createRepository = ({
   currentPage = page(),
   pages = [retrievalPage],
   finalizeResult,
-  useResult = { ok: true, question: '问题？', guidance: { status: 'needed' } },
+  useResult,
 } = {}) => {
   const calls = {
     finalize: [],
@@ -67,7 +67,29 @@ const createRepository = ({
     },
     useGuidanceSuggestion(pageId, suggestionId) {
       calls.use.push({ pageId, suggestionId });
-      return useResult;
+
+      if (useResult !== undefined) {
+        return useResult;
+      }
+
+      const finalized = calls.finalize.at(-1)?.guidance;
+      const suggestion = finalized?.suggestions?.find(
+        (item) => item.id === suggestionId,
+      );
+
+      return {
+        ok: true,
+        question: suggestion?.question,
+        guidance: finalized
+          ? {
+              ...finalized,
+              suggestions: finalized.suggestions.map((item) =>
+                item.id === suggestionId ? { ...item, used: true } : item,
+              ),
+              updatedAt: Date.now(),
+            }
+          : { status: 'needed' },
+      };
     },
   };
 
@@ -112,9 +134,11 @@ test('有相关旧页时应持久化 needed 并移除开场问题', async (t) =>
     },
   ]);
   assert.equal(calls.finalize[0].guidance.suggestions[0].anchorQuote, '注意力');
+  assert.equal(calls.use.length, 1);
   assert.equal(emitted.length, 1);
   assert.equal(emitted[0].pageId, 1);
   assert.equal(emitted[0].guidance.status, 'needed');
+  assert.equal(emitted[0].guidance.suggestions[0].used, true);
 });
 
 test('多个匹配旧念头应合并成一张接点卡片', async (t) => {
@@ -353,7 +377,7 @@ test('use 应校验 payload 并委托仓储', () => {
   }
 
   assert.equal(calls.use.length, 0);
-  assert.equal(
+  assert.deepEqual(
     service.use({ pageId: 1, suggestionId: ' g-2 ' }),
     repository.useGuidanceSuggestion(1, 'g-2'),
   );
@@ -398,10 +422,13 @@ test('服务与真实仓储应完成一次引导闭环', async (t) => {
   const saved = repository.findById(current.id);
   assert.equal(saved.guidance.status, 'needed');
   assert.equal(saved.guidance.suggestions[0].id, `g-${related.id}`);
+  assert.equal(saved.guidance.suggestions[0].used, true);
+  assert.equal(saved.messages.length, 1);
   assert.equal(
     saved.messages.some((message) => message.requestId === 'opening'),
     false,
   );
+  assert.equal(saved.messages[0].text, '你说的有限，是总量有限还是分配有限？');
 
   const used = service.use({
     pageId: current.id,

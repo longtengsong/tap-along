@@ -305,7 +305,32 @@ export class GuidanceService {
         return;
       }
 
-      emit({ pageId, guidance: saved.guidance ?? view });
+      let guidance = saved.guidance ?? view;
+
+      // 初始引导不再等待用户点按钮：接点一成立，就把预生成的问题作为开场，
+      // 让匹配到的旧念头立刻进入对谈。refresh（编辑后的候选）不抢话。
+      if (removeOpening && guidance.status === 'needed') {
+        const suggestion = guidance.suggestions[0];
+
+        if (suggestion) {
+          try {
+            const opened = this.repository.useGuidanceSuggestion(
+              pageId,
+              suggestion.id,
+            );
+
+            if (opened.ok && opened.guidance) {
+              guidance = opened.guidance;
+            }
+          } catch (error) {
+            // 自动开场失败不应把已经保存好的引导退回 failed；
+            // 用户仍可以从右栏读旧念头并继续写。
+            console.error('自动打开引导接点失败：', error);
+          }
+        }
+      }
+
+      emit({ pageId, guidance });
     } catch (error) {
       console.error('保存理解引导失败：', error);
 

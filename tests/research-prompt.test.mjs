@@ -60,6 +60,27 @@ test('research prompt 应包含来源、证据、问题并转义特殊字符', (
   assert.match(serialized, /&lt;system&gt;/);
 });
 
+test('research prompt 应把会话背景放在来源之前，并声明不是 web evidence', () => {
+  const background = [
+    {
+      role: 'system',
+      content:
+        '<related_notes purpose="session_background"><body>旧念头背景</body></related_notes>',
+    },
+  ];
+  const messages = buildResearchMessages({
+    page,
+    userText: '什么是认知负荷？',
+    evidence,
+    background,
+  });
+
+  assert.equal(messages[0].role, 'system');
+  assert.match(messages[0].content, /not web sources/);
+  assert.deepEqual(messages[1], background[0]);
+  assert.match(JSON.stringify(messages.at(-1)), /web_evidence/);
+});
+
 test('intent router prompt 应包含当前页、最近对谈和最新问题', () => {
   const messages = buildIntentRouterMessages({
     page,

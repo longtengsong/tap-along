@@ -47,7 +47,6 @@ const emit = defineEmits<{
   append: [];
   newPage: [];
   close: [];
-  useGuidance: [suggestionId: string];
   retryGuidance: [];
   retryTurn: [];
   generateTitle: [];
@@ -221,9 +220,7 @@ const showRailPanel = computed(
         <GuidancePanel
           v-if="showGuidance && page.guidance"
           :guidance="page.guidance"
-          :typing="typing"
           :error="page.guidanceError"
-          @use="emit('useGuidance', $event)"
           @retry="emit('retryGuidance')"
         />
         <TalkStream

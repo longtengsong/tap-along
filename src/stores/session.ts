@@ -286,6 +286,37 @@ const handleTeacherDone = (event: TeacherDoneEvent) => {
   }
 };
 
+const appendGuidanceOpening = (page: PageRecord) => {
+  const opened = page.guidance?.suggestions.find((item) => item.used);
+  const requestId = opened ? `guidance-${opened.id}` : null;
+
+  if (
+    opened &&
+    requestId &&
+    !page.messages.some((item) => item.requestId === requestId)
+  ) {
+    page.messages.push(
+      message('teacher', opened.question, false, requestId, requestId),
+    );
+  }
+};
+
+const applyGuidanceToPage = (
+  page: PageRecord,
+  guidance: GuidanceUpdatedEvent['guidance'],
+) => {
+  page.guidance = guidance;
+  page.guidanceError = '';
+
+  if (guidance.status === 'needed' || guidance.status === 'not_needed') {
+    page.messages = page.messages.filter(
+      (item) => item.requestId !== 'opening',
+    );
+  }
+
+  appendGuidanceOpening(page);
+};
+
 const handleGuidanceUpdated = (event: GuidanceUpdatedEvent) => {
   const page = findPage(event.pageId);
 
@@ -293,8 +324,7 @@ const handleGuidanceUpdated = (event: GuidanceUpdatedEvent) => {
     return;
   }
 
-  page.guidance = event.guidance;
-  page.guidanceError = '';
+  applyGuidanceToPage(page, event.guidance);
 };
 
 const reconcileGuidance = async (pageId: number) => {
@@ -303,7 +333,7 @@ const reconcileGuidance = async (pageId: number) => {
     const page = findPage(pageId);
 
     if (page?.guidance?.status === 'pending' && savedPage?.guidance) {
-      page.guidance = savedPage.guidance;
+      applyGuidanceToPage(page, savedPage.guidance);
     }
   } catch {
     // 引导对账失败时保留本地 pending；用户继续写不会受影响。
@@ -899,14 +929,7 @@ const useGuidanceSuggestion = async (suggestionId: string) => {
       return;
     }
 
-    page.guidance = result.guidance;
-    const requestId = `guidance-${suggestionId}`;
-
-    if (!page.messages.some((item) => item.requestId === requestId)) {
-      page.messages.push(
-        message('teacher', result.question, false, requestId, requestId),
-      );
-    }
+    applyGuidanceToPage(page, result.guidance);
   } catch {
     page.guidanceError = i18n.global.t('guidance.useFailed');
   }
@@ -1644,6 +1667,62 @@ export const useSessionStore = () => {
   ensureTitleEvents();
   ensureGuidanceEvents();
   void restoreLatestPage();
+
+  const autoOpeningPageIds = new Set<number>();
+
+  const ensureGuidanceOpening = async (page: PageRecord | null) => {
+    if (
+      !page ||
+      page.status !== 'reading' ||
+      state.typing ||
+      autoOpeningPageIds.has(page.id) ||
+      currentPage.value?.id !== page.id
+    ) {
+      return;
+    }
+
+    const guidance = page.guidance;
+
+    if (!guidance || guidance.status !== 'needed') {
+      return;
+    }
+
+    if (page.messages.some((item) => item.role === 'user')) {
+      return;
+    }
+
+    const suggestion = guidance.suggestions.find((item) => !item.used);
+
+    if (
+      !suggestion ||
+      page.messages.some(
+        (item) => item.requestId === `guidance-${suggestion.id}`,
+      )
+    ) {
+      return;
+    }
+
+    autoOpeningPageIds.add(page.id);
+
+    try {
+      await useGuidanceSuggestion(suggestion.id);
+    } finally {
+      autoOpeningPageIds.delete(page.id);
+    }
+  };
+
+  watch(
+    () =>
+      [
+        currentPage.value?.id,
+        currentPage.value?.guidance?.status,
+        currentPage.value?.messages.length,
+      ] as const,
+    () => {
+      void ensureGuidanceOpening(currentPage.value);
+    },
+    { immediate: true },
+  );
 
   return {
     state,

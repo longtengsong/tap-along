@@ -454,26 +454,12 @@
         white-space: nowrap;
       }
 
-      .bridge__action {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        margin-top: 10px;
-        padding: 3px 0;
-        color: var(--moss);
-        font: inherit;
-        font-size: 10.5px;
-        letter-spacing: 0.04em;
-        transition: color 160ms ease;
-      }
-
-      .bridge__action:hover {
-        color: var(--ink);
-      }
-
-      .bridge__action:focus-visible {
-        outline: 2px solid var(--moss);
-        outline-offset: 2px;
+      .bridge__background {
+        margin: 10px 0 0;
+        color: var(--ink-ghost);
+        font-size: 9.5px;
+        line-height: 1.6;
+        letter-spacing: 0.02em;
       }
 
       /* ---------- 对谈 ---------- */
@@ -1480,7 +1466,7 @@
         <div class="block-head">
           <span class="block-head__index">01</span>
           <h2>匹配到达 · 默认态</h2>
-          <p>第一条自动展开，其余只露标题。引导卡按现有位置继续列出旧念头标题；右侧读全文。</p>
+          <p>第一条自动展开，其余只露标题。匹配到达后，预生成的问题直接作为老师开场；引导卡保留标题列表。</p>
         </div>
 
         <div class="frame-wrap">
@@ -1532,13 +1518,15 @@
                   <p class="bridge__why">
                     你写过注意力的“连续”，也写过环境的“设计”。这页把两者收到“减少切换”上。
                   </p>
-                  <button class="bridge__action" type="button">
-                    顺着这条线问 <span aria-hidden="true">→</span>
-                  </button>
+                  <p class="bridge__background">
+                    这些旧念头会作为背景一起带给伴读。
+                  </p>
                 </article>
 
-                <div class="talk talk--empty">
-                  <p class="talk__empty">还没有开口。可以先读右侧的旧念头，也可以直接写下你的想法。</p>
+                <div class="talk">
+                  <p class="teacher-line teacher-line--lead">
+                    你写过注意力的“连续”，也写过环境的“设计”。那这页说的“减少切换”，到底卡在哪？
+                  </p>
                 </div>
 
                 <div class="composer">
@@ -1666,7 +1654,7 @@
             <span class="legend__num">5</span>
             <div>
               <strong>桥接卡</strong>
-              <p>保留锚点句、标题列表、why 和原按钮；标题列表只展示，右侧读全文。</p>
+              <p>保留锚点句、标题列表、why 和背景提示；取消“顺着这条线问”，旧念头默认进入对谈背景。</p>
             </div>
           </div>
         </div>
@@ -1835,7 +1823,7 @@
             <span class="legend__num">4</span>
             <div>
               <strong>读而不入</strong>
-              <p>展开正文不会写入对谈，也不会把接点标记为已用；只有主按钮才推进对话。</p>
+              <p>展开正文不会写入对谈，也不会触发模型请求；它只影响右侧的阅读。</p>
             </div>
           </div>
         </div>
@@ -2195,13 +2183,8 @@
             </tr>
             <tr>
               <td>匹配到</td>
-              <td>桥接卡：锚点 + why + 标题列表 + 主按钮</td>
+              <td>桥接卡 + 预生成问题自动进入对谈</td>
               <td>出现；默认展开第一条</td>
-            </tr>
-            <tr>
-              <td>已接过</td>
-              <td>按钮变“已经接过”，老师问题进入对谈</td>
-              <td>保留；条目继续留在“这条线上的旧念头”组</td>
             </tr>
             <tr>
               <td>用户开口后</td>
@@ -2247,7 +2230,7 @@
         <div class="block-head">
           <span class="block-head__index">05</span>
           <h2>实现约束与取舍</h2>
-          <p>右栏和 prompt 同源；另记的 B 也要有标题/正文；不改召回与对谈协议。</p>
+          <p>右栏和 prompt 同源；普通、回问、维护、联网都带同一份背景；不改召回与对谈记录。</p>
         </div>
 
         <div class="spec-grid">
@@ -2258,6 +2241,9 @@
             </p>
             <p>
               全文：contextThoughts 带完整 body；prompt 仍可按上下文预算压缩。guidance 现有 excerpt 上限 1200 字，只作兜底。
+            </p>
+            <p>
+              所有 prompt 路径（普通、回问、维护、联网）都注入这份背景；联网回答里明确标注“不是网页证据，不能引用”。
             </p>
           </article>
           <article class="spec-card">
@@ -2270,7 +2256,7 @@
             <h3>响应式：先判断宽度</h3>
             <ul>
               <li>> 1024px：主栏 + 340px 右栏并排。</li>
-              <li>≤ 1024px：右栏收窄到约 280px，仍与会话并排；标题列表和主按钮保持在原位。</li>
+              <li>≤ 1024px：右栏收窄到约 280px，仍与会话并排；标题列表和背景提示保持在原位。</li>
               <li>关闭时网格切到 <code>1fr + 34px</code>，用占位窄条收口；不浮层、不遮罩。</li>
               <li>打开 / 关闭只改列宽，不改对谈滚动位置，也不锁页面滚动。</li>
             </ul>
@@ -2292,6 +2278,7 @@
             <li><b>全文</b>：展开显示完整正文，不截断；长文按 pageId 取全文并缓存。</li>
             <li><b>不跳转</b>：右栏只读，不提供“打开旧念头”入口。</li>
             <li><b>标题保留</b>：引导卡按现有位置继续列出标题；只展示，不跳转、不改变会话位置。</li>
+            <li><b>默认背景</b>：取消“顺着这条线问”；匹配到的旧念头默认作为背景进入普通、回问、维护和联网 prompt，预生成问题自动作为老师开场。</li>
             <li><b>上下文透明</b>：所有进入模型的念头（含另记的 B）都出现在右侧；当前 A 已在中间，不重复。</li>
           </ol>
         </div>

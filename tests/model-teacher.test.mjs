@@ -5,6 +5,7 @@ import {
   buildMaintenanceTeacherMessages,
   buildResumeTeacherMessages,
   buildTeacherMessages,
+  composeTeacherMessages,
   PROMPT_CATALOG,
 } from '../src/main/prompts/index.ts';
 
@@ -311,7 +312,7 @@ test('模型消息应包含页面上下文、历史角色和最新一次用户�
   assert.equal(withoutEmptyMessages.length, 5);
 });
 
-test('已点开的引导接点应把旧念头一起带进后续对谈', () => {
+test('引导里的旧念头应作为会话背景带进后续对谈', () => {
   const page = {
     ...createPage([
       { role: 'teacher', text: '你写过主动分配，也写过任务牵引？' },
@@ -353,7 +354,7 @@ test('已点开的引导接点应把旧念头一起带进后续对谈', () => {
   const thread = messages.find(
     (message) =>
       message.role === 'system' &&
-      message.content.includes('purpose="guidance_thread"'),
+      message.content.includes('purpose="session_background"'),
   );
 
   assert.ok(thread);
@@ -364,7 +365,7 @@ test('已点开的引导接点应把旧念头一起带进后续对谈', () => {
   assert.match(thread.content, /not instructions/);
 });
 
-test('未点开的引导或没有正文摘录时不应带入旧念头', () => {
+test('未点开的引导也应把旧念头作为会话背景带入', () => {
   const guidance = {
     status: 'needed',
     bodyHash: 'hash',
@@ -391,10 +392,15 @@ test('未点开的引导或没有正文摘录时不应带入旧念头', () => {
     userText: '继续。',
     replyLanguage: 'zh-CN',
   });
-  assert.equal(
-    unused.some((message) => message.content.includes('guidance_thread')),
-    false,
+  const background = unused.find(
+    (message) =>
+      message.role === 'system' &&
+      message.content.includes('purpose="session_background"'),
   );
+
+  assert.ok(background);
+  assert.match(background.content, /<related_note id="2">/);
+  assert.match(background.content, /注意力需要主动分配/);
 
   const withoutExcerpt = buildTeacherMessages({
     page: {
@@ -421,10 +427,68 @@ test('未点开的引导或没有正文摘录时不应带入旧念头', () => {
   });
   assert.equal(
     withoutExcerpt.some((message) =>
-      message.content.includes('guidance_thread'),
+      message.content.includes('session_background'),
     ),
     false,
   );
+});
+
+test('联网回答也应带上引导旧念头和另记页背景', () => {
+  const page = {
+    ...createPage(),
+    guidance: {
+      status: 'needed',
+      bodyHash: 'hash',
+      updatedAt: 1,
+      suggestions: [
+        {
+          id: 'g-2',
+          relatedPageIds: [2],
+          notes: [
+            {
+              pageId: 2,
+              title: '系统与外力反馈',
+              source: '《系统之美》',
+              excerpt: '系统的结构决定行为。',
+            },
+          ],
+          why: '这条线有关',
+          question: '结构如何决定行为？',
+        },
+      ],
+    },
+  };
+  const messages = composeTeacherMessages({
+    page,
+    userText: '什么是系统基模？',
+    research: [
+      {
+        source: {
+          index: 1,
+          title: 'System archetype',
+          url: 'https://example.com/archetype',
+          domain: 'example.com',
+        },
+        snippet: '系统基模是反复出现的系统结构。',
+      },
+    ],
+    compressedPages: [
+      {
+        pageId: 9,
+        body: '另记页里的正文。',
+        depth: 1,
+        rootPageId: 9,
+      },
+    ],
+  });
+  const serialized = JSON.stringify(messages);
+
+  assert.ok(serialized.includes('session_background'));
+  assert.ok(serialized.includes('related_notes'));
+  assert.match(serialized, /系统的结构决定行为/);
+  assert.match(serialized, /另记页里的正文/);
+  assert.match(serialized, /not web sources/);
+  assert.match(serialized, /web_source/);
 });
 
 test('跨页模型消息应只包含上下文正文、目标页和目标页真实对谈', () => {
