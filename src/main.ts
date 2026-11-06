@@ -166,7 +166,7 @@ const createWindow = (developerMode = false) => {
     );
   }
 
-  if (developerMode) {
+  if (developerMode && !e2eUserDataPath) {
     mainWindow.webContents.once('did-finish-load', () => {
       mainWindow.webContents.openDevTools({ mode: 'detach' });
     });
@@ -222,6 +222,12 @@ const showDatabaseStartupFailure = async (error: unknown) => {
     console.error('Failed to show the database startup error.', dialogError);
   }
 };
+
+// E2E 测试使用独立 userData，避免读写真实用户数据库和设置。
+const e2eUserDataPath = process.env.TAP_ALONG_E2E_USER_DATA;
+if (e2eUserDataPath) {
+  app.setPath('userData', e2eUserDataPath);
+}
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
