@@ -90,7 +90,8 @@
     "showRail": "展开这次会话的念头",
     "dockLabel": "会话念头",
     "readOnly": "只读 · 全文",
-    "noDiscussion": "不含当时的对谈"
+    "noDiscussion": "不含当时的对谈",
+    "untitled": "未命名念头"
   },
   "status": {
     "reading": "在聊",

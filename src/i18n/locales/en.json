@@ -90,7 +90,8 @@
     "showRail": "Show thoughts in this conversation",
     "dockLabel": "Thoughts",
     "readOnly": "Read-only · full text",
-    "noDiscussion": "No conversation from that time"
+    "noDiscussion": "No conversation from that time",
+    "untitled": "Untitled thought"
   },
   "status": {
     "reading": "Talking",

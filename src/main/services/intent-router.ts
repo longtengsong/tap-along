@@ -5,6 +5,10 @@ import {
   type StructuredCompletion,
 } from './structured-completion.ts';
 import type { ProviderConfigService } from './providers.ts';
+import {
+  IntentRouterError,
+  parseIntentOutput,
+} from './validators/intent-output.ts';
 
 type FetchLike = typeof fetch;
 
@@ -29,51 +33,32 @@ interface IntentRouterOptions {
   timeoutMs?: number;
 }
 
-export class IntentRouterError extends Error {
-  constructor(message = '意图路由输出不符合契约') {
-    super(message);
-    this.name = 'IntentRouterError';
-  }
-}
+export { IntentRouterError };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-
-const extractJson = (content: string): unknown => {
-  const withoutFence = content
-    .replace(/^\s*```(?:json)?\s*/i, '')
-    .replace(/\s*```\s*$/, '')
-    .trim();
-  const start = withoutFence.indexOf('{');
-  const end = withoutFence.lastIndexOf('}');
-
-  if (start < 0 || end <= start) {
-    throw new IntentRouterError();
+const finalizeIntentRoute = (
+  decision: ReturnType<typeof parseIntentOutput>,
+  userText: string,
+): ResearchRoute => {
+  if (decision.mode === 'reflect') {
+    return { mode: 'reflect', queries: [] };
   }
 
-  try {
-    return JSON.parse(withoutFence.slice(start, end + 1));
-  } catch {
-    throw new IntentRouterError();
-  }
-};
+  const queries = [...decision.queries];
+  const fallbackQuery = userText.trim().slice(0, 120);
 
-const normalizeQueries = (value: unknown): string[] => {
-  if (!Array.isArray(value)) {
-    return [];
+  if (queries.length === 0 && fallbackQuery) {
+    queries.push(fallbackQuery);
   }
 
-  return [
-    ...new Set(
-      value
-        .flatMap((entry) =>
-          typeof entry === 'string' && entry.trim()
-            ? [entry.trim().slice(0, 120)]
-            : [],
-        )
-        .filter(Boolean),
-    ),
-  ].slice(0, 3);
+  if (queries.length === 0) {
+    return { mode: 'reflect', queries: [] };
+  }
+
+  return {
+    mode: 'research',
+    queries,
+    ...(decision.reason ? { reason: decision.reason } : {}),
+  };
 };
 
 export const createIntentRouter = ({
@@ -92,40 +77,8 @@ export const createIntentRouter = ({
         buildIntentRouterMessages({ page, userText }),
         { maxTokens: 250, signal, timeoutMs },
       );
-      const parsed = extractJson(content);
 
-      if (!isRecord(parsed)) {
-        throw new IntentRouterError();
-      }
-
-      const mode = parsed.mode;
-
-      if (mode !== 'research' && mode !== 'reflect') {
-        throw new IntentRouterError();
-      }
-
-      if (mode === 'reflect') {
-        return { mode, queries: [] };
-      }
-
-      const queries = normalizeQueries(parsed.queries);
-      const fallbackQuery = userText.trim().slice(0, 120);
-
-      if (queries.length === 0 && fallbackQuery) {
-        queries.push(fallbackQuery);
-      }
-
-      if (queries.length === 0) {
-        return { mode: 'reflect', queries: [] };
-      }
-
-      return {
-        mode,
-        queries,
-        ...(typeof parsed.reason === 'string' && parsed.reason.trim()
-          ? { reason: parsed.reason.trim().slice(0, 300) }
-          : {}),
-      };
+      return finalizeIntentRoute(parseIntentOutput(content), userText);
     },
   };
 };
