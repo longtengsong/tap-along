@@ -401,10 +401,15 @@
   },
   "onboarding": {
     "title": "Meet your reading companion",
+    "unconfigured": "No model is configured yet, so real conversations can't start.",
     "lead": "Your thoughts are sent to the model provider you choose to generate questions.",
-    "detail": "Until a model is configured, the companion can only use fixed demo lines. Your key is stored encrypted on this device.",
+    "detail": "The companion only replies with real AI once a model is configured. Your key is stored encrypted on this device.",
     "configure": "Configure a model",
-    "demo": "Try the demo first",
+    "demo": "Enter demo mode",
+    "demoHint": "Demo replies are fixed samples, not real AI output. A “Demo mode · Not connected to a model” banner stays visible at the top.",
+    "demoBanner": "Demo mode · Not connected to a model · Replies are fixed samples",
+    "demoBannerAction": "Set up a model",
+    "demoReply": "Demo reply · fixed sample",
     "demoLabel": "Demo mode"
   }
 }

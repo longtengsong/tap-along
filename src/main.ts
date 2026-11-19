@@ -244,7 +244,11 @@ const showDatabaseStartupFailure = async (error: unknown) => {
 };
 
 // E2E 测试使用独立 userData，避免读写真实用户数据库和设置。
-const e2eUserDataPath = process.env.TAP_ALONG_E2E_USER_DATA;
+// 只有显式声明 E2E 环境时才接受重定向；生产运行时忽略 TAP_ALONG_E2E_USER_DATA。
+const isE2EEnvironment = process.env.TAP_ALONG_E2E === '1';
+const e2eUserDataPath = isE2EEnvironment
+  ? process.env.TAP_ALONG_E2E_USER_DATA
+  : undefined;
 if (e2eUserDataPath) {
   app.setPath('userData', e2eUserDataPath);
 }

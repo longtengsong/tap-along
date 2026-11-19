@@ -11,6 +11,7 @@ const props = defineProps<{
   text: string;
   suggestClose?: boolean;
   developerMode: boolean;
+  demoMode?: boolean;
   requestId?: string;
   sources?: TeacherSource[];
   citationStatus?: 'cited' | 'uncited';
@@ -106,6 +107,9 @@ watch(
     class="teacher-message"
     :class="{ 'teacher-message--suggestion': suggestClose }"
   >
+    <p v-if="demoMode" class="teacher-message__demo">
+      {{ t('onboarding.demoReply') }}
+    </p>
     <div class="message" :aria-label="t('a11y.teacherMessage')">
       {{ text }}
     </div>
@@ -191,6 +195,20 @@ watch(
 .teacher-message {
   max-width: 82%;
   align-self: flex-start;
+}
+
+.teacher-message__demo {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 5px;
+  padding: 2px 8px;
+  border: 1px solid rgb(168 126 58 / 24%);
+  border-radius: 999px;
+  background: rgb(168 126 58 / 9%);
+  color: var(--amber);
+  font-size: 9px;
+  line-height: 1.5;
+  letter-spacing: 0.05em;
 }
 
 .message {

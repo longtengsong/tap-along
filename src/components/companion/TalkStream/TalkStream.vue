@@ -9,6 +9,7 @@ const props = defineProps<{
   historyOpen: boolean;
   typing: boolean;
   developerMode: boolean;
+  demoMode?: boolean;
   retryableTurn?: RetryableTurn | null;
 }>();
 
@@ -44,6 +45,7 @@ watch(
       :messages="messages"
       :history-open="historyOpen"
       :developer-mode="developerMode"
+      :demo-mode="demoMode === true"
       :retryable-turn="retryableTurn"
       @toggle-history="emit('toggleHistory')"
       @retry="emit('retry')"

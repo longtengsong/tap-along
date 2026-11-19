@@ -316,7 +316,7 @@
     "privacyText": "念头会发送到云端伴读那里，用于生成回应。",
     "modelService": "模型服务",
     "modelServiceHint": "选择供应商并配置你自己的 API Key。",
-    "demoNotice": "当前是演示模式，伴读只会用固定话术。配置模型后自动退出。",
+    "demoNotice": "当前是演示模式，伴读只会用固定话术。配置模型后即可退出演示。",
     "demoNoticeAction": "去配置模型",
     "provider": "供应商",
     "model": "模型 ID",
@@ -401,10 +401,15 @@
   },
   "onboarding": {
     "title": "先接上你的伴读",
+    "unconfigured": "尚未配置模型，暂时无法开始真实对话。",
     "lead": "记下的念头会发送到你选择的模型供应商，用来生成叩问。",
-    "detail": "还没有配置模型时，伴读只能用固定演示话术。模型 Key 只加密保存在本机。",
+    "detail": "配置模型后，伴读才会用真实 AI 回应；模型 Key 只加密保存在本机。",
     "configure": "配置模型",
-    "demo": "先试试演示",
+    "demo": "进入演示模式",
+    "demoHint": "演示模式中的回应是固定示例，不是真实 AI 输出；进入后顶部会持续显示「演示模式 · 未连接模型」。",
+    "demoBanner": "演示模式 · 未连接模型 · 以下回应均为固定示例",
+    "demoBannerAction": "去配置模型",
+    "demoReply": "演示回复 · 固定话术",
     "demoLabel": "演示模式"
   }
 }

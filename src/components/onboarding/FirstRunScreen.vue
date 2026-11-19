@@ -19,6 +19,10 @@ const { t } = useI18n();
         <h1 id="first-run-title" class="first-run__title">
           {{ t('onboarding.title') }}
         </h1>
+        <p class="first-run__status" role="status">
+          <span class="first-run__status-dot" aria-hidden="true"></span>
+          {{ t('onboarding.unconfigured') }}
+        </p>
         <p class="first-run__lead">{{ t('onboarding.lead') }}</p>
         <p class="first-run__detail">{{ t('onboarding.detail') }}</p>
 
@@ -30,6 +34,8 @@ const { t } = useI18n();
             {{ t('onboarding.demo') }}
           </AppButton>
         </div>
+
+        <p class="first-run__demo-hint">{{ t('onboarding.demoHint') }}</p>
 
         <p class="first-run__privacy">{{ t('settings.privacyText') }}</p>
       </div>
@@ -76,6 +82,30 @@ const { t } = useI18n();
   letter-spacing: 0.03em;
 }
 
+.first-run__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 0;
+  padding: 6px 12px;
+  border: 1px solid rgb(168 126 58 / 28%);
+  border-radius: 999px;
+  background: rgb(168 126 58 / 9%);
+  color: var(--amber);
+  font-size: 11.5px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+}
+
+.first-run__status-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px rgb(168 126 58 / 14%);
+}
+
 .first-run__lead {
   margin: 16px 0 0;
   color: var(--ink-soft);
@@ -96,6 +126,15 @@ const { t } = useI18n();
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 26px;
+}
+
+.first-run__demo-hint {
+  margin: 14px 0 0;
+  padding-left: 11px;
+  border-left: 2px solid var(--line);
+  color: var(--ink-ghost);
+  font-size: 11px;
+  line-height: 1.7;
 }
 
 .first-run__privacy {

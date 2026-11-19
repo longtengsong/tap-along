@@ -232,6 +232,7 @@ const showRailPanel = computed(
           :history-open="page.historyOpen"
           :typing="typing"
           :developer-mode="developerMode"
+          :demo-mode="demoMode"
           :retryable-turn="retryableTurn"
           @toggle-history="emit('toggleHistory')"
           @retry="emit('retryTurn')"

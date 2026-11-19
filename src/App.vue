@@ -25,8 +25,8 @@ const developerMode = ref(false);
 const providerCheckDone = ref(false);
 const activeImageCapability = ref<ImageCapabilityStatus>('unknown');
 const hasConfiguredProvider = ref(false);
-const onboardingDone = ref(false);
-const ONBOARDING_STORAGE_KEY = 'tap-along:onboarding-done';
+const demoRequested = ref(false);
+const DEMO_STORAGE_KEY = 'tap-along:demo-mode';
 
 const {
   state,
@@ -78,6 +78,7 @@ const demoMode = computed(() =>
   isDemoMode({
     providerCheckDone: providerCheckDone.value,
     hasConfiguredProvider: hasConfiguredProvider.value,
+    demoRequested: demoRequested.value,
   }),
 );
 
@@ -85,7 +86,7 @@ const showFirstRun = computed(() =>
   shouldShowFirstRun({
     providerCheckDone: providerCheckDone.value,
     hasConfiguredProvider: hasConfiguredProvider.value,
-    onboardingDone: onboardingDone.value,
+    demoRequested: demoRequested.value,
   }),
 );
 
@@ -98,21 +99,25 @@ const submitComposer = () => {
   void sendReply();
 };
 
-const readOnboardingDone = () => {
+const readDemoRequested = () => {
   try {
-    return localStorage.getItem(ONBOARDING_STORAGE_KEY) === '1';
+    return localStorage.getItem(DEMO_STORAGE_KEY) === '1';
   } catch {
     return false;
   }
 };
 
-const markOnboardingDone = () => {
-  onboardingDone.value = true;
+const persistDemoRequested = (requested: boolean) => {
+  demoRequested.value = requested;
 
   try {
-    localStorage.setItem(ONBOARDING_STORAGE_KEY, '1');
+    if (requested) {
+      localStorage.setItem(DEMO_STORAGE_KEY, '1');
+    } else {
+      localStorage.removeItem(DEMO_STORAGE_KEY);
+    }
   } catch {
-    // 本地标记失败不阻断使用；下次可能再次显示首用页。
+    // 本地标记失败不阻断使用；本次运行仍按用户的选择处理。
   }
 };
 
@@ -136,18 +141,19 @@ const refreshProviderState = async () => {
   } finally {
     providerCheckDone.value = true;
 
-    if (hasConfiguredProvider.value) {
-      markOnboardingDone();
+    // 一旦配置了模型，就退出演示模式；以后如果清掉 Key，会重新回到首用引导，
+    // 而不是自动变回演示。
+    if (hasConfiguredProvider.value && demoRequested.value) {
+      persistDemoRequested(false);
     }
   }
 };
 
 const chooseDemo = () => {
-  markOnboardingDone();
+  persistDemoRequested(true);
 };
 
 const configureFromFirstRun = () => {
-  markOnboardingDone();
   settingsInitialTab.value = null;
   settingsOpen.value = true;
 };
@@ -184,7 +190,7 @@ const applyDeveloperMode = (enabled: boolean) => {
 };
 
 onMounted(async () => {
-  onboardingDone.value = readOnboardingDone();
+  demoRequested.value = readDemoRequested();
 
   await Promise.all([
     (async () => {

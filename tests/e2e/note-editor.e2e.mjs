@@ -47,6 +47,7 @@ test('新建念头应能输入富文本并持久化 body_doc', async (t) => {
 
   const env = {
     ...process.env,
+    TAP_ALONG_E2E: '1',
     TAP_ALONG_E2E_USER_DATA: userData,
   };
   delete env.ELECTRON_RUN_AS_NODE;
@@ -60,7 +61,7 @@ test('新建念头应能输入富文本并持久化 body_doc', async (t) => {
 
   const page = await app.firstWindow();
   await page.addInitScript(() => {
-    localStorage.setItem('tap-along:onboarding-done', '1');
+    localStorage.setItem('tap-along:demo-mode', '1');
   });
   await page.reload();
 

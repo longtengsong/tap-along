@@ -72,7 +72,7 @@ const page: PageRecord = {
   suggestClose: false,
 };
 
-const mountScreen = async () => {
+const mountScreen = async (demoMode = false) => {
   const wrapper = mount(CompanionScreen, {
     props: {
       page,
@@ -80,7 +80,7 @@ const mountScreen = async () => {
       typing: false,
       canBack: false,
       archiveVisible: true,
-      demoMode: false,
+      demoMode,
       composerMode: 'normal',
       replyDraft: '',
       sayMoreOpen: false,
@@ -127,5 +127,11 @@ describe('CompanionScreen auto question', () => {
     await flushPromises();
     expect(wrapper.text()).toContain('发送给 LLM 的 Messages');
     expect(wrapper.text()).toContain('真实的 guidance prompt');
+  });
+
+  it('marks teacher replies as demo output when demo mode is on', async () => {
+    const wrapper = await mountScreen(true);
+
+    expect(wrapper.text()).toContain('演示回复 · 固定话术');
   });
 });

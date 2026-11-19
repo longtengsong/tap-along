@@ -13,6 +13,7 @@ const props = defineProps<{
   messages: TalkMessage[];
   historyOpen: boolean;
   developerMode: boolean;
+  demoMode?: boolean;
   retryableTurn?: RetryableTurn | null;
 }>();
 
@@ -54,6 +55,7 @@ const visibleMessages = computed(() => {
         :text="item.text"
         :suggest-close="item.suggestClose"
         :developer-mode="developerMode"
+        :demo-mode="demoMode === true"
         :request-id="item.requestId"
         :sources="item.sources"
         :citation-status="item.citationStatus"
