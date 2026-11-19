@@ -1,0 +1,60 @@
+name: Feature request
+description: Describe a situation where TapAlong does not fit the way you think.
+title: '[Feature]: '
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        TapAlong is deliberately small: the companion asks questions rather than
+        writing for you, and notes stay local. Requests that strengthen that idea
+        are easier to act on than requests for more features.
+
+        Please describe the situation first, not just the feature.
+
+  - type: textarea
+    id: situation
+    attributes:
+      label: What are you trying to do, and in what situation?
+      description: |
+        A concrete moment helps more than an abstract capability. What were you
+        reading or writing? What did you want the app to help with?
+      placeholder: 'When I revisit a note after a week, I want to…'
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: How do you work around it today?
+      description: |
+        What do you currently do instead — another app, a manual habit, or simply
+        living without it? Write "no workaround" if there is none.
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What would a good outcome look like?
+      description: Describe the result from your point of view, not the implementation.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have considered
+      description: Optional. Other ways this could be solved, or why they do not fit.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and discussions and did not find a duplicate.
+          required: true
+        - label: This request keeps notes local and does not ask the companion to write for the user.
+          required: true

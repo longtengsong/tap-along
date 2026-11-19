@@ -1,0 +1,97 @@
+name: Bug report
+description: Report a reproducible problem in TapAlong.
+title: '[Bug]: '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. TapAlong is an early alpha, so a
+        reproducible report is genuinely useful.
+
+        Please **do not paste API keys, personal notes, or private screenshots**.
+        Redact anything sensitive. For security issues, use
+        [private reporting](https://github.com/longtengsongislong520/tap-along/security/advisories/new)
+        instead of this form.
+
+  - type: input
+    id: version
+    attributes:
+      label: TapAlong version
+      description: The version from the app, or the commit hash if you built from source.
+      placeholder: '0.1.0 (or commit abc1234)'
+    validations:
+      required: true
+
+  - type: input
+    id: system
+    attributes:
+      label: macOS version and hardware
+      description: Include the macOS version and whether this is Apple silicon (arm64).
+      placeholder: 'macOS 15.2, Apple M2 (arm64)'
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: A minimal sequence that reliably triggers the problem.
+      placeholder: |
+        1. Open TapAlong with a configured model
+        2. Paste an image into a new note
+        3. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What happened instead? Include any error message shown in the app.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs, console output, or screenshots
+      description: |
+        Paste relevant output (redact keys and private content), or write "none"
+        if there is nothing to attach.
+      render: shell
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Companion / guidance
+        - Conversation / research
+        - Note editor / images
+        - Settings / model provider
+        - Data, export, or backup
+        - Startup / packaging
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: I removed API keys, personal notes, and private data from this report.
+          required: true

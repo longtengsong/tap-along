@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions, ideas, and open-ended discussion
+    url: https://github.com/longtengsongislong520/tap-along/discussions
+    about: Ask a question, share a workflow, or discuss a direction before opening an issue.
+  - name: Report a security vulnerability
+    url: https://github.com/longtengsongislong520/tap-along/security/advisories/new
+    about: Report vulnerabilities privately. Please do not open a public issue for them.
