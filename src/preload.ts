@@ -11,6 +11,12 @@ import {
   type ContextThoughtsPayload,
   type ContextThoughtsResult,
 } from './shared/context.ts';
+import {
+  IMAGE_CHANNELS,
+  type CreatePageImagePayload,
+  type CreatePageImageResult,
+  type RemovePageImageResult,
+} from './shared/images.ts';
 import { SHELL_CHANNELS, type OpenExternalResult } from './shared/shell.ts';
 import {
   GUIDANCE_CHANNELS,
@@ -68,6 +74,12 @@ const tapAlongBridge: TapAlongBridge = {
   closePage: (payload: ClosePagePayload) =>
     ipcRenderer.invoke(PAGE_CHANNELS.close, payload),
   clearAllPages: () => ipcRenderer.invoke(PAGE_CHANNELS.clearAll),
+  createPageImage: (
+    payload: CreatePageImagePayload,
+  ): Promise<CreatePageImageResult> =>
+    ipcRenderer.invoke(IMAGE_CHANNELS.create, payload),
+  removePageImage: (imageId: string): Promise<RemovePageImageResult> =>
+    ipcRenderer.invoke(IMAGE_CHANNELS.remove, imageId),
   exportBackup: (): Promise<ExportBackupResult> =>
     ipcRenderer.invoke(BACKUP_CHANNELS.export),
   useGuidanceSuggestion: (
@@ -148,6 +160,8 @@ const tapAlongBridge: TapAlongBridge = {
     ipcRenderer.invoke(PROVIDER_CHANNELS.setActive, id),
   testProvider: (id: ModelProviderId) =>
     ipcRenderer.invoke(PROVIDER_CHANNELS.test, id),
+  probeProviderImages: (id: ModelProviderId) =>
+    ipcRenderer.invoke(PROVIDER_CHANNELS.probeImages, id),
   getDeveloperMode: () =>
     ipcRenderer.invoke(SETTINGS_CHANNELS.getDeveloperMode),
   setDeveloperMode: (enabled: boolean) =>

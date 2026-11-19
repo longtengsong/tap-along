@@ -1,4 +1,5 @@
 import type { PageSnapshot } from '../../shared/pages.ts';
+import { collectNoteImageIds } from '../../shared/note-doc.ts';
 import { GUIDANCE_RELATED_NOTE_EXCERPT_LIMIT } from '../../shared/guidance.ts';
 import type { RelatedNoteCandidate } from '../services/related-notes.ts';
 import { escapePromptData, type ChatMessage } from './teacher-context.ts';
@@ -72,6 +73,7 @@ export const buildGuidanceMessages = ({
     candidates.length === 0
       ? 'No older notes were retrieved. Decide whether the current note still deserves a follow-up question.'
       : candidates.map(renderRelatedNote).join('\n');
+  const imageIds = collectNoteImageIds(page.doc);
 
   return [
     { role: 'system', content: GUIDANCE_SYSTEM_PROMPT },
@@ -92,6 +94,7 @@ Read the current note together with every related page. Decide whether they
 form a thread worth pulling, and if so write one question that helps the user
 connect them. Return JSON only.
       `.trim(),
+      ...(imageIds.length > 0 ? { imageIds } : {}),
     },
   ];
 };

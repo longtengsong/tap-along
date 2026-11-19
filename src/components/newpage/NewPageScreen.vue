@@ -5,18 +5,22 @@ import AppBar from '@/components/layout/AppBar.vue';
 import ContentColumn from '@/components/layout/ContentColumn.vue';
 import NewPageForm from '@/components/newpage/NewPageForm.vue';
 import NoticeBar from '@/components/ui/NoticeBar.vue';
+import type { NoteDoc } from '@/shared/note-doc';
+import type { ImageCapabilityStatus } from '@/shared/providers';
 
 const props = defineProps<{
-  body: string;
+  doc: NoteDoc;
   source: string;
   canBack: boolean;
   demoMode: boolean;
   deep: boolean;
   error: string;
+  draftRevision: number;
+  imageCapability?: ImageCapabilityStatus;
 }>();
 
 const emit = defineEmits<{
-  'update:body': [value: string];
+  'update:doc': [doc: NoteDoc];
   'update:source': [value: string];
   submit: [];
   back: [];
@@ -54,11 +58,13 @@ watch(
       <div class="new-page">
         <NoticeBar v-if="deep" :text="t('errors.stackTooDeep')" />
         <NewPageForm
+          :key="draftRevision"
           ref="form"
-          :body="body"
+          :doc="doc"
           :source="source"
           :error="error"
-          @update:body="emit('update:body', $event)"
+          :image-capability="imageCapability"
+          @update:doc="emit('update:doc', $event)"
           @update:source="emit('update:source', $event)"
           @submit="emit('submit')"
         />

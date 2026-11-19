@@ -13,6 +13,7 @@ import SettingsDialog from '@/components/layout/SettingsDialog.vue';
 import DeveloperPromptPage from '@/components/settings/DeveloperPromptPage.vue';
 import { ERROR_MESSAGE_KEYS } from '@/shared/errors';
 import { isDemoMode, shouldShowFirstRun } from '@/shared/onboarding';
+import type { ImageCapabilityStatus } from '@/shared/providers';
 import { useSessionStore } from '@/stores/session';
 
 const { t } = useI18n();
@@ -22,6 +23,7 @@ const settingsInitialTab = ref<SettingsTab | null>(null);
 const developerPromptsOpen = ref(false);
 const developerMode = ref(false);
 const providerCheckDone = ref(false);
+const activeImageCapability = ref<ImageCapabilityStatus>('unknown');
 const hasConfiguredProvider = ref(false);
 const onboardingDone = ref(false);
 const ONBOARDING_STORAGE_KEY = 'tap-along:onboarding-done';
@@ -124,6 +126,10 @@ const refreshProviderState = async () => {
     hasConfiguredProvider.value = result.ok
       ? active?.configured === true
       : true;
+    activeImageCapability.value =
+      active?.imageInput === 'off'
+        ? 'unsupported'
+        : (active?.imageCapability ?? 'unknown');
   } catch {
     // 读取失败不拦截用户，也不误报为未配置。
     hasConfiguredProvider.value = true;
@@ -226,13 +232,15 @@ onMounted(async () => {
       />
       <NewPageScreen
         v-else-if="state.view === 'new'"
-        :body="state.draft.body"
+        :doc="state.draft.doc"
         :source="state.draft.source"
         :can-back="canGoBack"
         :demo-mode="demoMode"
         :deep="stackIsDeep"
         :error="state.draftError ? t(state.draftError) : ''"
-        @update:body="state.draft.body = $event"
+        :draft-revision="state.draftRevision"
+        :image-capability="activeImageCapability"
+        @update:doc="state.draft.doc = $event"
         @update:source="state.draft.source = $event"
         @submit="submitNewPage"
         @back="goBack"
@@ -255,10 +263,11 @@ onMounted(async () => {
         :retryable-turn="retryableTurn"
         :can-generate-title="canGenerateTitle"
         :can-edit-title="canEditTitle"
+        :image-capability="activeImageCapability"
         @back="goBack"
         @archive="openArchive"
         @settings="openSettings"
-        @update-edit-draft="currentPage.editDraft = $event"
+        @update-edit-doc="currentPage.editDoc = $event"
         @save-edit="saveEditing"
         @cancel-edit="cancelEditing"
         @toggle-history="toggleHistory"

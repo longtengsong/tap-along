@@ -1,6 +1,14 @@
-import { app, BrowserWindow, dialog, ipcMain, screen, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  protocol,
+  screen,
+  shell,
+} from 'electron';
 import path from 'node:path';
-import { writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, stat, writeFile } from 'node:fs/promises';
 import type { DatabaseSync } from 'node:sqlite';
 import Store from 'electron-store';
 import started from 'electron-squirrel-startup';
@@ -10,10 +18,12 @@ import {
   openDatabase,
 } from './main/db/client';
 import { PagesRepository } from './main/db/pages';
+import { PageImagesRepository } from './main/db/page-images';
 import { RequestInspectionRepository } from './main/db/request-inspections';
 import { registerDeveloperPromptHandlers } from './main/ipc/developer-prompts';
 import { registerPageHandlers } from './main/ipc/pages';
 import { registerContextHandlers } from './main/ipc/context';
+import { registerImageHandlers } from './main/ipc/images';
 import { registerBackupHandlers } from './main/ipc/backup';
 import { registerGuidanceHandlers } from './main/ipc/guidance';
 import { registerSearchHandlers } from './main/ipc/search';
@@ -21,6 +31,14 @@ import { registerShellHandlers } from './main/ipc/shell';
 import { registerProviderHandlers } from './main/ipc/providers';
 import { registerSettingsHandlers } from './main/ipc/settings';
 import { registerTeacherHandlers } from './main/ipc/teacher';
+import { ImageStore } from './main/services/image-store';
+import { ImageCleanupService } from './main/services/image-cleanup';
+import { ImageContextService } from './main/services/image-context';
+import { ImageCapabilityService } from './main/services/image-capability';
+import {
+  registerTapImageHandler,
+  registerTapImageScheme,
+} from './main/services/tap-image-protocol';
 import { ElectronSecretCipher } from './main/config/electron-secret-cipher';
 import {
   ProviderConfigService,
@@ -59,6 +77,8 @@ import {
   type StoredWindowState,
 } from './main/services/window-state';
 import type { DeveloperPromptProfile } from './shared/prompts';
+
+registerTapImageScheme(protocol);
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -239,7 +259,11 @@ if (!hasSingleInstanceLock) {
   const initializeApplication = async () => {
     try {
       database = openDatabase(allocateDatabasePath(app.getPath('userData')));
-      const pagesRepository = new PagesRepository(database);
+      const imagesRepository = new PageImagesRepository(database);
+      const imageStore = new ImageStore(
+        path.join(app.getPath('userData'), 'images'),
+      );
+      const pagesRepository = new PagesRepository(database, imagesRepository);
       const requestInspectionRepository = new RequestInspectionRepository(
         database,
       );
@@ -273,19 +297,33 @@ if (!hasSingleInstanceLock) {
       );
       const teacherRequestInspector = new TeacherRequestInspector(
         developerModeService,
-        100,
+        2000,
         requestInspectionRepository,
       );
 
       registerSettingsHandlers(ipcMain, developerModeService);
       registerDeveloperPromptHandlers(ipcMain, developerPromptService);
+      registerImageHandlers(ipcMain, imagesRepository, imageStore);
+      registerTapImageHandler(protocol, imagesRepository, imageStore);
       const providerService = new ProviderConfigService(
         providerStore,
         new ElectronSecretCipher(),
       );
+      const imageContext = new ImageContextService(
+        imagesRepository,
+        imageStore,
+      );
+      const imageCapabilities = new ImageCapabilityService(providerService, {
+        cache: {
+          read: () => providerService.readImageCapabilityCache(),
+          write: (cache) => providerService.writeImageCapabilityCache(cache),
+        },
+      });
       const modelGateway = createModelGateway({
         configService: providerService,
         inspector: teacherRequestInspector,
+        images: imageContext,
+        capabilities: imageCapabilities,
       });
       registerProviderHandlers(
         ipcMain,
@@ -295,6 +333,7 @@ if (!hasSingleInstanceLock) {
           new ProviderConnectionTester(modelGateway),
           developerPromptService,
         ),
+        imageCapabilities,
       );
       const guidanceService = new GuidanceService(
         pagesRepository,
@@ -335,19 +374,28 @@ if (!hasSingleInstanceLock) {
         pagesRepository,
         guidanceService,
         titleService,
+        imageStore,
       );
       registerContextHandlers(ipcMain, pagesRepository);
-      registerBackupHandlers(ipcMain, pagesRepository, {
-        documentsPath: app.getPath('documents'),
-        showSaveDialog: async (options) => {
-          const window = BrowserWindow.getFocusedWindow();
-          return window
-            ? dialog.showSaveDialog(window, options)
-            : dialog.showSaveDialog(options);
+      registerBackupHandlers(
+        ipcMain,
+        pagesRepository,
+        imagesRepository,
+        imageStore,
+        {
+          showOpenDialog: async (options) => {
+            const window = BrowserWindow.getFocusedWindow();
+            return window
+              ? dialog.showOpenDialog(window, options)
+              : dialog.showOpenDialog(options);
+          },
+          mkdir: (target, options) => mkdir(target, options),
+          copyFile: (source, target) => copyFile(source, target),
+          writeFile: (filePath, data, encoding) =>
+            writeFile(filePath, data, encoding),
+          stat: (target) => stat(target),
         },
-        writeFile: (filePath, data, encoding) =>
-          writeFile(filePath, data, encoding),
-      });
+      );
       registerGuidanceHandlers(ipcMain, guidanceService);
       registerSearchHandlers(ipcMain, searchConfigService, webSearchService);
       registerShellHandlers(ipcMain, (url) => shell.openExternal(url));
@@ -366,6 +414,13 @@ if (!hasSingleInstanceLock) {
         ),
         teacherRequestInspector,
       );
+
+      // 启动后异步回收无引用图片/孤儿文件，不阻塞窗口。
+      void new ImageCleanupService(imagesRepository, imageStore)
+        .run()
+        .catch((error: unknown) => {
+          console.error('清理图片失败：', error);
+        });
     } catch (error) {
       console.error('Failed to initialize the TapAlong database.', error);
       await showDatabaseStartupFailure(error);

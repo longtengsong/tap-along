@@ -17,7 +17,13 @@ import type {
   UpdatePageTitleResult,
 } from '@/shared/pages';
 import type { AppErrorCode } from '@/shared/errors';
+import {
+  derivePlainText,
+  docFromPlainText,
+  type NoteDoc,
+} from '@/shared/note-doc';
 import type { ExportBackupResult } from '@/shared/backup';
+import type { CreatePageImageResult } from '@/shared/images';
 import type {
   ContextThoughtsPayload,
   ContextThoughtsResult,
@@ -72,6 +78,7 @@ const toPageRecord = (page: PageSnapshot): PageRecord => {
     parentPageId: page.parentPageId ?? null,
     title: page.title,
     body: page.body,
+    ...(page.doc ? { doc: page.doc } : {}),
     source: page.source,
     status: page.status,
     messages: page.messages.map((message, index) => ({
@@ -108,31 +115,36 @@ const toPageRecord = (page: PageSnapshot): PageRecord => {
     guidance: page.guidance,
     guidanceError: '',
     editing: false,
-    editDraft: page.body,
     historyOpen: false,
     suggestClose: Boolean(page.messages.at(-1)?.suggestClose),
   };
 };
 
 const createMockPage = ({
+  doc,
   body,
   source,
   parentPageId,
-}: SavePagePayload): PageRecord => ({
-  id: (mockPageId += 1),
-  parentPageId: parentPageId ?? null,
-  title: extractKeyword(body),
-  body,
-  source,
-  status: 'reading',
-  messages: [],
-  teacherTurn: 0,
-  guidanceError: '',
-  editing: false,
-  editDraft: body,
-  historyOpen: false,
-  suggestClose: false,
-});
+}: SavePagePayload): PageRecord => {
+  const noteDoc = doc ?? docFromPlainText(body ?? '');
+  const text = derivePlainText(noteDoc).trim();
+
+  return {
+    id: (mockPageId += 1),
+    parentPageId: parentPageId ?? null,
+    title: extractKeyword(text),
+    body: text,
+    doc: noteDoc,
+    source,
+    status: 'reading',
+    messages: [],
+    teacherTurn: 0,
+    guidanceError: '',
+    editing: false,
+    historyOpen: false,
+    suggestClose: false,
+  };
+};
 
 export const tapAlongApi = {
   supportsContextThoughts: () => Boolean(bridge?.listContextThoughts),
@@ -331,6 +343,14 @@ export const tapAlongApi = {
     };
   },
 
+  async createPageImage(bytes: Uint8Array): Promise<CreatePageImageResult> {
+    if (bridge?.createPageImage) {
+      return bridge.createPageImage({ bytes });
+    }
+
+    return { ok: false, errorCode: 'IMAGE_SAVE_FAILED' };
+  },
+
   async exportBackup(): Promise<ExportBackupResult> {
     if (!bridge?.exportBackup) {
       return { ok: false, errorCode: 'EXPORT_FAILED' };
@@ -349,11 +369,16 @@ export const tapAlongApi = {
 
   async editPage(
     pageId: number,
-    body: string,
+    doc: NoteDoc,
     requestId: string,
   ): Promise<PageUiResult> {
     if (bridge?.editPage) {
-      const response = await bridge.editPage({ pageId, body, requestId });
+      const response = await bridge.editPage({
+        pageId,
+        doc,
+        body: derivePlainText(doc),
+        requestId,
+      });
       return {
         ...response,
         page: response.page ? toPageRecord(response.page) : undefined,

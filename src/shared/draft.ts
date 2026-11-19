@@ -1,13 +1,57 @@
+import {
+  derivePlainText,
+  docFromPlainText,
+  parseNoteDoc,
+  stripPendingImages,
+  type NoteDoc,
+} from './note-doc.ts';
+
 export interface DraftSnapshot {
-  body: string;
+  version: 2;
+  doc: NoteDoc;
   source: string;
 }
 
 export const DRAFT_STORAGE_KEY = 'tap-along:draft';
-export const MAX_DRAFT_LENGTH = 100_000;
+export const MAX_DRAFT_LENGTH = 2_000_000;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const normalizeSnapshot = (
+  doc: NoteDoc,
+  source: string,
+): DraftSnapshot | null => {
+  const cleaned = stripPendingImages(doc);
+
+  if (!derivePlainText(cleaned).trim() && !source.trim()) {
+    return null;
+  }
+
+  const snapshot: DraftSnapshot = { version: 2, doc: cleaned, source };
+
+  return JSON.stringify(snapshot).length > MAX_DRAFT_LENGTH ? null : snapshot;
+};
+
+const parseStoredDoc = (value: unknown): NoteDoc | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (value.version === 2) {
+    const result = parseNoteDoc(value.doc);
+    return result.ok ? result.doc : null;
+  }
+
+  // v1：{ body, source }
+  const body = value.body;
+
+  if (typeof body !== 'string') {
+    return null;
+  }
+
+  return docFromPlainText(body);
+};
 
 export const parseDraftSnapshot = (
   value: string | null,
@@ -19,25 +63,17 @@ export const parseDraftSnapshot = (
   try {
     const parsed: unknown = JSON.parse(value);
 
-    if (!isRecord(parsed)) {
+    if (!isRecord(parsed) || typeof parsed.source !== 'string') {
       return null;
     }
 
-    const { body, source } = parsed;
+    const doc = parseStoredDoc(parsed);
 
-    if (typeof body !== 'string' || typeof source !== 'string') {
+    if (!doc) {
       return null;
     }
 
-    if (!body.trim() && !source.trim()) {
-      return null;
-    }
-
-    if (body.length + source.length > MAX_DRAFT_LENGTH) {
-      return null;
-    }
-
-    return { body, source };
+    return normalizeSnapshot(doc, parsed.source);
   } catch {
     return null;
   }
@@ -58,16 +94,25 @@ export const saveDraftSnapshot = (
   draft: DraftSnapshot,
 ): void => {
   try {
-    if (!draft.body.trim() && !draft.source.trim()) {
+    const cleaned = stripPendingImages(draft.doc);
+
+    if (!derivePlainText(cleaned).trim() && !draft.source.trim()) {
       storage.removeItem(DRAFT_STORAGE_KEY);
       return;
     }
 
-    if (draft.body.length + draft.source.length > MAX_DRAFT_LENGTH) {
+    const snapshot: DraftSnapshot = {
+      version: 2,
+      doc: cleaned,
+      source: draft.source,
+    };
+    const serialized = JSON.stringify(snapshot);
+
+    if (serialized.length > MAX_DRAFT_LENGTH) {
       return;
     }
 
-    storage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    storage.setItem(DRAFT_STORAGE_KEY, serialized);
   } catch {
     // 草稿写入失败不应阻断用户继续输入。
   }

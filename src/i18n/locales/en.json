@@ -14,6 +14,13 @@
     "loading": "Working…",
     "restoring": "Finding your last thought…"
   },
+  "noteImage": {
+    "uploading": "Uploading image…",
+    "broken": "Image unavailable",
+    "unsupportedNotice": "The current model does not support image input. Images will not be sent to the model.",
+    "privacyNotice": "Images may be sent to the current model provider. You can choose not to send them in settings.",
+    "privacyDismiss": "Got it"
+  },
   "newPage": {
     "title": "New thought",
     "bodyAria": "Thought",
@@ -57,6 +64,12 @@
     "stopping": "Stopping",
     "maintenanceMenu": "Tidy this thought",
     "editBodyAria": "Edit thought",
+    "fullText": "Read full note",
+    "closeFullText": "Close full note",
+    "containsImages": "{count} image(s)",
+    "viewImage": "View image",
+    "image": "Image",
+    "closeImage": "Close image",
     "closedNote": "This thought is settled"
   },
   "research": {
@@ -177,7 +190,11 @@
     "retry": "Try again",
     "openModelSettings": "Open model settings",
     "unknown": "Something went wrong. Please try again.",
-    "exportFailed": "The export didn't finish. Try again or choose another location."
+    "exportFailed": "The export didn't finish. Try again or choose another location.",
+    "invalidNoteDoc": "The thought content is invalid. Try again.",
+    "imageUploading": "The image is still uploading. Wait a moment before saving.",
+    "imageInvalid": "This image format isn't supported.",
+    "imageSaveFailed": "The image couldn't be saved. Try again."
   },
   "settings": {
     "title": "Settings",
@@ -341,11 +358,24 @@
     "searchConfigSaved": "Web search settings saved.",
     "searchKeyCleared": "Search API key cleared.",
     "searchConnectionSuccess": "Search service connection successful.",
+    "imageInput": "Image input",
+    "imageInputAuto": "Auto-detect (recommended)",
+    "imageInputOff": "Do not send",
+    "imageCapability": "Image capability",
+    "imageCapabilitySupported": "Supported",
+    "imageCapabilityUnsupported": "Not supported",
+    "imageCapabilityUnknown": "Not checked",
+    "probeImages": "Check image capability",
+    "probingImages": "Checking…",
+    "imageCapabilityProbed": "Image capability checked again.",
+    "imagePrivacy": "Notes with images are sent to the current model provider only when capability detection supports image input.",
     "exportConversations": "Export all thoughts",
-    "exportConversationsDescription": "Save thoughts, conversations, guidance, and sources as JSON. The file is plain text and does not include API keys.",
+    "exportConversationsDescription": "Save thoughts, conversations, guidance, sources, and images to a folder: backup.json + images/. The files are plain text and do not include API keys.",
     "exportConversationsAction": "Export…",
     "exportingConversations": "Exporting…",
-    "exportedConversations": "Exported {count} thoughts."
+    "exportedConversations": "Exported {count} thoughts.",
+    "exportedConversationsWithImages": "Exported {pages} thoughts and {images} images.",
+    "exportedMissingImages": "{count} image(s) were missing and skipped."
   },
   "a11y": {
     "appWindow": "TapAlong application window",

@@ -1,7 +1,16 @@
 import { createHash } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import type { GuidanceUseResult, GuidanceView } from '../../shared/guidance.ts';
+import type { NoteDoc } from '../../shared/note-doc.ts';
+import {
+  appendTextToDoc,
+  collectNoteImageIds,
+  derivePlainText,
+  serializeStoredNoteDoc,
+  storedDocFromJson,
+} from '../../shared/note-doc.ts';
 import { parseGuidanceView } from '../../shared/guidance.ts';
+import type { PageImagesRepository } from './page-images.ts';
 import type { TeacherSource } from '../../shared/search.ts';
 import { isSafeExternalUrl } from '../../shared/shell.ts';
 import type {
@@ -19,6 +28,7 @@ interface PageRow {
   edge_title: string | null;
   title_source: string | null;
   body: string;
+  body_doc: string | null;
   source: string | null;
   parse_status: ParseStatus;
   companion_log: string | null;
@@ -222,6 +232,7 @@ const parseMessages = (rawLog: string | null): PageMessageSnapshot[] => {
 
 const mapPageRow = (row: PageRow): PageSnapshot => {
   const guidance = parseGuidanceView(row.guidance);
+  const doc = storedDocFromJson(row.body_doc);
 
   return {
     id: row.id,
@@ -229,6 +240,7 @@ const mapPageRow = (row: PageRow): PageSnapshot => {
     title: row.edge_title?.trim() || deriveFallbackTitle(row.body),
     ...(row.title_source === 'user' ? { titleSource: 'user' as const } : {}),
     body: row.body,
+    ...(doc ? { doc } : {}),
     source: row.source ?? '',
     status: PAGE_STATUSES.has(row.page_status) ? row.page_status : 'reading',
     parseStatus: PARSE_STATUSES.has(row.parse_status)
@@ -267,19 +279,22 @@ export class PagesRepository {
   private readonly searchLikeStatement;
   private readonly closeWithLogStatement;
   private readonly appendLogStatement;
+  private readonly images?: PageImagesRepository;
   private readonly db: DatabaseSync;
 
-  constructor(db: DatabaseSync) {
+  constructor(db: DatabaseSync, images?: PageImagesRepository) {
     this.db = db;
+    this.images = images;
     this.insertStatement = this.db.prepare(`
       INSERT INTO pages (
         parent_page_id,
         body,
+        body_doc,
         source,
         parse_status,
         page_status
       )
-      VALUES (?, ?, ?, 'pending', 'reading')
+      VALUES (?, ?, ?, ?, 'pending', 'reading')
     `);
     this.findStatement = this.db.prepare(`
       SELECT
@@ -288,6 +303,7 @@ export class PagesRepository {
         edge_title,
         title_source,
         body,
+        body_doc,
         source,
         parse_status,
         companion_log,
@@ -304,6 +320,7 @@ export class PagesRepository {
         edge_title,
         title_source,
         body,
+        body_doc,
         source,
         parse_status,
         companion_log,
@@ -323,6 +340,7 @@ export class PagesRepository {
         edge_title,
         title_source,
         body,
+        body_doc,
         source,
         parse_status,
         companion_log,
@@ -342,6 +360,7 @@ export class PagesRepository {
         edge_title,
         title_source,
         body,
+        body_doc,
         source,
         parse_status,
         companion_log,
@@ -364,6 +383,7 @@ export class PagesRepository {
     this.updateBodyAndLogStatement = this.db.prepare(`
       UPDATE pages
       SET body = ?,
+          body_doc = ?,
           companion_log = ?,
           guidance = NULL,
           updated_at = CURRENT_TIMESTAMP
@@ -372,6 +392,7 @@ export class PagesRepository {
     this.updateEditedBodyStatement = this.db.prepare(`
       UPDATE pages
       SET body = ?,
+          body_doc = ?,
           edge_title = NULL,
           title_source = NULL,
           parse_status = 'pending',
@@ -384,6 +405,7 @@ export class PagesRepository {
     this.updateEditedBodyKeepTitleStatement = this.db.prepare(`
       UPDATE pages
       SET body = ?,
+          body_doc = ?,
           parse_status = 'pending',
           companion_log = ?,
           guidance = NULL,
@@ -470,15 +492,30 @@ export class PagesRepository {
     source: string,
     openingMessage?: OpeningMessage,
     parentPageId: number | null = null,
+    doc?: NoteDoc,
   ): PageSnapshot {
     return this.withTransaction(() => {
+      const bodyDoc = doc ? serializeStoredNoteDoc(doc) : null;
       const result = this.insertStatement.run(
         parentPageId,
         body,
+        bodyDoc,
         source || null,
       );
       const pageId = Number(result.lastInsertRowid);
       this.insertFtsStatement.run(pageId, body, source || '');
+
+      if (doc) {
+        const imageIds = collectNoteImageIds(doc);
+
+        if (imageIds.length > 0) {
+          if (!this.images) {
+            throw new Error('图片仓储不可用');
+          }
+
+          this.images.addRefs(pageId, imageIds);
+        }
+      }
 
       if (openingMessage?.text) {
         const messages: PageMessageSnapshot[] = [
@@ -1037,10 +1074,18 @@ export class PagesRepository {
           createdAt: Date.now(),
         },
       ];
-      const nextBody = `${page.body}\n\n${normalizedContent}`;
+      const currentDoc = page.doc;
+      const nextDoc = currentDoc
+        ? appendTextToDoc(currentDoc, normalizedContent)
+        : null;
+      const nextBody = nextDoc
+        ? derivePlainText(nextDoc)
+        : `${page.body}\n\n${normalizedContent}`;
+      const nextBodyDoc = nextDoc ? serializeStoredNoteDoc(nextDoc) : null;
 
       this.updateBodyAndLogStatement.run(
         nextBody,
+        nextBodyDoc,
         JSON.stringify(messages),
         pageId,
       );
@@ -1059,9 +1104,10 @@ export class PagesRepository {
     pageId: number,
     body: string,
     requestId: string,
+    doc?: NoteDoc,
   ):
-    | { ok: true; page: PageSnapshot }
-    | { ok: false; reason: 'not_found' | 'closed' } {
+    | { ok: true; page: PageSnapshot; removedImageFiles?: string[] }
+    | { ok: false; reason: 'not_found' | 'closed' | 'doc_required' } {
     return this.withTransaction(() => {
       const page = this.findById(pageId);
 
@@ -1073,11 +1119,16 @@ export class PagesRepository {
         return { ok: false, reason: 'closed' };
       }
 
+      if (page.doc && !doc) {
+        return { ok: false, reason: 'doc_required' };
+      }
+
       if (page.messages.some((message) => message.requestId === requestId)) {
         return { ok: true, page };
       }
 
       const normalizedBody = body.trim();
+      const bodyDoc = doc ? serializeStoredNoteDoc(doc) : null;
       const baseMessages = page.guidance
         ? page.messages.filter((message) => message.requestId !== 'opening')
         : page.messages;
@@ -1096,15 +1147,38 @@ export class PagesRepository {
         page.titleSource === 'user'
           ? this.updateEditedBodyKeepTitleStatement
           : this.updateEditedBodyStatement;
-      updateStatement.run(normalizedBody, JSON.stringify(messages), pageId);
+      updateStatement.run(
+        normalizedBody,
+        bodyDoc,
+        JSON.stringify(messages),
+        pageId,
+      );
       this.replaceFtsIndex(pageId, normalizedBody, page.source);
+
+      let removedImageFiles: string[] | undefined;
+
+      if (doc) {
+        const imageIds = collectNoteImageIds(doc);
+
+        if (imageIds.length > 0 && !this.images) {
+          throw new Error('图片仓储不可用');
+        }
+
+        removedImageFiles = this.images
+          ? this.images.replaceRefs(pageId, imageIds)
+          : [];
+      }
 
       const updatedPage = this.findById(pageId);
       if (!updatedPage) {
         throw new Error('改批注后无法读取页边');
       }
 
-      return { ok: true, page: updatedPage };
+      return {
+        ok: true,
+        page: updatedPage,
+        ...(removedImageFiles ? { removedImageFiles } : {}),
+      };
     });
   }
 
@@ -1218,6 +1292,7 @@ export class PagesRepository {
       this.db.prepare('DELETE FROM pages').run();
       this.db.prepare('DELETE FROM pages_fts').run();
       this.db.prepare('DELETE FROM request_inspections').run();
+      this.db.prepare('DELETE FROM page_images').run();
       return Number(count.count);
     });
   }

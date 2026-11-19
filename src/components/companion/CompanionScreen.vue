@@ -10,6 +10,8 @@ import GuidancePanel from '@/components/companion/GuidancePanel.vue';
 import SessionThoughtsRail from '@/components/companion/SessionThoughtsRail.vue';
 import TalkStream from '@/components/companion/TalkStream/TalkStream.vue';
 import type { ContextThought } from '@/shared/context';
+import type { NoteDoc } from '@/shared/note-doc';
+import type { ImageCapabilityStatus } from '@/shared/providers';
 import type { ComposerMode, PageRecord, RetryableTurn } from '@/types/session';
 
 const { t } = useI18n();
@@ -29,13 +31,14 @@ const props = defineProps<{
   retryableTurn?: RetryableTurn | null;
   canGenerateTitle?: boolean;
   canEditTitle?: boolean;
+  imageCapability?: ImageCapabilityStatus;
 }>();
 
 const emit = defineEmits<{
   back: [];
   archive: [];
   settings: [];
-  updateEditDraft: [value: string];
+  updateEditDoc: [doc: NoteDoc];
   saveEdit: [];
   cancelEdit: [];
   toggleHistory: [];
@@ -209,7 +212,8 @@ const showRailPanel = computed(
           :page="page"
           :can-generate-title="canGenerateTitle"
           :can-edit-title="canEditTitle"
-          @update-edit-draft="emit('updateEditDraft', $event)"
+          :image-capability="imageCapability"
+          @update-edit-doc="emit('updateEditDoc', $event)"
           @save-edit="emit('saveEdit')"
           @cancel-edit="emit('cancelEdit')"
           @generate-title="emit('generateTitle')"

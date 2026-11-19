@@ -10,7 +10,9 @@ import type {
   SavePagePayload,
 } from '../../shared/pages.ts';
 import { PAGE_CHANNELS, TITLE_CHANNELS } from '../../shared/pages.ts';
+import { derivePlainText, parseNoteDoc } from '../../shared/note-doc.ts';
 import type { PagesRepository } from '../db/pages.ts';
+import type { ImageStore } from '../services/image-store.ts';
 import { GUIDANCE_CHANNELS } from '../../shared/guidance.ts';
 import { createOpeningTeacherMessage } from '../services/teacher.ts';
 import type { GuidanceService } from '../services/guidance.ts';
@@ -23,12 +25,27 @@ const parseSavePayload = (
   payload: unknown,
 ):
   | { ok: true; value: SavePagePayload }
-  | { ok: false; errorCode: 'INVALID_BODY' | 'INVALID_PAGE_ID' } => {
-  if (!isRecord(payload) || typeof payload.body !== 'string') {
+  | {
+      ok: false;
+      errorCode: 'INVALID_BODY' | 'INVALID_PAGE_ID' | 'INVALID_NOTE_DOC';
+    } => {
+  if (!isRecord(payload)) {
     return { ok: false, errorCode: 'INVALID_BODY' };
   }
 
-  const body = payload.body.trim();
+  const parsedDoc =
+    payload.doc === undefined ? null : parseNoteDoc(payload.doc);
+
+  if (parsedDoc && !parsedDoc.ok) {
+    return { ok: false, errorCode: 'INVALID_NOTE_DOC' };
+  }
+
+  const body =
+    parsedDoc && parsedDoc.ok
+      ? derivePlainText(parsedDoc.doc).trim()
+      : typeof payload.body === 'string'
+        ? payload.body.trim()
+        : '';
 
   if (!body) {
     return { ok: false, errorCode: 'INVALID_BODY' };
@@ -46,6 +63,7 @@ const parseSavePayload = (
   return {
     ok: true,
     value: {
+      ...(parsedDoc && parsedDoc.ok ? { doc: parsedDoc.doc } : {}),
       body,
       source: typeof payload.source === 'string' ? payload.source.trim() : '',
       ...(typeof payload.parentPageId === 'number'
@@ -108,19 +126,34 @@ const parseEditPayload = (payload: unknown) => {
     return { ok: false as const, errorCode: 'INVALID_PAGE_ID' as const };
   }
 
-  if (typeof payload.body !== 'string' || !payload.body.trim()) {
-    return { ok: false as const, errorCode: 'INVALID_BODY' as const };
-  }
-
   if (typeof payload.requestId !== 'string' || !payload.requestId.trim()) {
     return { ok: false as const, errorCode: 'MAINTENANCE_FAILED' as const };
+  }
+
+  const parsedDoc =
+    payload.doc === undefined ? null : parseNoteDoc(payload.doc);
+
+  if (parsedDoc && !parsedDoc.ok) {
+    return { ok: false as const, errorCode: 'INVALID_NOTE_DOC' as const };
+  }
+
+  const body =
+    parsedDoc && parsedDoc.ok
+      ? derivePlainText(parsedDoc.doc).trim()
+      : typeof payload.body === 'string'
+        ? payload.body.trim()
+        : '';
+
+  if (!body) {
+    return { ok: false as const, errorCode: 'INVALID_BODY' as const };
   }
 
   return {
     ok: true as const,
     value: {
       pageId: payload.pageId,
-      body: payload.body.trim(),
+      ...(parsedDoc && parsedDoc.ok ? { doc: parsedDoc.doc } : {}),
+      body,
       requestId: payload.requestId.trim(),
     } satisfies EditPagePayload,
   };
@@ -160,16 +193,19 @@ export const savePage = (
   }
 
   try {
+    const body = input.value.body ?? '';
+
     return {
       ok: true,
       page: repository.create(
-        input.value.body,
+        body,
         input.value.source,
         {
-          text: createOpeningTeacherMessage(input.value.body),
+          text: createOpeningTeacherMessage(body),
           requestId: 'opening',
         },
         input.value.parentPageId ?? null,
+        input.value.doc,
       ),
     };
   } catch (error) {
@@ -289,13 +325,18 @@ export const editPage = (
       input.value.pageId,
       input.value.body,
       input.value.requestId,
+      input.value.doc,
     );
 
     if (!result.ok) {
       return {
         ok: false,
         errorCode:
-          result.reason === 'closed' ? 'PAGE_CLOSED' : 'PAGE_NOT_FOUND',
+          result.reason === 'closed'
+            ? 'PAGE_CLOSED'
+            : result.reason === 'doc_required'
+              ? 'INVALID_NOTE_DOC'
+              : 'PAGE_NOT_FOUND',
       };
     }
 
@@ -333,11 +374,14 @@ export const closePage = (
   }
 };
 
-export const clearAllPages = (
+export const clearAllPages = async (
   repository: Pick<PagesRepository, 'clearAll'>,
-): PageClearAllResult => {
+  imageStore?: Pick<ImageStore, 'clear'>,
+): Promise<PageClearAllResult> => {
   try {
-    return { ok: true, cleared: repository.clearAll() };
+    const cleared = repository.clearAll();
+    await imageStore?.clear();
+    return { ok: true, cleared };
   } catch (error) {
     console.error('清空会话数据失败：', error);
     return { ok: false, errorCode: 'SAVE_FAILED' };
@@ -349,6 +393,7 @@ export const registerPageHandlers = (
   repository: PagesRepository,
   guidanceService?: Pick<GuidanceService, 'run'>,
   titleService?: Pick<TitleService, 'run' | 'generate'>,
+  imageStore?: Pick<ImageStore, 'clear'>,
 ) => {
   const emitTitleUpdate = (
     event: IpcMainInvokeEvent | null | undefined,
@@ -425,7 +470,9 @@ export const registerPageHandlers = (
   ipcMain.handle(PAGE_CHANNELS.close, (_event, payload: unknown) =>
     closePage(repository, payload),
   );
-  ipcMain.handle(PAGE_CHANNELS.clearAll, () => clearAllPages(repository));
+  ipcMain.handle(PAGE_CHANNELS.clearAll, () =>
+    clearAllPages(repository, imageStore),
+  );
   ipcMain.handle(TITLE_CHANNELS.update, (_event, payload: unknown) => {
     if (
       !payload ||

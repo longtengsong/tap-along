@@ -4,6 +4,15 @@ export const MODEL_PROVIDER_IDS = ['deepseek', 'custom'] as const;
 
 export type ModelProviderId = (typeof MODEL_PROVIDER_IDS)[number];
 
+export type ImageInputMode = 'auto' | 'off';
+export type ImageCapabilityStatus = 'supported' | 'unsupported' | 'unknown';
+
+export const imageCapabilityKey = (
+  providerId: string,
+  model: string,
+  baseUrl: string,
+) => `${providerId}\u0000${model}\u0000${baseUrl}`;
+
 export const isValidProviderBaseUrl = (value: string) => {
   try {
     const url = new URL(value);
@@ -30,6 +39,8 @@ export interface ModelProviderView {
   configured: boolean;
   active: boolean;
   isCustom: boolean;
+  imageInput: ImageInputMode;
+  imageCapability: ImageCapabilityStatus;
 }
 
 export interface ModelProviderState {
@@ -61,6 +72,13 @@ export interface SaveModelProviderPayload {
   model: string;
   baseUrl?: string;
   apiKey?: string;
+  imageInput?: ImageInputMode;
+}
+
+export interface ProviderImageCapabilityResult {
+  ok: boolean;
+  status?: ImageCapabilityStatus;
+  errorCode?: AppErrorCode;
 }
 
 export const PROVIDER_CHANNELS = {
@@ -70,6 +88,7 @@ export const PROVIDER_CHANNELS = {
   clearKey: 'providers:clear-key',
   setActive: 'providers:set-active',
   test: 'providers:test',
+  probeImages: 'providers:probe-images',
 } as const;
 
 export interface ProviderBridge {
@@ -81,4 +100,7 @@ export interface ProviderBridge {
   clearProviderKey?: (id: ModelProviderId) => Promise<ModelProviderListResult>;
   setActiveProvider?: (id: ModelProviderId) => Promise<ModelProviderListResult>;
   testProvider?: (id: ModelProviderId) => Promise<ProviderConnectionResult>;
+  probeProviderImages?: (
+    id: ModelProviderId,
+  ) => Promise<ProviderImageCapabilityResult>;
 }

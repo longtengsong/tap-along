@@ -1,33 +1,57 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { tapAlongApi } from '@/api/tap-along';
 import AppButton from '@/components/ui/AppButton.vue';
-import AppTextArea from '@/components/ui/AppTextArea.vue';
+import NoteEditor from '@/renderer/note/NoteEditor.vue';
+import type { NoteDoc } from '@/shared/note-doc';
+import type { ImageCapabilityStatus } from '@/shared/providers';
 
 defineProps<{
-  value: string;
+  doc: NoteDoc;
+  imageCapability?: ImageCapabilityStatus;
 }>();
 
 const emit = defineEmits<{
-  'update:value': [value: string];
+  'update:doc': [doc: NoteDoc];
   save: [];
   cancel: [];
 }>();
 
 const { t } = useI18n();
+const uploadingCount = ref(0);
+
+const save = () => {
+  if (uploadingCount.value > 0) {
+    return;
+  }
+
+  emit('save');
+};
 </script>
 
 <template>
-  <AppTextArea
+  <NoteEditor
     class="edit-area"
-    :model-value="value"
+    :doc="doc"
     :aria-label="t('companion.editBodyAria')"
-    @update:model-value="emit('update:value', $event)"
+    :image-capability="imageCapability"
+    :upload-image="tapAlongApi.createPageImage"
+    autofocus
+    compact
+    @update:doc="emit('update:doc', $event)"
+    @uploading-change="uploadingCount = $event"
   />
   <div class="edit-actions">
     <AppButton variant="text" @click="emit('cancel')">
       {{ t('common.cancel') }}
     </AppButton>
-    <AppButton size="small" @click="emit('save')">
+    <AppButton
+      size="small"
+      :disabled="uploadingCount > 0"
+      :aria-busy="uploadingCount > 0"
+      @click="save"
+    >
       {{ t('actions.saveEdit') }}
     </AppButton>
   </div>
@@ -43,10 +67,9 @@ const { t } = useI18n();
   background: var(--line-soft);
   font-size: 15px;
   line-height: 1.85;
-  resize: vertical;
 }
 
-.edit-area:focus {
+.edit-area:focus-within {
   box-shadow: inset 0 0 0 1px #d9d2c7;
 }
 

@@ -11,6 +11,7 @@ import type { SupportedLocale } from '@/i18n/locale';
 import { ERROR_MESSAGE_KEYS, type AppErrorCode } from '@/shared/errors';
 import type { PageClearAllResult } from '@/shared/pages';
 import type {
+  ImageInputMode,
   ModelProviderId,
   ModelProviderState,
   ModelProviderView,
@@ -51,6 +52,7 @@ const selectedProviderId = ref<ModelProviderId>('deepseek');
 const providerLoading = ref(false);
 const providerSaving = ref(false);
 const providerTesting = ref(false);
+const providerProbing = ref(false);
 const providerMessage = ref('');
 const providerError = ref('');
 const dataConfirming = ref(false);
@@ -59,6 +61,7 @@ const dataMessage = ref('');
 const dataError = ref('');
 const exporting = ref(false);
 const exportMessage = ref('');
+const exportWarning = ref('');
 const exportError = ref('');
 const developerMode = ref(false);
 const developerModeLoading = ref(false);
@@ -71,6 +74,7 @@ const providerForm = reactive({
   model: '',
   baseUrl: '',
   apiKey: '',
+  imageInput: 'auto' as ImageInputMode,
 });
 let previousFocus: HTMLElement | null = null;
 
@@ -80,6 +84,21 @@ const selectedProvider = computed(
       (provider) => provider.id === selectedProviderId.value,
     ) ?? null,
 );
+
+const imageCapabilityLabel = computed(() => {
+  if (providerForm.imageInput === 'off') {
+    return t('settings.imageInputOff');
+  }
+
+  switch (selectedProvider.value?.imageCapability) {
+    case 'supported':
+      return t('settings.imageCapabilitySupported');
+    case 'unsupported':
+      return t('settings.imageCapabilityUnsupported');
+    default:
+      return t('settings.imageCapabilityUnknown');
+  }
+});
 
 const close = () => {
   emit('close');
@@ -167,6 +186,7 @@ const selectProvider = (provider: ModelProviderView) => {
   providerForm.model = provider.model;
   providerForm.baseUrl = provider.baseUrl;
   providerForm.apiKey = '';
+  providerForm.imageInput = provider.imageInput;
   providerError.value = '';
   providerMessage.value = '';
 };
@@ -249,10 +269,11 @@ const providerPayload = (): SaveModelProviderPayload => ({
   model: providerForm.model,
   baseUrl: providerForm.baseUrl,
   apiKey: providerForm.apiKey,
+  imageInput: providerForm.imageInput,
 });
 
 const saveProvider = async () => {
-  if (providerSaving.value || providerTesting.value) {
+  if (providerSaving.value || providerTesting.value || providerProbing.value) {
     return;
   }
 
@@ -279,7 +300,7 @@ const saveProvider = async () => {
 };
 
 const clearProviderKey = async () => {
-  if (providerSaving.value || providerTesting.value) {
+  if (providerSaving.value || providerTesting.value || providerProbing.value) {
     return;
   }
 
@@ -305,7 +326,7 @@ const clearProviderKey = async () => {
 };
 
 const setActiveProvider = async () => {
-  if (providerSaving.value || providerTesting.value) {
+  if (providerSaving.value || providerTesting.value || providerProbing.value) {
     return;
   }
 
@@ -327,6 +348,43 @@ const setActiveProvider = async () => {
     showProviderError('CONFIG_FAILED');
   } finally {
     providerSaving.value = false;
+  }
+};
+
+const probeProviderImages = async () => {
+  if (!selectedProvider.value?.configured || providerProbing.value) {
+    return;
+  }
+
+  providerProbing.value = true;
+  providerMessage.value = '';
+  providerError.value = '';
+
+  try {
+    const result = await providerApi.probeImages(selectedProviderId.value);
+
+    if (!result.ok || !result.status) {
+      showProviderError(result.errorCode ?? 'CONFIG_FAILED');
+      return;
+    }
+
+    if (providerState.value) {
+      providerState.value = {
+        ...providerState.value,
+        providers: providerState.value.providers.map((provider) =>
+          provider.id === selectedProviderId.value
+            ? { ...provider, imageCapability: result.status! }
+            : provider,
+        ),
+      };
+    }
+
+    emit('providerChanged');
+    providerMessage.value = t('settings.imageCapabilityProbed');
+  } catch {
+    showProviderError('CONFIG_FAILED');
+  } finally {
+    providerProbing.value = false;
   }
 };
 
@@ -365,6 +423,7 @@ const exportConversationData = async () => {
 
   exporting.value = true;
   exportMessage.value = '';
+  exportWarning.value = '';
   exportError.value = '';
 
   try {
@@ -381,9 +440,16 @@ const exportConversationData = async () => {
       return;
     }
 
-    exportMessage.value = t('settings.exportedConversations', {
-      count: result.pageCount ?? 0,
+    exportMessage.value = t('settings.exportedConversationsWithImages', {
+      pages: result.pageCount ?? 0,
+      images: result.imageCount ?? 0,
     });
+
+    if (result.missingImages) {
+      exportWarning.value = t('settings.exportedMissingImages', {
+        count: result.missingImages,
+      });
+    }
   } catch {
     exportError.value = t(ERROR_MESSAGE_KEYS.EXPORT_FAILED);
   } finally {
@@ -789,6 +855,60 @@ onBeforeUnmount(() => {
                   </label>
                 </div>
 
+                <div class="provider-image-settings">
+                  <span class="settings-field__heading">
+                    <span>{{ t('settings.imageInput') }}</span>
+                  </span>
+                  <div
+                    class="provider-image-options"
+                    role="radiogroup"
+                    :aria-label="t('settings.imageInput')"
+                  >
+                    <label>
+                      <input
+                        v-model="providerForm.imageInput"
+                        type="radio"
+                        value="auto"
+                      />
+                      <span>{{ t('settings.imageInputAuto') }}</span>
+                    </label>
+                    <label>
+                      <input
+                        v-model="providerForm.imageInput"
+                        type="radio"
+                        value="off"
+                      />
+                      <span>{{ t('settings.imageInputOff') }}</span>
+                    </label>
+                  </div>
+                  <p class="provider-image-status">
+                    {{ t('settings.imageCapability') }}：{{
+                      imageCapabilityLabel
+                    }}
+                  </p>
+                  <p class="provider-image-privacy">
+                    {{ t('settings.imagePrivacy') }}
+                  </p>
+                  <AppButton
+                    v-if="providerForm.imageInput === 'auto'"
+                    variant="ghost"
+                    size="small"
+                    :disabled="
+                      !selectedProvider?.configured ||
+                      providerProbing ||
+                      providerSaving ||
+                      providerTesting
+                    "
+                    @click="probeProviderImages"
+                  >
+                    {{
+                      providerProbing
+                        ? t('settings.probingImages')
+                        : t('settings.probeImages')
+                    }}
+                  </AppButton>
+                </div>
+
                 <p
                   v-if="!providerState.secureStorageAvailable"
                   class="provider-warning"
@@ -809,7 +929,9 @@ onBeforeUnmount(() => {
                 <div class="provider-actions">
                   <AppButton
                     size="small"
-                    :disabled="providerSaving || providerTesting"
+                    :disabled="
+                      providerSaving || providerTesting || providerProbing
+                    "
                     @click="saveProvider"
                   >
                     {{ t('settings.saveConfig') }}
@@ -827,7 +949,9 @@ onBeforeUnmount(() => {
                   <AppButton
                     v-if="selectedProvider?.configured"
                     variant="ghost"
-                    :disabled="providerTesting || providerSaving"
+                    :disabled="
+                      providerTesting || providerSaving || providerProbing
+                    "
                     @click="testProvider"
                   >
                     {{ t('settings.testConnection') }}
@@ -895,6 +1019,9 @@ onBeforeUnmount(() => {
               </p>
               <p v-if="exportMessage" class="provider-feedback" role="status">
                 {{ exportMessage }}
+              </p>
+              <p v-if="exportWarning" class="provider-feedback" role="status">
+                {{ exportWarning }}
               </p>
 
               <div class="settings-data">
@@ -1175,6 +1302,42 @@ onBeforeUnmount(() => {
   color: var(--ink-faint);
   font-size: 10.5px;
   line-height: 1.55;
+}
+
+.provider-image-settings {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+}
+
+.provider-image-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.provider-image-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.provider-image-status,
+.provider-image-privacy {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.provider-image-privacy {
+  color: var(--ink-soft);
 }
 
 .provider-actions {

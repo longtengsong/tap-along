@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n';
 import AppBar from '@/components/layout/AppBar.vue';
 import ContentColumn from '@/components/layout/ContentColumn.vue';
 import AppButton from '@/components/ui/AppButton.vue';
+import { countNoteImages, docFromPlainText } from '@/shared/note-doc';
 import type { PageRecord } from '@/types/session';
 
 defineProps<{
@@ -20,6 +21,9 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+const imageCount = (page: PageRecord) =>
+  countNoteImages(page.doc ?? docFromPlainText(page.body));
 </script>
 
 <template>
@@ -67,6 +71,14 @@ const { t } = useI18n();
                 {{ t('companion.sourcePrefix') }}{{ page.source || '—' }}
                 <span aria-hidden="true">·</span>
                 {{ t('status.closed') }}
+                <template v-if="imageCount(page) > 0">
+                  <span aria-hidden="true">·</span>
+                  {{
+                    t('companion.containsImages', {
+                      count: imageCount(page),
+                    })
+                  }}
+                </template>
               </span>
             </button>
           </li>

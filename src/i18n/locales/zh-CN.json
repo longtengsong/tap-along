@@ -14,6 +14,13 @@
     "loading": "正在处理……",
     "restoring": "正在找回上一条……"
   },
+  "noteImage": {
+    "uploading": "图片上传中…",
+    "broken": "图片没能显示",
+    "unsupportedNotice": "当前模型不支持图片输入，图片不会发送给模型。",
+    "privacyNotice": "图片可能发送给当前模型供应商；可在设置里选择不发送。",
+    "privacyDismiss": "知道了"
+  },
   "newPage": {
     "title": "新念头",
     "bodyAria": "念头内容",
@@ -57,6 +64,12 @@
     "stopping": "正在停止",
     "maintenanceMenu": "整理这个念头",
     "editBodyAria": "编辑念头内容",
+    "fullText": "查看全文",
+    "closeFullText": "收起全文",
+    "containsImages": "含 {count} 张图",
+    "viewImage": "查看图片",
+    "image": "图片",
+    "closeImage": "关闭图片",
     "closedNote": "这个念头先收住了"
   },
   "research": {
@@ -177,7 +190,11 @@
     "retry": "再试一次",
     "openModelSettings": "打开模型设置",
     "unknown": "刚刚没有处理好，请再试一次。",
-    "exportFailed": "导出没有完成，请重试或换个位置。"
+    "exportFailed": "导出没有完成，请重试或换个位置。",
+    "invalidNoteDoc": "念头内容格式无效，请重试。",
+    "imageUploading": "图片还在上传，稍等一下再保存。",
+    "imageInvalid": "这张图片的格式不支持。",
+    "imageSaveFailed": "图片没存上，请重试。"
   },
   "settings": {
     "title": "设置",
@@ -341,11 +358,24 @@
     "searchConfigSaved": "联网检索配置已保存。",
     "searchKeyCleared": "联网检索 Key 已清除。",
     "searchConnectionSuccess": "检索服务连接成功。",
+    "imageInput": "图片输入",
+    "imageInputAuto": "自动检测（推荐）",
+    "imageInputOff": "不发送",
+    "imageCapability": "图片能力",
+    "imageCapabilitySupported": "支持",
+    "imageCapabilityUnsupported": "不支持",
+    "imageCapabilityUnknown": "未检测",
+    "probeImages": "重新检测图片能力",
+    "probingImages": "正在检测…",
+    "imageCapabilityProbed": "图片能力已重新检测。",
+    "imagePrivacy": "含图片的念头会在能力检测支持时，把图片发送给当前模型供应商。",
     "exportConversations": "导出全部念头",
-    "exportConversationsDescription": "把念头、对谈、引导和来源保存为 JSON。文件里是明文内容，不含 API Key。",
+    "exportConversationsDescription": "把念头、对谈、引导、来源和图片保存到文件夹：backup.json + images/。文件里是明文内容，不含 API Key。",
     "exportConversationsAction": "导出…",
     "exportingConversations": "正在导出…",
-    "exportedConversations": "已导出 {count} 个念头。"
+    "exportedConversations": "已导出 {count} 个念头。",
+    "exportedConversationsWithImages": "已导出 {pages} 个念头、{images} 张图片。",
+    "exportedMissingImages": "有 {count} 张图片缺失，已跳过。"
   },
   "a11y": {
     "appWindow": "轻叩伴读应用窗口",

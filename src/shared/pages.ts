@@ -1,7 +1,9 @@
 import type { AppErrorCode } from './errors.ts';
+import type { NoteDoc } from './note-doc.ts';
 import type { BackupBridge } from './backup.ts';
 import type { ContextBridge } from './context.ts';
 import type { GuidanceBridge, GuidanceView } from './guidance.ts';
+import type { ImageBridge } from './images.ts';
 import type { DeveloperPromptsBridge } from './prompts.ts';
 import type { ProviderBridge } from './providers.ts';
 import type { SearchBridge, TeacherSource } from './search.ts';
@@ -49,6 +51,8 @@ export interface PageSnapshot {
   /** 手动编辑过的标题不会被自动生成覆盖。 */
   titleSource?: 'model' | 'user';
   body: string;
+  /** 富文本文档；旧页面没有，按纯文本显示。 */
+  doc?: NoteDoc;
   source: string;
   status: PageLifecycleStatus;
   parseStatus: ParseStatus;
@@ -58,7 +62,9 @@ export interface PageSnapshot {
 }
 
 export interface SavePagePayload {
-  body: string;
+  doc?: NoteDoc;
+  /** 旧客户端/测试兼容；有 doc 时主进程优先 doc。 */
+  body?: string;
   source: string;
   parentPageId?: number;
 }
@@ -71,7 +77,9 @@ export interface AppendPagePayload {
 
 export interface EditPagePayload {
   pageId: number;
-  body: string;
+  doc?: NoteDoc;
+  /** 旧客户端/测试兼容；有 doc 时主进程优先 doc。 */
+  body?: string;
   requestId: string;
 }
 
@@ -217,6 +225,16 @@ export interface TeacherRequestInspection {
   messages: TeacherRequestInspectionMessage[];
   createdAt: number;
   errorCode?: AppErrorCode;
+  /** 模型正常结束后回写的完整回复。 */
+  reply?: string;
+  /** 从发出请求到读完最后一块内容的耗时。 */
+  latencyMs?: number;
+  /** 请求实际使用的 Prompt 版本。 */
+  promptVersion?: string;
+  /** 当前生效 Prompt 目录的内容指纹，用于区分开发者改动。 */
+  promptHash?: string;
+  /** 请求实际使用的温度。 */
+  temperature?: number;
 }
 
 export interface TeacherRequestInspectionResult {
@@ -243,6 +261,7 @@ export interface TapAlongBridge
     SettingsBridge,
     DeveloperPromptsBridge,
     GuidanceBridge,
+    ImageBridge,
     SearchBridge,
     ShellBridge {
   savePage?: (payload: SavePagePayload) => Promise<PageOperationResult>;

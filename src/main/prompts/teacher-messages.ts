@@ -6,6 +6,7 @@ import { buildResearchMessages } from './research.ts';
 import {
   buildCompressedPageContext,
   buildCurrentPageContext,
+  buildPageImagesMessage,
   buildSessionNotesContext,
   buildResumePageContext,
   toPageMessages,
@@ -91,12 +92,14 @@ export const buildTeacherMessages = (
   const userTextInHistory =
     lastHistoryMessage?.role === 'user' &&
     lastHistoryMessage.content === userText;
+  const currentPageImages = buildPageImagesMessage(page, 'the current note');
   const messages: ChatMessage[] = [
     ...toSystemMessage(promptCatalog.teacher.system),
     ...toSystemMessage(promptCatalog.teacher.languagePolicy),
     ...toSystemMessage(promptCatalog.teacher.contextBoundary),
     ...buildCompressedContextPolicy(normalizedCompressedPages, promptCatalog),
     ...toSystemMessage(buildCurrentPageContext(page, promptCatalog)),
+    ...(currentPageImages ? [currentPageImages] : []),
     ...buildSessionNotes(page),
     // 最新提问已落盘时保留在最后，无锚点的老上下文插在它之前。
     ...buildTimeline(page, normalizedCompressedPages, promptCatalog, {
@@ -130,6 +133,11 @@ export const buildResumeTeacherMessages = (
       rootPageId: contextPage.id,
     },
   ]);
+  const targetPageImages = buildPageImagesMessage(page, 'the target note');
+  const contextPageImages = buildPageImagesMessage(
+    contextPage,
+    'the earlier note being connected',
+  );
   const messages: ChatMessage[] = [
     ...toSystemMessage(promptCatalog.teacher.system),
     ...toSystemMessage(promptCatalog.teacher.languagePolicy),
@@ -139,6 +147,8 @@ export const buildResumeTeacherMessages = (
     ...toSystemMessage(
       buildResumePageContext(page, 'targetPage', promptCatalog),
     ),
+    ...(targetPageImages ? [targetPageImages] : []),
+    ...(contextPageImages ? [contextPageImages] : []),
     ...buildSessionNotes(page),
     ...buildTimeline(page, normalizedCompressedPages, promptCatalog),
   ];
@@ -159,6 +169,7 @@ export const buildMaintenanceTeacherMessages = (
 ): ChatMessage[] => {
   const action = promptCatalog.teacher.maintenanceAction[maintenanceKind];
   const normalizedCompressedPages = normalizeCompressedPages(compressedPages);
+  const currentPageImages = buildPageImagesMessage(page, 'the current note');
 
   return [
     ...toSystemMessage(promptCatalog.teacher.system),
@@ -168,6 +179,7 @@ export const buildMaintenanceTeacherMessages = (
     ...toSystemMessage(promptCatalog.teacher.contextBoundary),
     ...buildCompressedContextPolicy(normalizedCompressedPages, promptCatalog),
     ...toSystemMessage(buildCurrentPageContext(page, promptCatalog)),
+    ...(currentPageImages ? [currentPageImages] : []),
     ...buildSessionNotes(page),
     ...buildTimeline(page, normalizedCompressedPages, promptCatalog),
     { role: 'user', content: userText },

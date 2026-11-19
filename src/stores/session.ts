@@ -8,6 +8,13 @@ import {
   saveDraftSnapshot,
 } from '@/shared/draft';
 import { collectReadingStack } from '@/shared/page-stack';
+import {
+  appendTextToDoc,
+  cloneNoteDoc,
+  derivePlainText,
+  docFromPlainText,
+  hasPendingNoteImages,
+} from '@/shared/note-doc';
 import { ERROR_MESSAGE_KEYS, type AppErrorCode } from '@/shared/errors';
 import {
   createPendingGuidance,
@@ -101,9 +108,10 @@ const state = reactive({
   overlay: null as OverlayState,
   errorCode: null as AppErrorCode | null,
   draft: {
-    body: '',
+    doc: docFromPlainText(''),
     source: '',
   } as PageDraft,
+  draftRevision: 0,
   draftError: '',
   replyDraft: '',
   typing: false,
@@ -120,22 +128,32 @@ const state = reactive({
 const restoredDraft = loadDraftSnapshot(localStorage);
 
 if (restoredDraft) {
-  state.draft.body = restoredDraft.body;
+  state.draft.doc = restoredDraft.doc;
   state.draft.source = restoredDraft.source;
 }
 
 watch(
-  () => [state.draft.body, state.draft.source] as const,
-  ([body, source]) => {
-    if (!body.trim() && !source.trim()) {
+  () => [state.draft.doc, state.draft.source] as const,
+  ([doc, source]) => {
+    if (!derivePlainText(doc).trim() && !source.trim()) {
       clearDraftSnapshot(localStorage);
       return;
     }
 
-    saveDraftSnapshot(localStorage, { body, source });
+    saveDraftSnapshot(localStorage, { version: 2, doc, source });
   },
   { flush: 'sync' },
 );
+
+const resetDraft = (bumpRevision = false) => {
+  state.draft.doc = docFromPlainText('');
+  state.draft.source = '';
+  state.draftError = '';
+
+  if (bumpRevision) {
+    state.draftRevision += 1;
+  }
+};
 
 const findPage = (pageId: number) =>
   state.pages.find((page) => page.id === pageId) ?? null;
@@ -735,9 +753,7 @@ const completeSave = (page: PageRecord) => {
   }
   state.pages.push(page);
   state.currentIndex = state.pages.length - 1;
-  state.draft.body = '';
-  state.draft.source = '';
-  state.draftError = '';
+  resetDraft(true);
   clearDraftSnapshot(localStorage);
   state.overlay = null;
   state.errorCode = null;
@@ -748,8 +764,14 @@ const completeSave = (page: PageRecord) => {
 };
 
 const submitNewPage = async () => {
-  const body = state.draft.body.trim();
+  const doc = cloneNoteDoc(state.draft.doc);
+  const body = derivePlainText(doc).trim();
   const source = state.draft.source.trim();
+
+  if (hasPendingNoteImages(doc)) {
+    state.draftError = ERROR_MESSAGE_KEYS.IMAGE_UPLOADING;
+    return;
+  }
   const parentPage = currentPage.value;
 
   if (!body) {
@@ -763,6 +785,7 @@ const submitNewPage = async () => {
 
   try {
     const response = await tapAlongApi.savePage({
+      doc,
       body,
       source,
       parentPageId: parentPage?.id,
@@ -1174,8 +1197,15 @@ const submitAppend = async () => {
     }
 
     pendingAppendRequest = null;
-    page.body = `${page.body}\n\n${text}`;
-    page.editDraft = page.body;
+    const nextDoc = response.page?.doc
+      ? response.page.doc
+      : page.doc
+        ? appendTextToDoc(page.doc, text)
+        : undefined;
+    page.doc = nextDoc;
+    page.body =
+      response.page?.body ??
+      (nextDoc ? derivePlainText(nextDoc) : `${page.body}\n\n${text}`);
     clearGuidanceAfterBodyChange(page);
     page.pendingGuidanceRefresh = true;
     const brief = text.length > 16 ? `${text.slice(0, 16)}…` : text;
@@ -1204,7 +1234,7 @@ const startEditing = () => {
     return;
   }
 
-  page.editDraft = page.body;
+  page.editDoc = cloneNoteDoc(page.doc ?? docFromPlainText(page.body));
   page.editing = true;
   state.sayMoreOpen = false;
 };
@@ -1212,7 +1242,7 @@ const startEditing = () => {
 const cancelEditing = () => {
   const page = currentPage.value;
   if (page) {
-    page.editDraft = page.body;
+    page.editDoc = cloneNoteDoc(page.doc ?? docFromPlainText(page.body));
     page.editing = false;
   }
 };
@@ -1223,7 +1253,21 @@ const saveEditing = async () => {
     return;
   }
 
-  const body = page.editDraft.trim();
+  const currentDoc = page.editDoc;
+
+  if (!currentDoc) {
+    return;
+  }
+
+  const doc = cloneNoteDoc(currentDoc);
+
+  if (hasPendingNoteImages(doc)) {
+    state.overlay = 'failed';
+    state.errorCode = 'IMAGE_UPLOADING';
+    return;
+  }
+
+  const body = derivePlainText(doc).trim();
 
   if (!body) {
     state.overlay = 'failed';
@@ -1245,7 +1289,7 @@ const saveEditing = async () => {
   editRequestInFlight = true;
 
   try {
-    const response = await tapAlongApi.editPage(page.id, body, requestId);
+    const response = await tapAlongApi.editPage(page.id, doc, requestId);
 
     if (!response.ok) {
       state.overlay = 'failed';
@@ -1254,8 +1298,10 @@ const saveEditing = async () => {
     }
 
     pendingEditRequest = null;
-    page.body = body;
-    page.title = extractKeyword(body);
+    page.doc = response.page?.doc ?? doc;
+    page.body = response.page?.body ?? body;
+    page.title = response.page?.title ?? extractKeyword(body);
+    page.editDoc = cloneNoteDoc(page.doc);
     page.editing = false;
     clearGuidanceAfterBodyChange(page);
     page.pendingGuidanceRefresh = true;
@@ -1279,9 +1325,7 @@ const startAppending = () => {
 };
 
 const startNewPage = () => {
-  state.draft.body = '';
-  state.draft.source = '';
-  state.draftError = '';
+  resetDraft(true);
   clearDraftSnapshot(localStorage);
   state.replyDraft = '';
   state.sayMoreOpen = false;
@@ -1324,9 +1368,7 @@ const clearConversationData = async (): Promise<PageClearAllResult> => {
     archiveReturn = null;
     state.overlay = null;
     state.errorCode = null;
-    state.draft.body = '';
-    state.draft.source = '';
-    state.draftError = '';
+    resetDraft(true);
     clearDraftSnapshot(localStorage);
     state.replyDraft = '';
     state.typing = false;
@@ -1540,8 +1582,7 @@ const closeCurrentPage = async () => {
 
   state.currentIndex = -1;
   state.view = 'new';
-  state.draft.body = '';
-  state.draft.source = '';
+  resetDraft(true);
 };
 
 const loadArchive = async () => {

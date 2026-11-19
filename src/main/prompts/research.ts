@@ -1,4 +1,5 @@
 import type { PageSnapshot } from '../../shared/pages.ts';
+import { collectNoteImageIds } from '../../shared/note-doc.ts';
 import type { ResearchEvidence, TeacherSource } from '../../shared/search.ts';
 import { escapePromptData, type ChatMessage } from './teacher-context.ts';
 
@@ -64,11 +65,14 @@ export const buildIntentRouterMessages = ({
 }: {
   page: PageSnapshot;
   userText: string;
-}): ChatMessage[] => [
-  { role: 'system', content: INTENT_ROUTER_SYSTEM_PROMPT },
-  {
-    role: 'user',
-    content: `
+}): ChatMessage[] => {
+  const imageIds = collectNoteImageIds(page.doc);
+
+  return [
+    { role: 'system', content: INTENT_ROUTER_SYSTEM_PROMPT },
+    {
+      role: 'user',
+      content: `
 <study_page role="current">
 <title>${escapePromptData(page.title)}</title>
 <body>${escapePromptData(page.body)}</body>
@@ -81,9 +85,11 @@ ${renderRecentMessages(page) || 'No recent dialogue.'}
 <latest_user_message>${escapePromptData(userText)}</latest_user_message>
 
 Decide reflect or research. Return JSON only.
-    `.trim(),
-  },
-];
+      `.trim(),
+      ...(imageIds.length > 0 ? { imageIds } : {}),
+    },
+  ];
+};
 
 const renderSources = (sources: TeacherSource[]) =>
   sources
@@ -108,12 +114,15 @@ export const buildResearchMessages = ({
   userText: string;
   evidence: ResearchEvidence[];
   background?: ChatMessage[];
-}): ChatMessage[] => [
-  { role: 'system', content: RESEARCH_SYSTEM_PROMPT },
-  ...background,
-  {
-    role: 'user',
-    content: `
+}): ChatMessage[] => {
+  const imageIds = collectNoteImageIds(page.doc);
+
+  return [
+    { role: 'system', content: RESEARCH_SYSTEM_PROMPT },
+    ...background,
+    {
+      role: 'user',
+      content: `
 <study_page role="current">
 <title>${escapePromptData(page.title)}</title>
 <body>${escapePromptData(page.body)}</body>
@@ -135,6 +144,8 @@ ${evidence
 <question>${escapePromptData(userText)}</question>
 
 Answer the question using only the sources above. Cite with [n].
-    `.trim(),
-  },
-];
+      `.trim(),
+      ...(imageIds.length > 0 ? { imageIds } : {}),
+    },
+  ];
+};

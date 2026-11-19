@@ -1,5 +1,6 @@
 import type { AppErrorCode } from '@/shared/errors';
 import type { GuidanceView } from '@/shared/guidance';
+import type { NoteDoc } from '@/shared/note-doc';
 import type { TeacherSource } from '@/shared/search';
 
 export type PageStatus = 'reading' | 'closed' | 'saving' | 'failed';
@@ -39,6 +40,7 @@ export interface PageRecord {
   parentPageId?: number | null;
   title: string;
   body: string;
+  doc?: NoteDoc;
   source: string;
   status: PageStatus;
   messages: TalkMessage[];
@@ -47,7 +49,7 @@ export interface PageRecord {
   guidanceError?: string;
   pendingGuidanceRefresh?: boolean;
   editing: boolean;
-  editDraft: string;
+  editDoc?: NoteDoc;
   historyOpen: boolean;
   suggestClose: boolean;
   titleGenerating?: boolean;
@@ -57,6 +59,6 @@ export interface PageRecord {
 }
 
 export interface PageDraft {
-  body: string;
+  doc: NoteDoc;
   source: string;
 }
