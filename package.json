@@ -25,7 +25,7 @@
     "test:unit": "node --test --test-reporter=./tests/reporters/chinese-reporter.mjs \"tests/**/*.test.mjs\"",
     "test:ui": "vitest run",
     "test:all": "npm test && npm run test:ui",
-    "test:e2e": "npm run package && node --test --test-reporter=./tests/reporters/chinese-reporter.mjs \"tests/e2e/**/*.e2e.mjs\"",
+    "test:e2e": "npm run package && node --test --test-concurrency=1 --test-reporter=./tests/reporters/chinese-reporter.mjs \"tests/e2e/**/*.e2e.mjs\"",
     "eval:prompts": "node tools/prompts/eval-live.mjs",
     "typecheck": "tsc --noEmit"
   },
@@ -55,6 +55,15 @@
     "vitest": "^5.1.0"
   },
   "dependencies": {
+    "@tiptap/core": "3.33.0",
+    "@tiptap/extension-document": "3.33.0",
+    "@tiptap/extension-hard-break": "3.33.0",
+    "@tiptap/extension-history": "3.33.0",
+    "@tiptap/extension-paragraph": "3.33.0",
+    "@tiptap/extension-placeholder": "3.33.0",
+    "@tiptap/extension-text": "3.33.0",
+    "@tiptap/pm": "3.33.0",
+    "@tiptap/vue-3": "3.33.0",
     "electron-squirrel-startup": "^1.0.1",
     "electron-store": "^12.0.0",
     "vue": "^3.5.44",
