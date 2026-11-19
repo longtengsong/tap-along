@@ -29,6 +29,9 @@ test('开发者请求检查器应保存发送给 LLM 的消息和模型信息', 
     providerId: 'deepseek',
     model: 'deepseek-chat',
     messages,
+    promptVersion: 'companion-v2.0.0',
+    promptHash: 'abc123',
+    temperature: 0,
   });
 
   const result = inspector.get('request-1');
@@ -37,7 +40,39 @@ test('开发者请求检查器应保存发送给 LLM 的消息和模型信息', 
   assert.equal(result.request.status, 'sent');
   assert.equal(result.request.providerId, 'deepseek');
   assert.equal(result.request.model, 'deepseek-chat');
+  assert.equal(result.request.promptVersion, 'companion-v2.0.0');
+  assert.equal(result.request.promptHash, 'abc123');
+  assert.equal(result.request.temperature, 0);
   assert.deepEqual(result.request.messages, messages);
+});
+
+test('请求正常完成时应回写回复与耗时', () => {
+  const { inspector } = createFixture();
+
+  inspector.recordSent({
+    requestId: 'completed-1',
+    providerId: 'custom',
+    model: 'model',
+    messages,
+  });
+  inspector.recordCompleted('completed-1', {
+    reply: '这条回复？',
+    latencyMs: 321.4,
+  });
+
+  const completed = inspector.get('completed-1').request;
+  assert.equal(completed.status, 'sent');
+  assert.equal(completed.reply, '这条回复？');
+  assert.equal(completed.latencyMs, 321);
+
+  inspector.recordCompleted('missing-request', {
+    reply: '不应写入',
+    latencyMs: 10,
+  });
+  assert.equal(inspector.get('missing-request').request, undefined);
+
+  inspector.recordCompleted('completed-1', { reply: '   ', latencyMs: 5 });
+  assert.equal(inspector.get('completed-1').request.reply, '这条回复？');
 });
 
 test('开发者请求检查器应记录失败和本地回退状态', () => {
@@ -132,11 +167,17 @@ test('请求记录应持久化，重启后仍可按 requestId 读取', async (t)
   });
 
   const second = new TeacherRequestInspector(developerMode, 2, store);
+  second.recordCompleted('persisted-1', {
+    reply: '持久化回复？',
+    latencyMs: 88,
+  });
   const saved = second.get('persisted-1').request;
   assert.equal(saved.requestId, 'persisted-1');
   assert.equal(saved.status, 'sent');
   assert.equal(saved.providerId, 'custom');
   assert.equal(saved.model, 'persisted-model');
+  assert.equal(saved.reply, '持久化回复？');
+  assert.equal(saved.latencyMs, 88);
   assert.deepEqual(saved.messages, messages);
 
   second.recordFailed('persisted-1', 'PROVIDER_TIMEOUT');

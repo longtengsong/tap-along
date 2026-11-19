@@ -9,6 +9,11 @@ import {
   openDatabase,
 } from '../src/main/db/client.ts';
 import { PagesRepository } from '../src/main/db/pages.ts';
+import { PageImagesRepository } from '../src/main/db/page-images.ts';
+import {
+  collectNoteImageIds,
+  derivePlainText,
+} from '../src/shared/note-doc.ts';
 
 const createRepository = async (t) => {
   const directory = await mkdtemp(path.join(tmpdir(), 'tap-along-pages-'));
@@ -19,8 +24,31 @@ const createRepository = async (t) => {
     await rm(directory, { recursive: true, force: true });
   });
 
-  return { db, repository: new PagesRepository(db) };
+  const images = new PageImagesRepository(db);
+
+  return {
+    db,
+    images,
+    repository: new PagesRepository(db, images),
+  };
 };
+
+const paragraph = (...content) => ({
+  type: 'paragraph',
+  ...(content.length > 0 ? { content } : {}),
+});
+const text = (value) => ({ type: 'text', text: value });
+const image = (imageId) => ({ type: 'noteImage', attrs: { imageId } });
+const noteDoc = (...content) => ({ type: 'doc', content });
+
+const createImage = (images, id, createdAt = 1) =>
+  images.create({
+    id,
+    fileName: `${id}.webp`,
+    mime: 'image/webp',
+    byteLength: 100,
+    createdAt,
+  });
 
 test('页边仓储应创建并读回完整数据', async (t) => {
   const { repository } = await createRepository(t);
@@ -676,4 +704,233 @@ test('手动标题应在改批注后保留，模型标题仍会重置', async (t
   assert.equal(modelEdited.ok, true);
   assert.equal(modelEdited.page.title, '另一条改过的正文。');
   assert.equal(modelEdited.page.titleSource, undefined);
+});
+
+test('创建带文档的页面应写入 body_doc 与图片引用', async (t) => {
+  const { db, images, repository } = await createRepository(t);
+  createImage(images, 'img-1');
+  const doc = noteDoc(paragraph(text('正文'), image('img-1')));
+
+  const page = repository.create(
+    derivePlainText(doc),
+    '课程',
+    undefined,
+    null,
+    doc,
+  );
+
+  assert.deepEqual(page.doc, doc);
+  assert.equal(page.body, '正文');
+  assert.deepEqual(repository.findById(page.id).doc, doc);
+  assert.deepEqual(
+    images.listForPages([page.id]).map((item) => item.id),
+    ['img-1'],
+  );
+  assert.equal(
+    typeof db.prepare('SELECT body_doc FROM pages WHERE id = ?').get(page.id)
+      .body_doc,
+    'string',
+  );
+});
+
+test('编辑带文档的页面应更新文档并替换图片引用', async (t) => {
+  const { images, repository } = await createRepository(t);
+  createImage(images, 'img-1');
+  createImage(images, 'img-2');
+  const firstDoc = noteDoc(paragraph(text('原文'), image('img-1')));
+  const page = repository.create(
+    derivePlainText(firstDoc),
+    '课程',
+    undefined,
+    null,
+    firstDoc,
+  );
+  const nextDoc = noteDoc(paragraph(text('改过'), image('img-2')));
+
+  const result = repository.editText(
+    page.id,
+    derivePlainText(nextDoc),
+    'edit-doc',
+    nextDoc,
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.page.doc, nextDoc);
+  assert.equal(result.page.body, '改过');
+  assert.deepEqual(result.removedImageFiles, ['img-1.webp']);
+  assert.equal(images.find('img-1'), null);
+  assert.deepEqual(
+    images.listForPages([page.id]).map((item) => item.id),
+    ['img-2'],
+  );
+});
+
+test('共享图片只在最后一个引用移除时删除', async (t) => {
+  const { images, repository } = await createRepository(t);
+  createImage(images, 'img-1');
+  const doc = noteDoc(paragraph(text('共享'), image('img-1')));
+  const pageA = repository.create(
+    derivePlainText(doc),
+    '课程',
+    undefined,
+    null,
+    doc,
+  );
+  const pageB = repository.create(
+    derivePlainText(doc),
+    '课程',
+    undefined,
+    null,
+    doc,
+  );
+  const plainDoc = noteDoc(paragraph(text('不再带图')));
+
+  const first = repository.editText(
+    pageA.id,
+    derivePlainText(plainDoc),
+    'edit-a',
+    plainDoc,
+  );
+  assert.equal(first.ok, true);
+  assert.deepEqual(first.removedImageFiles, []);
+  assert.notEqual(images.find('img-1'), null);
+
+  const second = repository.editText(
+    pageB.id,
+    derivePlainText(plainDoc),
+    'edit-b',
+    plainDoc,
+  );
+  assert.equal(second.ok, true);
+  assert.deepEqual(second.removedImageFiles, ['img-1.webp']);
+  assert.equal(images.find('img-1'), null);
+});
+
+test('含文档页面不能被无文档编辑覆盖', async (t) => {
+  const { images, repository } = await createRepository(t);
+  createImage(images, 'img-1');
+  const doc = noteDoc(paragraph(text('原文'), image('img-1')));
+  const page = repository.create(
+    derivePlainText(doc),
+    '课程',
+    undefined,
+    null,
+    doc,
+  );
+
+  const result = repository.editText(page.id, '旧客户端正文', 'edit-no-doc');
+
+  assert.deepEqual(result, { ok: false, reason: 'doc_required' });
+  const current = repository.findById(page.id);
+  assert.equal(current.body, page.body);
+  assert.deepEqual(current.doc, doc);
+  assert.deepEqual(
+    images.listForPages([page.id]).map((item) => item.id),
+    ['img-1'],
+  );
+});
+
+test('补一句应保留文档中的图片并追加段落', async (t) => {
+  const { images, repository } = await createRepository(t);
+  createImage(images, 'img-1');
+  const doc = noteDoc(paragraph(text('原文'), image('img-1')));
+  const page = repository.create(
+    derivePlainText(doc),
+    '课程',
+    undefined,
+    null,
+    doc,
+  );
+
+  const result = repository.appendText(page.id, '补一句', 'append-doc');
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(
+    result.page.doc,
+    noteDoc(paragraph(text('原文'), image('img-1')), paragraph(text('补一句'))),
+  );
+  assert.deepEqual(collectNoteImageIds(result.page.doc), ['img-1']);
+  assert.equal(result.page.body, derivePlainText(result.page.doc));
+  assert.deepEqual(
+    images.listForPages([page.id]).map((item) => item.id),
+    ['img-1'],
+  );
+});
+
+test('创建或编辑引用不存在的图片应回滚', async (t) => {
+  const { db, images, repository } = await createRepository(t);
+  const badDoc = noteDoc(paragraph(text('坏图'), image('missing')));
+
+  assert.throws(
+    () =>
+      repository.create(
+        derivePlainText(badDoc),
+        '课程',
+        undefined,
+        null,
+        badDoc,
+      ),
+    /not_found/,
+  );
+  assert.equal(
+    db.prepare('SELECT COUNT(*) AS count FROM pages').get().count,
+    0,
+  );
+
+  createImage(images, 'img-1');
+  const doc = noteDoc(paragraph(text('原图'), image('img-1')));
+  const page = repository.create(
+    derivePlainText(doc),
+    '课程',
+    undefined,
+    null,
+    doc,
+  );
+
+  assert.throws(
+    () =>
+      repository.editText(
+        page.id,
+        derivePlainText(badDoc),
+        'edit-missing-image',
+        badDoc,
+      ),
+    /not_found/,
+  );
+
+  const current = repository.findById(page.id);
+  assert.deepEqual(current.doc, doc);
+  assert.deepEqual(
+    images.listForPages([page.id]).map((item) => item.id),
+    ['img-1'],
+  );
+});
+
+test('清空全部应同时删除图片行与引用', async (t) => {
+  const { db, images, repository } = await createRepository(t);
+  createImage(images, 'img-1');
+  const doc = noteDoc(paragraph(text('清空'), image('img-1')));
+  repository.create(derivePlainText(doc), '课程', undefined, null, doc);
+
+  assert.equal(repository.clearAll(), 1);
+  assert.deepEqual(images.listAllFileNames(), []);
+  assert.equal(
+    db.prepare('SELECT COUNT(*) AS count FROM page_image_refs').get().count,
+    0,
+  );
+});
+
+test('旧页面无文档编辑仍走旧逻辑', async (t) => {
+  const { db, repository } = await createRepository(t);
+  const page = repository.create('旧页面', '课程');
+
+  const result = repository.editText(page.id, '旧页面改过', 'edit-legacy');
+
+  assert.equal(result.ok, true);
+  assert.equal(result.page.body, '旧页面改过');
+  assert.equal(result.page.doc, undefined);
+  assert.equal(
+    db.prepare('SELECT body_doc FROM pages WHERE id = ?').get(page.id).body_doc,
+    null,
+  );
 });

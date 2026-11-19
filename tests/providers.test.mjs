@@ -4,6 +4,7 @@ import { ProviderConfigService } from '../src/main/services/providers.ts';
 import { registerProviderHandlers } from '../src/main/ipc/providers.ts';
 import {
   PROVIDER_CHANNELS,
+  imageCapabilityKey,
   isValidProviderBaseUrl,
 } from '../src/shared/providers.ts';
 
@@ -53,6 +54,8 @@ test('供应商配置应提供 DeepSeek 和自定义 OpenAI-compatible 默认项
       configured: false,
       active: true,
       isCustom: false,
+      imageInput: 'auto',
+      imageCapability: 'unknown',
     },
     {
       id: 'custom',
@@ -62,6 +65,8 @@ test('供应商配置应提供 DeepSeek 和自定义 OpenAI-compatible 默认项
       configured: false,
       active: false,
       isCustom: true,
+      imageInput: 'auto',
+      imageCapability: 'unknown',
     },
   ]);
 });
@@ -265,6 +270,7 @@ test('运行时配置应解密 Key，并拒绝缺省或无法解密的配置', a
       baseUrl: 'https://api.deepseek.com',
       model: 'deepseek-chat',
       apiKey: 'runtime-secret',
+      imageInput: 'auto',
     },
   });
   assert.equal(
@@ -319,6 +325,7 @@ test('应使用当前激活供应商的运行时配置，并在读取失败时�
       baseUrl: 'http://localhost:11434/v1',
       model: 'local-model',
       apiKey: 'local-key',
+      imageInput: 'auto',
     },
   });
 
@@ -431,8 +438,16 @@ test('供应商 IPC 应只暴露窄接口', () => {
   const connectionService = {
     test: (id) => ({ ok: true, id }),
   };
+  const imageCapabilities = {
+    probeProvider: (id) => ({ ok: true, status: 'supported', id }),
+  };
 
-  registerProviderHandlers(ipcMain, service, connectionService);
+  registerProviderHandlers(
+    ipcMain,
+    service,
+    connectionService,
+    imageCapabilities,
+  );
 
   assert.deepEqual(
     new Set(handlers.keys()),
@@ -461,8 +476,91 @@ test('供应商 IPC 应只暴露窄接口', () => {
     ok: true,
     id: 'custom',
   });
+  assert.deepEqual(
+    handlers.get(PROVIDER_CHANNELS.probeImages)(null, 'custom'),
+    { ok: true, status: 'supported', id: 'custom' },
+  );
   assert.deepEqual(handlers.get(PROVIDER_CHANNELS.test)(null, 'deepseek'), {
     ok: true,
     id: 'deepseek',
   });
+});
+
+test('图片输入开关应默认自动并可保存为不发送', async () => {
+  const { service } = createFixture();
+
+  await service.save({
+    id: 'custom',
+    name: 'Local',
+    model: 'local-model',
+    baseUrl: 'http://localhost:11434/v1',
+    apiKey: 'local-key',
+    imageInput: 'off',
+  });
+
+  const state = await service.list();
+  const provider = state.state.providers.find((item) => item.id === 'custom');
+  assert.equal(provider.imageInput, 'off');
+
+  const resolved = await service.resolve('custom');
+  assert.equal(resolved.ok, true);
+  assert.equal(resolved.config.imageInput, 'off');
+});
+
+test('图片能力缓存应持久化并在保存/清 Key 时失效', async () => {
+  const { service } = createFixture();
+
+  await service.save({
+    id: 'custom',
+    name: 'Local',
+    model: 'local-model',
+    baseUrl: 'http://localhost:11434/v1',
+    apiKey: 'local-key',
+  });
+
+  const key = imageCapabilityKey(
+    'custom',
+    'local-model',
+    'http://localhost:11434/v1',
+  );
+  service.writeImageCapabilityCache({
+    [key]: { status: 'supported', checkedAt: 1 },
+  });
+
+  const before = await service.list();
+  assert.equal(
+    before.state.providers.find((item) => item.id === 'custom').imageCapability,
+    'supported',
+  );
+
+  await service.save({
+    id: 'custom',
+    name: 'Local',
+    model: 'new-model',
+    baseUrl: 'http://localhost:11434/v1',
+  });
+
+  const afterModelChange = await service.list();
+  assert.equal(
+    afterModelChange.state.providers.find((item) => item.id === 'custom')
+      .imageCapability,
+    'unknown',
+  );
+
+  const newKey = imageCapabilityKey(
+    'custom',
+    'new-model',
+    'http://localhost:11434/v1',
+  );
+  service.writeImageCapabilityCache({
+    [newKey]: { status: 'unsupported', checkedAt: 1 },
+  });
+  await service.clearKey('custom');
+
+  const afterClear = await service.list();
+  assert.equal(
+    afterClear.state.providers.find((item) => item.id === 'custom')
+      .imageCapability,
+    'unknown',
+  );
 });

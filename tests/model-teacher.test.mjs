@@ -7,6 +7,7 @@ import {
   buildTeacherMessages,
   composeTeacherMessages,
   PROMPT_CATALOG,
+  PROMPT_VERSION,
 } from '../src/main/prompts/index.ts';
 
 const providerConfig = {
@@ -169,6 +170,9 @@ test('模型请求应把最终 Messages 和模型信息交给开发者检查器'
       recordSent(input) {
         calls.push(['sent', input]);
       },
+      recordCompleted(requestId, input) {
+        calls.push(['completed', requestId, input]);
+      },
       recordFailed(requestId, errorCode) {
         calls.push(['failed', requestId, errorCode]);
       },
@@ -192,12 +196,18 @@ test('模型请求应把最终 Messages 和模型信息交给开发者检查器'
     }),
   );
 
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   assert.equal(calls[0][0], 'sent');
   assert.equal(calls[0][1].requestId, 'inspect-request-1');
   assert.equal(calls[0][1].providerId, 'custom');
   assert.equal(calls[0][1].model, 'reading-model');
+  assert.equal(calls[0][1].promptVersion, PROMPT_VERSION);
+  assert.equal(typeof calls[0][1].promptHash, 'string');
+  assert.equal(calls[0][1].promptHash.length, 16);
   assert.equal(calls[0][1].messages[0].content, PROMPT_CATALOG.teacher.system);
+  assert.equal(calls[1][0], 'completed');
+  assert.equal(calls[1][1], 'inspect-request-1');
+  assert.equal(calls[1][2].reply, '请求问题？');
 });
 
 test('模型请求失败和本地回退应更新开发者检查器状态', async () => {

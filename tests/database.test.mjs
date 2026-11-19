@@ -59,6 +59,33 @@ test('初始化数据库时应启用 WAL、页边表及索引', async (t) => {
     new Set(['idx_pages_parent', 'idx_pages_status', 'idx_pages_updated']),
     '应创建页边状态、更新时间和父级索引',
   );
+  const imageTable = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'page_images'",
+    )
+    .get();
+  const imageRefsTable = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'page_image_refs'",
+    )
+    .get();
+  const imageIndexes = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name IN ('page_images', 'page_image_refs')",
+    )
+    .all()
+    .map((row) => row.name);
+
+  assert.equal(imageTable.name, 'page_images', '应创建图片元数据表');
+  assert.equal(imageRefsTable.name, 'page_image_refs', '应创建图片引用表');
+  assert.ok(
+    imageIndexes.includes('idx_page_images_created'),
+    '应创建图片清理索引',
+  );
+  assert.ok(
+    imageIndexes.includes('idx_page_image_refs_image'),
+    '应创建图片反向引用索引',
+  );
   assert.deepEqual(
     columns,
     [
@@ -67,6 +94,7 @@ test('初始化数据库时应启用 WAL、页边表及索引', async (t) => {
       'edge_title',
       'title_source',
       'body',
+      'body_doc',
       'source',
       'parse_status',
       'companion_log',
@@ -118,6 +146,23 @@ test('旧数据库应幂等迁移页面父级字段并保留数据', async (t) =
   assert.ok(columns.includes('parent_page_id'));
   assert.ok(columns.includes('guidance'));
   assert.ok(columns.includes('title_source'));
+  assert.ok(columns.includes('body_doc'));
+  assert.equal(
+    secondConnection
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'page_images'",
+      )
+      .get().name,
+    'page_images',
+  );
+  assert.equal(
+    secondConnection
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'page_image_refs'",
+      )
+      .get().name,
+    'page_image_refs',
+  );
   assert.equal(page.body, '旧数据库中的页边。');
   assert.equal(page.parent_page_id, null);
   assert.equal(
@@ -258,4 +303,55 @@ test('检查点失败时仍应关闭数据库', () => {
     '检查点失败不应阻止数据库关闭',
   );
   assert.equal(closed, true, '数据库最终应被关闭');
+});
+
+test('旧版请求记录表启动时应自动补齐采集字段', async (t) => {
+  const databasePath = await createDatabasePath(t);
+  const legacy = new DatabaseSync(databasePath);
+
+  legacy.exec(`
+    CREATE TABLE request_inspections (
+      request_id   TEXT PRIMARY KEY,
+      status       TEXT NOT NULL,
+      provider_id  TEXT,
+      model        TEXT,
+      messages     TEXT NOT NULL,
+      error_code   TEXT,
+      created_at   INTEGER NOT NULL
+    )
+  `);
+  legacy
+    .prepare(
+      `INSERT INTO request_inspections
+        (request_id, status, provider_id, model, messages, error_code, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run('legacy-1', 'sent', 'custom', 'model', '[]', null, 1);
+  legacy.close();
+
+  const db = openDatabase(databasePath);
+  t.after(() => closeDatabase(db));
+
+  const columns = db
+    .prepare("PRAGMA table_info('request_inspections')")
+    .all()
+    .map((row) => row.name);
+
+  for (const name of [
+    'reply',
+    'latency_ms',
+    'prompt_version',
+    'prompt_hash',
+    'temperature',
+  ]) {
+    assert.equal(columns.includes(name), true, `应补齐 ${name} 列`);
+  }
+
+  const legacyRow = db
+    .prepare('SELECT * FROM request_inspections WHERE request_id = ?')
+    .get('legacy-1');
+
+  assert.equal(legacyRow.status, 'sent');
+  assert.equal(legacyRow.reply, null);
+  assert.equal(legacyRow.latency_ms, null);
 });

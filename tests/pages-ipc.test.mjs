@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PAGE_CHANNELS, TITLE_CHANNELS } from '../src/shared/pages.ts';
+import { docFromPlainText } from '../src/shared/note-doc.ts';
 import {
   appendPage,
   clearAllPages,
@@ -395,15 +396,28 @@ test('合上页面 IPC 应返回统一错误码', (t) => {
   );
 });
 
-test('清空会话 IPC 应返回删除数量并处理仓储异常', (t) => {
+test('清空会话 IPC 应返回删除数量并处理仓储异常', async (t) => {
   t.mock.method(console, 'error', () => {});
+  let clearedImages = false;
 
-  assert.deepEqual(clearAllPages({ clearAll: () => 3 }), {
-    ok: true,
-    cleared: 3,
-  });
   assert.deepEqual(
-    clearAllPages({
+    await clearAllPages(
+      { clearAll: () => 3 },
+      {
+        clear: async () => {
+          clearedImages = true;
+        },
+      },
+    ),
+    {
+      ok: true,
+      cleared: 3,
+    },
+  );
+  assert.equal(clearedImages, true);
+
+  assert.deepEqual(
+    await clearAllPages({
       clearAll() {
         throw new Error('清空失败');
       },
@@ -412,7 +426,7 @@ test('清空会话 IPC 应返回删除数量并处理仓储异常', (t) => {
   );
 });
 
-test('IPC 注册应暴露保存和读取通道', () => {
+test('IPC 注册应暴露保存和读取通道', async () => {
   const handlers = new Map();
   const ipcMain = {
     handle(channel, handler) {
@@ -482,7 +496,7 @@ test('IPC 注册应暴露保存和读取通道', () => {
     }),
     { ok: true, page: { ...samplePage, status: 'closed' } },
   );
-  assert.deepEqual(handlers.get(PAGE_CHANNELS.clearAll)(null), {
+  assert.deepEqual(await handlers.get(PAGE_CHANNELS.clearAll)(null), {
     ok: true,
     cleared: 1,
   });
@@ -795,5 +809,68 @@ test('手动改标题应在页面不存在或写入异常时返回受控错误',
       title: '标题',
     }),
     { ok: false, errorCode: 'SAVE_FAILED' },
+  );
+});
+
+test('保存页边应透传文档并派生正文', () => {
+  const calls = [];
+  const repository = {
+    create(body, source, openingMessage, parentPageId, doc) {
+      calls.push({ body, source, parentPageId, doc });
+      return samplePage;
+    },
+  };
+  const doc = docFromPlainText('文档正文');
+
+  assert.deepEqual(savePage(repository, { doc, source: '课程' }), {
+    ok: true,
+    page: samplePage,
+  });
+  assert.equal(calls[0].body, '文档正文');
+  assert.equal(calls[0].parentPageId, null);
+  assert.deepEqual(calls[0].doc, doc);
+
+  assert.deepEqual(
+    savePage(repository, {
+      doc: { type: 'doc', content: [{ type: 'unknown' }] },
+      source: '',
+    }),
+    { ok: false, errorCode: 'INVALID_NOTE_DOC' },
+  );
+  assert.deepEqual(savePage(repository, { doc: docFromPlainText('  ') }), {
+    ok: false,
+    errorCode: 'INVALID_BODY',
+  });
+});
+
+test('编辑页边应透传文档并映射 doc_required', () => {
+  const calls = [];
+  const repository = {
+    editText(pageId, body, requestId, doc) {
+      calls.push({ pageId, body, requestId, doc });
+      return { ok: true, page: samplePage };
+    },
+  };
+  const doc = docFromPlainText('改过的正文');
+
+  assert.deepEqual(
+    editPage(repository, { pageId: 1, doc, requestId: 'edit-doc' }),
+    { ok: true, page: samplePage },
+  );
+  assert.deepEqual(calls, [
+    {
+      pageId: 1,
+      body: '改过的正文',
+      requestId: 'edit-doc',
+      doc,
+    },
+  ]);
+
+  assert.deepEqual(
+    editPage(
+      { editText: () => ({ ok: false, reason: 'doc_required' }) },
+      { pageId: 1, body: '旧正文', requestId: 'edit-legacy' },
+    ),
+    { ok: false, errorCode: 'INVALID_NOTE_DOC' },
   );
 });

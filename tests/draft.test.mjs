@@ -7,6 +7,7 @@ import {
   parseDraftSnapshot,
   saveDraftSnapshot,
 } from '../src/shared/draft.ts';
+import { docFromPlainText } from '../src/shared/note-doc.ts';
 
 const createStorage = () => {
   const values = new Map();
@@ -27,20 +28,31 @@ const createStorage = () => {
 
 test('草稿应可序列化、读回并清空', () => {
   const storage = createStorage();
+  const doc = docFromPlainText('注意力是有限资源。');
 
-  saveDraftSnapshot(storage, {
-    body: '注意力是有限资源。',
-    source: '课程',
-  });
+  saveDraftSnapshot(storage, { version: 2, doc, source: '课程' });
 
   assert.deepEqual(loadDraftSnapshot(storage), {
-    body: '注意力是有限资源。',
+    version: 2,
+    doc,
     source: '课程',
   });
 
   clearDraftSnapshot(storage);
   assert.equal(loadDraftSnapshot(storage), null);
   assert.equal(storage.values.has(DRAFT_STORAGE_KEY), false);
+});
+
+test('旧版 body 草稿应自动转换为文档', () => {
+  const snapshot = parseDraftSnapshot(
+    JSON.stringify({ body: '旧草稿正文', source: '旧出处' }),
+  );
+
+  assert.deepEqual(snapshot, {
+    version: 2,
+    doc: docFromPlainText('旧草稿正文'),
+    source: '旧出处',
+  });
 });
 
 test('空内容、坏 JSON 和错误字段应被忽略', () => {
@@ -58,19 +70,32 @@ test('空内容、坏 JSON 和错误字段应被忽略', () => {
     parseDraftSnapshot(JSON.stringify({ body: '  ', source: ' ' })),
     null,
   );
+  assert.equal(
+    parseDraftSnapshot(
+      JSON.stringify({ version: 2, doc: { type: 'doc' }, source: '' }),
+    ),
+    null,
+  );
 
-  saveDraftSnapshot(storage, { body: '  ', source: ' ' });
+  saveDraftSnapshot(storage, {
+    version: 2,
+    doc: docFromPlainText('  '),
+    source: ' ',
+  });
   assert.equal(storage.values.has(DRAFT_STORAGE_KEY), false);
 });
 
 test('超长草稿不写入也不恢复', () => {
   const storage = createStorage();
-  const body = 'x'.repeat(100_001);
+  const doc = docFromPlainText('x'.repeat(2_000_001));
 
-  saveDraftSnapshot(storage, { body, source: '' });
+  saveDraftSnapshot(storage, { version: 2, doc, source: '' });
   assert.equal(storage.values.has(DRAFT_STORAGE_KEY), false);
 
-  assert.equal(parseDraftSnapshot(JSON.stringify({ body, source: '' })), null);
+  assert.equal(
+    parseDraftSnapshot(JSON.stringify({ version: 2, doc, source: '' })),
+    null,
+  );
 });
 
 test('存储读写异常不应抛出', () => {
@@ -85,10 +110,11 @@ test('存储读写异常不应抛出', () => {
       throw new Error('remove failed');
     },
   };
+  const doc = docFromPlainText('内容');
 
   assert.equal(loadDraftSnapshot(broken), null);
   assert.doesNotThrow(() =>
-    saveDraftSnapshot(broken, { body: '内容', source: '' }),
+    saveDraftSnapshot(broken, { version: 2, doc, source: '' }),
   );
   assert.doesNotThrow(() => clearDraftSnapshot(broken));
 });

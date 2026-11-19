@@ -68,7 +68,6 @@ const page: PageRecord = {
     updatedAt: 1,
   },
   editing: false,
-  editDraft: '',
   historyOpen: false,
   suggestClose: false,
 };
