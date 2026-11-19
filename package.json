@@ -6,11 +6,31 @@
   "type": "module",
   "packageManager": "pnpm@11.7.0",
   "description": "A reading companion that helps new thoughts connect with earlier ones.",
-  "keywords": [],
+  "keywords": [
+    "electron",
+    "vue",
+    "typescript",
+    "notes",
+    "local-first",
+    "privacy",
+    "reading",
+    "writing",
+    "ai"
+  ],
   "license": "MIT",
   "author": {
-    "name": "longtengsong",
-    "email": "tengsonglong@gmail.com"
+    "name": "longtengsong"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/longtengsongislong520/tap-along.git"
+  },
+  "homepage": "https://github.com/longtengsongislong520/tap-along#readme",
+  "bugs": {
+    "url": "https://github.com/longtengsongislong520/tap-along/issues"
+  },
+  "engines": {
+    "node": ">=24"
   },
   "main": ".vite/build/main.cjs",
   "scripts": {
@@ -29,9 +49,6 @@
     "eval:prompts": "node tools/prompts/eval-live.mjs",
     "typecheck": "tsc --noEmit"
   },
-  "peerDependencies": {
-    "electron-winstaller": "^5.4.0"
-  },
   "devDependencies": {
     "@electron-forge/cli": "^8.0.1",
     "@electron-forge/maker-deb": "^8.0.1",
@@ -46,6 +63,7 @@
     "@vitejs/plugin-vue": "^6.0.10",
     "@vue/test-utils": "^2.5.1",
     "electron": "45.2.1",
+    "electron-winstaller": "^5.4.0",
     "happy-dom": "^21.0.4",
     "oxfmt": "^0.41.0",
     "oxlint": "^1.90.0",

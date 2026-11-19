@@ -1,5 +1,6 @@
 {
   "singleQuote": true,
   "printWidth": 80,
-  "sortPackageJson": false
+  "sortPackageJson": false,
+  "ignorePatterns": ["wireframes/*.html", "docs/design/高保真原型.html"]
 }

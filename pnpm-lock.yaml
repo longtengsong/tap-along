@@ -41,9 +41,6 @@ importers:
       electron-store:
         specifier: ^12.0.0
         version: 12.0.0
-      electron-winstaller:
-        specifier: ^5.4.0
-        version: 5.4.4
       vue:
         specifier: ^3.5.44
         version: 3.5.44(typescript@6.0.3)
@@ -90,6 +87,9 @@ importers:
       electron:
         specifier: 45.2.1
         version: 45.2.1
+      electron-winstaller:
+        specifier: ^5.4.0
+        version: 5.4.4
       happy-dom:
         specifier: ^21.0.4
         version: 21.0.4
