@@ -35,7 +35,10 @@ export interface GuidancePlanner {
 interface GuidancePlannerOptions {
   configService: Pick<ProviderConfigService, 'resolveActive'>;
   completion?: StructuredCompletion;
-  inspector?: Pick<TeacherRequestInspector, 'recordSent' | 'recordFailed'>;
+  inspector?: Pick<
+    TeacherRequestInspector,
+    'recordSent' | 'recordFailed' | 'recordCompleted'
+  >;
   fetchImpl?: FetchLike;
   timeoutMs?: number;
 }

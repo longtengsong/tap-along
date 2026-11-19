@@ -12,6 +12,14 @@ interface RecordTeacherRequestInput {
   providerId: string;
   model: string;
   messages: TeacherRequestInspectionMessage[];
+  promptVersion?: string;
+  promptHash?: string;
+  temperature?: number;
+}
+
+interface CompleteTeacherRequestInput {
+  reply: string;
+  latencyMs: number;
 }
 
 const createMemoryStore = (): RequestInspectionStore => {
@@ -77,11 +85,34 @@ export class TeacherRequestInspector {
       providerId: input.providerId,
       model: input.model,
       messages: input.messages.map((message) => ({ ...message })),
+      ...(input.promptVersion ? { promptVersion: input.promptVersion } : {}),
+      ...(input.promptHash ? { promptHash: input.promptHash } : {}),
+      ...(input.temperature !== undefined
+        ? { temperature: input.temperature }
+        : {}),
       createdAt: Date.now(),
     });
   }
 
-  recordFailed(requestId: string, errorCode: AppErrorCode) {
+  recordCompleted(requestId: string, input: CompleteTeacherRequestInput) {
+    if (!this.isEnabled() || !input.reply.trim()) {
+      return;
+    }
+
+    const request = this.store.get(requestId);
+
+    if (!request) {
+      return;
+    }
+
+    this.put({
+      ...request,
+      reply: input.reply,
+      latencyMs: Math.max(0, Math.round(input.latencyMs)),
+    });
+  }
+
+  recordFailed(requestId: string, errorCode: AppErrorCode, latencyMs?: number) {
     if (!this.isEnabled()) {
       return;
     }
@@ -96,6 +127,9 @@ export class TeacherRequestInspector {
       ...request,
       status: 'failed',
       errorCode,
+      ...(latencyMs !== undefined
+        ? { latencyMs: Math.max(0, Math.round(latencyMs)) }
+        : {}),
     });
   }
 

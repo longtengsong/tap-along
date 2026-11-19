@@ -1,5 +1,10 @@
+import { createHash } from 'node:crypto';
 import type { PromptCatalogValues } from '../../shared/prompts.ts';
-import { composeTeacherMessages, PROMPT_CATALOG } from '../prompts/index.ts';
+import {
+  composeTeacherMessages,
+  PROMPT_CATALOG,
+  PROMPT_VERSION,
+} from '../prompts/index.ts';
 import { createModelGateway, type ModelGateway } from './model-gateway.ts';
 import {
   getTeacherFailureCode,
@@ -18,7 +23,7 @@ interface TeacherStreamOptions {
   promptService?: Pick<DeveloperPromptConfigService, 'resolve'>;
   inspector?: Pick<
     TeacherRequestInspector,
-    'recordSent' | 'recordFailed' | 'recordFallback'
+    'recordSent' | 'recordFailed' | 'recordFallback' | 'recordCompleted'
   >;
   gateway?: ModelGateway;
   fetchImpl?: FetchLike;
@@ -26,6 +31,12 @@ interface TeacherStreamOptions {
 }
 
 export { getTeacherFailureCode, ProviderRequestError };
+
+const promptCatalogHash = (catalog: PromptCatalogValues) =>
+  createHash('sha256')
+    .update(JSON.stringify(catalog))
+    .digest('hex')
+    .slice(0, 16);
 
 const streamTeacherReply = async function* (
   input: TeacherGeneratorInput,
@@ -42,6 +53,8 @@ const streamTeacherReply = async function* (
       requestId: input.requestId,
       signal: input.signal,
       timeoutMs,
+      promptVersion: PROMPT_VERSION,
+      promptHash: promptCatalogHash(promptCatalog),
     });
   } catch (error) {
     if (

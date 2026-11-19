@@ -13,6 +13,11 @@ interface RequestInspectionRow {
   model: string | null;
   messages: string;
   error_code: string | null;
+  reply: string | null;
+  latency_ms: number | null;
+  prompt_version: string | null;
+  prompt_hash: string | null;
+  temperature: number | null;
   created_at: number;
 }
 
@@ -73,6 +78,13 @@ const toInspection = (
     ...(row.model ? { model: row.model } : {}),
     messages: parseMessages(row.messages),
     ...(row.error_code ? { errorCode: row.error_code as AppErrorCode } : {}),
+    ...(row.reply !== null ? { reply: row.reply } : {}),
+    ...(row.latency_ms !== null ? { latencyMs: Number(row.latency_ms) } : {}),
+    ...(row.prompt_version ? { promptVersion: row.prompt_version } : {}),
+    ...(row.prompt_hash ? { promptHash: row.prompt_hash } : {}),
+    ...(row.temperature !== null
+      ? { temperature: Number(row.temperature) }
+      : {}),
     createdAt: row.created_at,
   };
 };
@@ -92,15 +104,25 @@ export class RequestInspectionRepository implements RequestInspectionStore {
         model,
         messages,
         error_code,
+        reply,
+        latency_ms,
+        prompt_version,
+        prompt_hash,
+        temperature,
         created_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(request_id) DO UPDATE SET
         status = excluded.status,
         provider_id = excluded.provider_id,
         model = excluded.model,
         messages = excluded.messages,
         error_code = excluded.error_code,
+        reply = excluded.reply,
+        latency_ms = excluded.latency_ms,
+        prompt_version = excluded.prompt_version,
+        prompt_hash = excluded.prompt_hash,
+        temperature = excluded.temperature,
         created_at = excluded.created_at
     `);
     this.findStatement = db.prepare(`
@@ -111,6 +133,11 @@ export class RequestInspectionRepository implements RequestInspectionStore {
         model,
         messages,
         error_code,
+        reply,
+        latency_ms,
+        prompt_version,
+        prompt_hash,
+        temperature,
         created_at
       FROM request_inspections
       WHERE request_id = ?
@@ -134,6 +161,11 @@ export class RequestInspectionRepository implements RequestInspectionStore {
       request.model ?? null,
       JSON.stringify(request.messages),
       request.errorCode ?? null,
+      request.reply ?? null,
+      request.latencyMs ?? null,
+      request.promptVersion ?? null,
+      request.promptHash ?? null,
+      request.temperature ?? null,
       request.createdAt,
     );
   }

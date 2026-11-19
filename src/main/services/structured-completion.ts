@@ -7,7 +7,10 @@ type FetchLike = typeof fetch;
 
 interface StructuredCompletionOptions {
   configService: Pick<ProviderConfigService, 'resolveActive'>;
-  inspector?: Pick<TeacherRequestInspector, 'recordSent' | 'recordFailed'>;
+  inspector?: Pick<
+    TeacherRequestInspector,
+    'recordSent' | 'recordFailed' | 'recordCompleted'
+  >;
   fetchImpl?: FetchLike;
   timeoutMs?: number;
 }
