@@ -14,6 +14,10 @@ import {
   resolveMockReplyLanguage,
   type ReplyLanguage,
 } from '../../shared/conversation-language.ts';
+import {
+  CLOSE_ROUND_LIMIT,
+  hasCloseIntent,
+} from '../../shared/close-intent.ts';
 import { translateFixedMessage } from '../../i18n/fixed-messages.ts';
 import type { PagesRepository } from '../db/pages.ts';
 import type { CompressedPagePrompt } from '../prompts/index.ts';
@@ -79,14 +83,8 @@ const throwIfCancelled = (signal: AbortSignal) => {
   }
 };
 
-const CLOSE_INTENT_PATTERN =
-  /(收住|(?<!不)够了|不聊了|换(?:一?个)?话题|已经想明白|想明白了|先到这|到此为止|结束吧|stop here|that(?:'s| is) enough|enough for now|move on|change the (?:subject|topic)|switch topics|i(?:'ve| have) (?:got it|had enough)|i(?:'m| am) done)/i;
-
-const hasCloseIntent = (text: string) =>
-  typeof text === 'string' && CLOSE_INTENT_PATTERN.test(text);
-
 const shouldSuggestClose = (page: PageSnapshot, userText: string) =>
-  hasCloseIntent(userText) || page.teachingRoundCount >= 6;
+  hasCloseIntent(userText) || page.teachingRoundCount >= CLOSE_ROUND_LIMIT;
 
 const parseTeacherCancelPayload = (
   payload: unknown,

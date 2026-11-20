@@ -25,6 +25,7 @@ import {
   resolveMockReplyLanguage,
   type ReplyLanguage,
 } from '@/shared/conversation-language';
+import { CLOSE_ROUND_LIMIT, hasCloseIntent } from '@/shared/close-intent';
 import type {
   AppendPagePayload,
   ClosePagePayload,
@@ -707,7 +708,7 @@ const respondAfterMaintenance = async (
     previousUserContents(page),
   );
 
-  if (page.teacherTurn >= 4) {
+  if (hasCloseIntent(triggerText) || page.teacherTurn >= CLOSE_ROUND_LIMIT) {
     page.suggestClose = true;
     page.messages.push(
       message(
@@ -884,7 +885,7 @@ const sendMockReply = async (
         .map((item) => item.text),
     );
 
-    if (page.teacherTurn >= 4) {
+    if (hasCloseIntent(userText) || page.teacherTurn >= CLOSE_ROUND_LIMIT) {
       page.suggestClose = true;
       page.messages.push(
         message(

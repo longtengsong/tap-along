@@ -8,21 +8,21 @@
 
 **一句话定位**
 
-> 轻叩伴读（TapAlong）是一个本地优先的阅读伴读：它只提问，不替你写；把新念头和你以前的旧念头接起来，剩下的推理留给你。
+> 轻叩伴读（TapAlong）是一个本地优先的阅读伴读：它先回应你的话，再追问，不替你写；把新念头和你以前的旧念头接起来，剩下的推理留给你。
 
 **必须同时说清的三件事**
 
-1. **它默认只问，不代写。** 不总结、不续写、不生成整篇笔记；结束权在用户手里。
+1. **它默认先回应，再至多追问一个，不代写。** 回应你的想法，不总结整段、不续写、不生成整篇笔记；聊深了你说收住才换话题，结束权在用户手里。
 2. **本地优先，但不是“完全离线”。** 念头、对谈、图片存在本机 SQLite 和本地目录；没有账号、没有同步、没有遥测。生成回应时，相关内容会发送给用户自己配置的模型供应商。
 3. **alpha 有硬门槛。** v0.1.0；仅 macOS 13+ / Apple 芯片；没有签名或公证安装包，唯一支持的方式是从源码运行（Node 24、pnpm 11.7.0）。
 
 **一个必须诚实交代的例外**
 
-应用有可选的联网检索（默认 DeepSeek Search，可换 Tavily）。当用户**明确问事实性问题**时，它会查资料、给出带来源的回答。这不是“代写笔记”，但也不能说成“永远不回答”。所有稿子统一用“默认只问”“不替你写笔记”，不用“从不回答”。
+应用有可选的联网检索（默认 DeepSeek Search，可换 Tavily）。当用户**明确问事实性问题**时，它会查资料、给出带来源的回答。这不是“代写笔记”，但也不能说成“永远不回答”。所有稿子统一用“先回应再追问”“不替你写笔记”，不用“从不回答”。
 
 **可写进文案的事实清单**
 
-- 一次只问一个问题；引导卡会标出当前念头的锚点句。
+- 先回应你说的，再至多追问一个；聊深了你说收住才换话题。引导卡会标出当前念头的锚点句。
 - 会从以前写过的念头里检索可能相关的旧念头，并在右侧栏展示它参考了哪些。
 - 可以“顺着这条线问”、自由对谈、改一改、补一句、先想到这、翻旧念头。
 - 支持粘贴图片、全文浮层和图片查看；图片是否发送给模型可设置。
@@ -59,13 +59,13 @@
 
 **标题**
 
-> 轻叩伴读：一个只提问、不替你写的本地阅读笔记应用（macOS alpha）
+> 轻叩伴读：一个先回应、再追问、不替你写的本地阅读笔记应用（macOS alpha）
 
 **正文（中文）**
 
 做轻叩伴读，是因为我读书时记下的念头大多死在笔记本里：当时觉得重要，过后再也接不上。
 
-它默认只做一件事：你记下一个念头，它从你以前写过的内容里找出一条可能接得上的旧念头，一次只问一个问题，让你自己把两者接起来。它不替你总结，不替你续写，也不生成整篇笔记。
+它默认这样做：你记下一个念头，它先回应你的话，再从你以前写过的内容里找出一条可能接得上的旧念头，至多追问一个，让你自己把两者接起来。它不替你总结，不替你续写，也不生成整篇笔记。
 
 一个具体场景：读到「注意力像带宽」，我记下「分配方式可能比总量更值得研究」；它翻出我以前关于「日程被切碎」的念头，问：这两个「分配」说的是同一件事吗？接不接、怎么答，仍由我决定。
 
@@ -81,7 +81,7 @@
 
 I built TapAlong because the thoughts I jot down while reading usually die in a notebook. They mattered at the time; later I can't connect them to anything.
 
-By default, TapAlong does one thing: you write down a thought, it retrieves an earlier note that might belong with it, and asks one question that helps you connect the two yourself. It doesn't summarize, continue, or draft your notes.
+By default, TapAlong responds to what you just wrote, retrieves an earlier note that might belong with it, and asks at most one follow-up that helps you connect the two yourself. It doesn't summarize, continue, or draft your notes.
 
 A concrete example: while reading about attention as bandwidth, I write "how it's allocated may matter more than the total." It pulls up an old note about my calendar being chopped into pieces and asks whether these are the same kind of "allocation." Whether to take the thread, and how to answer, is still up to me.
 
@@ -103,7 +103,7 @@ I'd love to hear: if you also take notes while reading, what would you use it fo
 
 最近在做一个小工具：轻叩伴读 TapAlong。
 
-你读到哪里，记下一个念头；它不替你写，只从你以前的旧念头里找一条可能接得上的线，一次问一个问题。
+你读到哪里，记下一个念头；它不替你写，先回应你的话，再从你以前的旧念头里找一条可能接得上的线，至多追问一个。
 
 比如我写「注意力的分配比总量更值得研究」，它翻出「日程被切碎」那条旧念头，问这两个「分配」是不是一回事。剩下的推理留给我。
 
@@ -119,7 +119,7 @@ v0.1.0 alpha，仅 macOS 13+ / Apple 芯片；暂无签名安装包，只能从�
 
 I've been building a small tool called TapAlong.
 
-You jot down a thought while reading. It doesn't write for you; by default it finds an earlier thought that might connect and asks one question at a time. No summary, no continuation, no draft.
+You jot down a thought while reading. It doesn't write for you; it responds to what you just said, finds an earlier thought that might connect, and asks at most one follow-up. No summary, no continuation, no draft.
 
 For example, I write "how attention is allocated may matter more than the total," and it pulls up an old note about my calendar being fragmented, asking whether these are the same "allocation." The rest of the thinking stays with me.
 
@@ -139,13 +139,13 @@ What would you use it for? Where does it get in your way? I want real use, not p
 
 **标题**
 
-> 我做了个不替我写字的阅读笔记：只问一个问题，然后等我
+> 我做了个不替我写字的阅读笔记：先回应，再至多追问一个，然后等我
 
 **正文（中文）**
 
 我一直在找一个不替我写字的笔记工具。
 
-读书时真正难的，往往不是产出，而是把新想法和旧想法接上。轻叩伴读（TapAlong）反过来：你记下一个念头，它默认只问一个问题，把参考的旧念头放在右侧。比如读到「注意力像带宽」，你写下「分配比总量更值得研究」，它翻出旧念头「日程被切碎」，问这两个「分配」是不是一回事。它不总结、不续写、不生成整篇；结束权也在你手里——「先想到这」之后，念头收住，仍能从「翻旧念头」里翻回来。
+读书时真正难的，往往不是产出，而是把新想法和旧想法接上。轻叩伴读（TapAlong）反过来：你记下一个念头，它先回应你的话，再至多追问一个，把参考的旧念头放在右侧。比如读到「注意力像带宽」，你写下「分配比总量更值得研究」，它翻出旧念头「日程被切碎」，先接一句，再问这两个「分配」是不是一回事。它不总结、不续写、不生成整篇；结束权也在你手里——「先想到这」之后，念头收住，仍能从「翻旧念头」里翻回来。
 
 本地优先：念头、对谈、图片都在本机 SQLite 和本地目录；没有账号、没有同步、没有遥测。只有生成回应时，内容会发给你配置的模型供应商；联网检索可选，只发送搜索关键词。
 
@@ -153,13 +153,13 @@ v0.1.0 实验性 alpha，仅 macOS 13+ / Apple 芯片；没有签名安装包，
 
 仓库（MIT）：{{REPO_URL}}
 
-想邀请你反馈：你平时怎么回看旧笔记？这种「默认只问」的方式，在你身上行得通吗？哪里别扭？
+想邀请你反馈：你平时怎么回看旧笔记？这种「先回应再追问」的方式，在你身上行得通吗？哪里别扭？
 
 **English version**
 
 I keep looking for a note-taking tool that doesn't write for me.
 
-The hard part of reading isn't output; it's connecting a new thought to an old one. TapAlong goes the other way: you jot down a thought, it asks one question by default, and it shows the earlier thoughts that question draws on in a side rail. For example, reading about attention as bandwidth, I write "how it's allocated may matter more than the total"; it pulls up an old note about a fragmented calendar and asks whether these are the same "allocation." It doesn't summarize, continue, or generate a whole note. You also decide when to stop: after "先想到这" (settle this thought), it moves to your closed thoughts and stays readable.
+The hard part of reading isn't output; it's connecting a new thought to an old one. TapAlong goes the other way: you jot down a thought, it responds to what you just wrote, then asks at most one follow-up by default, and it shows the earlier thoughts that question draws on in a side rail. For example, reading about attention as bandwidth, I write "how it's allocated may matter more than the total"; it pulls up an old note about a fragmented calendar, responds, and asks whether these are the same "allocation." It doesn't summarize, continue, or generate a whole note. You also decide when to stop: after "先想到这" (settle this thought), it moves to your closed thoughts and stays readable.
 
 Local-first: thoughts, conversations, and images live in local SQLite and a local folder. No account, no sync, no telemetry. Note content goes to the model provider you configure when it generates a reply; optional web research sends only the search query.
 
@@ -167,7 +167,7 @@ It's v0.1.0 experimental alpha, macOS 13+ on Apple silicon only. No signed/notar
 
 Repo (MIT): {{REPO_URL}}
 
-I'd like to hear: how do you revisit old notes? Does "asks, doesn't answer" work for you, and where does it feel awkward?
+I'd like to hear: how do you revisit old notes? Does "responds, then asks" work for you, and where does it feel awkward?
 
 **发布备注**：先发 Matrix，再考虑少数派主站投稿；主站有审稿周期，不保证时间，不要把它算进当天排期。配真实运行截图，并标注“alpha 截图，界面会变”。
 
@@ -183,7 +183,7 @@ I'd like to hear: how do you revisit old notes? Does "asks, doesn't answer" work
 
 I built TapAlong because most AI note tools want to write for me. I wanted the opposite: something that helps me connect a new thought to something I wrote months ago, without producing the thought for me.
 
-You jot down a thought while reading. TapAlong retrieves earlier notes that might belong with it, asks one question, and shows those earlier notes in a side rail so the connection isn't a black box. For example, reading about attention as bandwidth, I write that how it's allocated may matter more than the total; it pulls up an old note about a fragmented calendar and asks whether these are the same "allocation." It won't summarize, continue, or draft your notes. You can edit or append to the thought, close it, and revisit it later.
+You jot down a thought while reading. TapAlong responds to what you just wrote, retrieves earlier notes that might belong with it, asks at most one follow-up, and shows those earlier notes in a side rail so the connection isn't a black box. For example, reading about attention as bandwidth, I write that how it's allocated may matter more than the total; it pulls up an old note about a fragmented calendar, responds, and asks whether these are the same "allocation." It won't summarize, continue, or draft your notes. You can edit or append to the thought, close it, and revisit it later.
 
 Notes, conversations, and pasted images live in local SQLite and a local image folder. No account, no sync, no telemetry. When you request a question or reply, the relevant text goes to the model provider you configure (DeepSeek by default, or any OpenAI-compatible endpoint). Optional web research sends only the search query and cites sources.
 
@@ -197,7 +197,7 @@ I'd rather hear how you'd use it than whether you like it: what would you point 
 
 我做 TapAlong，是因为大多数 AI 笔记工具都想替我写。我想要相反的：帮我把一个新念头和几个月前写过的东西接上，但不替我把这个念头生产出来。
 
-你读书时记下一个念头；它检索可能相关的旧念头，问一个问题，并把那些旧念头放在右侧栏，让连接不是黑箱。它不总结、不续写、不代写笔记。你可以编辑、补一句、收住，再翻回来。
+你读书时记下一个念头；它先回应你的话，再检索可能相关的旧念头、至多追问一个，并把那些旧念头放在右侧栏，让连接不是黑箱。它不总结、不续写、不代写笔记。你可以编辑、补一句、收住，再翻回来。
 
 念头、对谈、图片存在本机 SQLite 和本地图片目录；没有账号、没有同步、没有遥测。请求问题时，相关内容会发给你配置的模型供应商（默认 DeepSeek，也支持 OpenAI 兼容端点）。可选的联网检索只发送搜索词，并标注来源。
 
@@ -221,7 +221,7 @@ I'd rather hear how you'd use it than whether you like it: what would you point 
 
 Hi r/macapps — I made TapAlong, a small desktop app for thinking alongside your reading. It's an Electron app, not native Swift, so judge accordingly.
 
-You jot down a thought; TapAlong retrieves earlier notes that might connect, asks one question, and shows those notes in a side rail. Example: a note about attention as bandwidth pulls up an old note about a fragmented calendar and asks whether both are the same "allocation." It doesn't summarize, continue, or draft your writing. You can edit or append to a thought, close it, and revisit it later.
+You jot down a thought; TapAlong responds to what you just wrote, retrieves earlier notes that might connect, asks at most one follow-up, and shows those notes in a side rail. Example: a note about attention as bandwidth pulls up an old note about a fragmented calendar, responds, and asks whether both are the same "allocation." It doesn't summarize, continue, or draft your writing. You can edit or append to a thought, close it, and revisit it later.
 
 Thoughts, conversations, and images are stored locally in SQLite and an image folder. No account, no sync, no telemetry. Requests go to the model provider you configure with your own key (DeepSeek by default, or any OpenAI-compatible endpoint); optional research sends only the search query.
 
@@ -233,7 +233,7 @@ I'm not asking for stars. I'd like to know: what would you use it for, and where
 
 嗨 r/macapps——我做了 TapAlong，一个陪你在阅读时思考的小桌面应用。它是 Electron 应用，不是原生 Swift，请按这个前提评价。
 
-你记下一个念头；它检索可能相关的旧念头，问一个问题，并把那些念头放在右侧栏。它不总结、不续写、不代写。你可以编辑、补一句、收住，再翻回来。
+你记下一个念头；它先回应你的话，再检索可能相关的旧念头、至多追问一个，并把那些念头放在右侧栏。它不总结、不续写、不代写。你可以编辑、补一句、收住，再翻回来。
 
 念头、对谈、图片存在本机 SQLite 和图片目录；没有账号、没有同步、没有遥测。请求会发给你自己配置的模型供应商（默认 DeepSeek，也支持 OpenAI 兼容端点）；可选联网检索只发送搜索词。
 
@@ -251,11 +251,11 @@ v0.1.0 alpha，仅 macOS 13+ / Apple 芯片。尚无签名/公证安装包，只
 
 **标题建议**
 
-> 【自制】只提问、不代写的读书笔记 App：轻叩伴读 TapAlong
+> 【自制】先回应、再追问、不代写的读书笔记 App：轻叩伴读 TapAlong
 
 **简介（中文）**
 
-读书时记下的念头，常常写完就散了。轻叩伴读不替你总结，也不续写；它默认只从你以前的旧念头里找一条可能接上的线，一次问一个问题。
+读书时记下的念头，常常写完就散了。轻叩伴读不替你总结，也不续写；它先回应你的话，再从你以前的旧念头里找一条可能接上的线，至多追问一个。
 
 演示里我写的是「注意力的分配比总量更值得研究」，它翻出我以前关于「日程被切碎」的念头，问这两个「分配」是不是一回事。答案还是我自己写。
 
@@ -269,7 +269,7 @@ v0.1.0 实验性 alpha，仅 macOS 13+ / Apple 芯片，目前没有签名安装
 
 **English caption（可发 YouTube Shorts）**
 
-The thoughts I jot down while reading often scatter the moment I close the book. TapAlong doesn't summarize or continue them; by default it finds an earlier thought that might connect and asks one question at a time.
+The thoughts I jot down while reading often scatter the moment I close the book. TapAlong doesn't summarize or continue them; it responds to what you just wrote, finds an earlier thought that might connect, and asks at most one follow-up.
 
 In the demo I write "how attention is allocated may matter more than the total." It pulls up an old note about my calendar being fragmented and asks whether these are the same "allocation." The answer is still mine to write.
 
@@ -289,7 +289,7 @@ What would you use it for? Where does it get in your way? Comments or GitHub: {{
 
 我做了个「不替我写」的读书笔记 App。
 
-你只记下一个念头，它从旧念头里找可能接得上的线，默认一次只问一个问题。不总结、不续写、不生成整篇。
+你只记下一个念头，它先回应你的话，再从旧念头里找可能接得上的线，至多追问一个。不总结、不续写、不生成整篇。
 
 演示场景：读到「注意力像带宽」，我写「分配方式可能比总量更值得研究」；它翻出我以前「日程被切碎」的念头，问：这两个「分配」是一回事吗？
 
@@ -305,7 +305,7 @@ v0.1.0 alpha，仅 macOS 13+ Apple 芯片，暂无签名安装包，只能源码
 
 I made a reading-notes app that doesn't write for you.
 
-You jot down one thought; by default it finds an earlier thought that might connect and asks one question at a time. No summary, no continuation, no whole-note generation.
+You jot down one thought; it responds to what you just wrote, finds an earlier thought that might connect, and asks at most one follow-up. No summary, no continuation, no whole-note generation.
 
 Demo: reading "attention is like bandwidth," I write "how it's allocated may matter more than the total." It pulls up an old note about my fragmented calendar and asks whether these are the same "allocation."
 
@@ -315,7 +315,7 @@ v0.1.0 alpha, macOS 13+ Apple silicon only; no signed installer, source build on
 
 What would you use it for? Where does it get in your way? Repo: {{REPO_URL}} (also in bio/comments).
 
-**发布备注**：B站 16:9，简介放完整链接；小红书 4:5 或 3:4，首图大字写“只提问，不代写”。小红书外链不可点，链接放主页/评论区并置顶。同一支视频每个平台只发一次。
+**发布备注**：B站 16:9，简介放完整链接；小红书 4:5 或 3:4，首图大字写“先回应，再追问，不代写”。小红书外链不可点，链接放主页/评论区并置顶。同一支视频每个平台只发一次。
 
 ---
 
