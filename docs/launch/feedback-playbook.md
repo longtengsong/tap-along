@@ -1,13 +1,13 @@
 # 反馈处理手册 · TapAlong
 
-> 目的：在 alpha 阶段，用最少的人力把反馈变成可行动的信息，同时不破坏「只提问、不代写、本地优先」的定位。
+> 目的：在 alpha 阶段，用最少的人力把反馈变成可行动的信息，同时不破坏「先回应、再追问、不代写、本地优先」的定位。
 > 前提：**没有遥测、没有埋点、没有账号体系**。所有反馈都来自用户主动说出来；不要假装它代表全部用户。
 
 ## 0. 六条原则
 
 1. **先听场景，再谈功能。** “你当时在做什么”比“你要什么功能”更有信息量。
 2. **区分需求与方案。** 用户说“加个一键总结”，需求可能是“我回看时抓不住重点”；方案不一定要接受。
-3. **定位不是投票。** 与「只提问、不代写」「数据留在本机」冲突的请求，礼貌拒绝，不因为声音大就改。
+3. **定位不是投票。** 与「先回应、再追问、不代写」「数据留在本机」冲突的请求，礼貌拒绝，不因为声音大就改。
 4. **不辩论，不讨好。** 一次事实澄清足够；不承诺时间表，不写“马上”。
 5. **保护隐私。** 不主动索要笔记正文、API Key、截图中的个人信息；引用要征得同意并匿名。
 6. **闭环。** 用户花时间反馈，至少要知道“收到了 / 不做什么 / 改了什么”。
@@ -283,11 +283,11 @@ Skip anything you don't want to answer. Is it okay if I record?
 
 **中文**
 
-> 谢谢你把这个场景讲清楚。你要的是让伴读直接产出成稿/摘要，省掉自己组织的过程。这个请求和现在的定位冲突：它只提问，不替你写；做了它就不是同一个工具。所以不会做。现在能帮的是把相关的旧念头找出来、问一个问题，让你自己写；如果你需要成稿，通用写作工具可能更合适。
+> 谢谢你把这个场景讲清楚。你要的是让伴读直接产出成稿/摘要，省掉自己组织的过程。这个请求和现在的定位冲突：它先回应你的想法、再追问，但不替你写；做了它就不是同一个工具。所以不会做。现在能帮的是把相关的旧念头找出来、回应你的话再问一个问题，让你自己写；如果你需要成稿，通用写作工具可能更合适。
 
 **English**
 
-> Thanks for spelling out the situation. What you're asking for is for the companion to produce the draft or summary for you. That conflicts with the premise: it asks; it doesn't write for you. Building it would make this a different tool, so we won't. What TapAlong can do today is surface the earlier thoughts and ask one question so you can write it yourself. If you need a finished draft, a general writing tool may fit better.
+> Thanks for spelling out the situation. What you're asking for is for the companion to produce the draft or summary for you. That conflicts with the premise: it responds, then asks; it doesn't write for you. Building it would make this a different tool, so we won't. What TapAlong can do today is surface the earlier thoughts, respond to what you wrote, and ask one question so you can write it yourself. If you need a finished draft, a general writing tool may fit better.
 
 ### 6.2 云同步、账号、团队协作
 
