@@ -59,5 +59,5 @@ Initial public alpha. macOS 13+ on Apple silicon (arm64) only.
 - Windows and Linux are untested.
 - Data model, prompts, and UI may change without migration guarantees.
 
-[Unreleased]: https://github.com/longtengsongislong520/tap-along/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/longtengsongislong520/tap-along/releases/tag/v0.1.0
+[Unreleased]: https://github.com/longtengsong/tap-along/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/longtengsong/tap-along/releases/tag/v0.1.0

@@ -20,7 +20,7 @@ no signed installer yet, so fixes are delivered through source updates.
 
 Use GitHub's private vulnerability reporting:
 
-1. Open <https://github.com/longtengsongislong520/tap-along/security/advisories/new>.
+1. Open <https://github.com/longtengsong/tap-along/security/advisories/new>.
 2. Describe the issue, its impact, and the steps to reproduce it.
 3. If GitHub private reporting is unavailable, open a minimal public issue that
    says only “I have a security report and need a private channel” — do not

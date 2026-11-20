@@ -103,7 +103,7 @@ noted in [CHANGELOG.md](CHANGELOG.md).
 ## Contact
 
 Privacy questions can be raised in
-[GitHub Discussions](https://github.com/longtengsongislong520/tap-along/discussions)
-or a public [issue](https://github.com/longtengsongislong520/tap-along/issues).
+[GitHub Discussions](https://github.com/longtengsong/tap-along/discussions)
+or a public [issue](https://github.com/longtengsong/tap-along/issues).
 Please do not include personal notes or API keys in a public report. Security
 issues should follow [SECURITY.md](SECURITY.md) instead.

@@ -58,7 +58,7 @@
 ## 从源码运行
 
 ```bash
-git clone https://github.com/longtengsongislong520/tap-along.git
+git clone https://github.com/longtengsong/tap-along.git
 cd tap-along
 pnpm install
 pnpm start
@@ -137,9 +137,9 @@ pnpm test:ui     # Vue 组件测试（Vitest）
 
 ## 反馈与参与
 
-- **缺陷和具体需求：** 提 [GitHub Issue](https://github.com/longtengsongislong520/tap-along/issues/new/choose)。
+- **缺陷和具体需求：** 提 [GitHub Issue](https://github.com/longtengsong/tap-along/issues/new/choose)。
 - **问题、想法和开放讨论：** 使用
-  [GitHub Discussions](https://github.com/longtengsongislong520/tap-along/discussions)。
+  [GitHub Discussions](https://github.com/longtengsong/tap-along/discussions)。
 - **安全漏洞：** 请**不要**开公开 issue，按 [SECURITY.md](SECURITY.md) 私密报告。
 - **参与贡献：** 先读 [CONTRIBUTING.md](CONTRIBUTING.md)。本项目遵循
   [Contributor Covenant 2.1](CODE_OF_CONDUCT.md)。

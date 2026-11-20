@@ -62,7 +62,7 @@ The rail can sit beside the conversation or collapse into a slim edge tab.
 ## Run from source
 
 ```bash
-git clone https://github.com/longtengsongislong520/tap-along.git
+git clone https://github.com/longtengsong/tap-along.git
 cd tap-along
 pnpm install
 pnpm start
@@ -146,9 +146,9 @@ This is a placeholder, not a promise or a schedule:
 
 ## Feedback and contributing
 
-- **Bugs and concrete requests:** open a [GitHub Issue](https://github.com/longtengsongislong520/tap-along/issues/new/choose).
+- **Bugs and concrete requests:** open a [GitHub Issue](https://github.com/longtengsong/tap-along/issues/new/choose).
 - **Questions, ideas, and open-ended discussion:** use
-  [GitHub Discussions](https://github.com/longtengsongislong520/tap-along/discussions).
+  [GitHub Discussions](https://github.com/longtengsong/tap-along/discussions).
 - **Security reports:** please do **not** open a public issue. Follow
   [SECURITY.md](SECURITY.md).
 - **Contributing:** read [CONTRIBUTING.md](CONTRIBUTING.md). This project follows

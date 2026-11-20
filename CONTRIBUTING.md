@@ -92,5 +92,5 @@ Please do not open a public issue for a vulnerability. Follow
 
 ## Questions
 
-Use [GitHub Discussions](https://github.com/longtengsongislong520/tap-along/discussions)
+Use [GitHub Discussions](https://github.com/longtengsong/tap-along/discussions)
 for questions and open-ended ideas.

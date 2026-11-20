@@ -23,11 +23,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/longtengsongislong520/tap-along.git"
+    "url": "https://github.com/longtengsong/tap-along.git"
   },
-  "homepage": "https://github.com/longtengsongislong520/tap-along#readme",
+  "homepage": "https://github.com/longtengsong/tap-along#readme",
   "bugs": {
-    "url": "https://github.com/longtengsongislong520/tap-along/issues"
+    "url": "https://github.com/longtengsong/tap-along/issues"
   },
   "engines": {
     "node": ">=24"

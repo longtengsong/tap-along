@@ -62,7 +62,7 @@ Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported privately to the project maintainers through GitHub's private security
 advisory form:
 
-<https://github.com/longtengsongislong520/tap-along/security/advisories/new>
+<https://github.com/longtengsong/tap-along/security/advisories/new>
 
 Please start the report title with **“Code of Conduct”** and include only what is
 needed to understand and review the incident. All complaints will be reviewed and
