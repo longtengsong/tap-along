@@ -5,12 +5,13 @@
 > A local-first reading companion that asks questions instead of writing for you.
 
 TapAlong is a small desktop app for thinking alongside your reading. You jot down a
-thought; it asks one good question at a time, connects that thought with things
-you wrote earlier, and leaves the thinking to you. It never drafts your notes,
-never puts words in your mouth, and keeps your notes on your own machine.
+thought; it responds to what you just wrote, then asks at most one concrete
+question, connects that thought with things you wrote earlier, and leaves the
+thinking to you. It never drafts your notes, never puts words in your mouth, and
+keeps your notes on your own machine.
 
-- **Questions, not answers.** The companion's job is to help you find the next
-  sentence yourself.
+- **Guidance, not answers.** The companion's job is to pick up your thought and
+  help you find the next sentence yourself.
 - **Local-first notes.** Thoughts, conversations, and pasted images live in a
   local SQLite database and a local image folder. No account, no sync.
 - **Context you can see.** A side rail shows the earlier thoughts that a question

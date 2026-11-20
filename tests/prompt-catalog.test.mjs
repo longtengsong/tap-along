@@ -53,7 +53,7 @@ const collectStrings = (value) =>
     : Object.values(value).flatMap((entry) => collectStrings(entry));
 
 test('Prompt Catalog 应包含版本和全部非空提示词', () => {
-  assert.equal(PROMPT_VERSION, 'companion-v2.0.0');
+  assert.equal(PROMPT_VERSION, 'companion-v2.1.0');
   assert.ok(PROMPT_CATALOG.teacher.system.trim());
   assert.ok(PROMPT_CATALOG.teacher.languagePolicy.trim());
   assert.ok(PROMPT_CATALOG.teacher.contextBoundary.trim());
@@ -72,7 +72,7 @@ test('Prompt Catalog 应包含版本和全部非空提示词', () => {
   }
 });
 
-test('Prompt v2.0.0 应保持当前消息内容指纹', () => {
+test('Prompt v2.1.0 应保持当前消息内容指纹', () => {
   const messages = {
     ask: buildTeacherMessages({
       page: promptPage,
@@ -104,12 +104,12 @@ test('Prompt v2.0.0 应保持当前消息内容指纹', () => {
       Object.entries(messages).map(([name, value]) => [name, digest(value)]),
     ),
     {
-      ask: 'a61908b98dee2405968aa89969b576268aa8e6d962374848fe761e7731c754b4',
+      ask: '2c5263829995a10c58daaa8eb4b9ca50dc7bcb489529e0fccf66a943ab686e7c',
       resume:
-        '86806da8b8010d8177725d538ef6696fa8fa3515d850b18458a8fa6b41afd4a3',
-      edit: '1fe4b3b395fbfd41af87f6d1a0c79bbca10cd27708b337752d601c1238fc921b',
+        '8fc2202aaeb4f694241d40ee024fc6a5501ed03874d5d6c2e273173078569de0',
+      edit: 'dbfd4cbddb8cd1ace4f4a8d8afa288cd3a08dac14450074048dd2eee5383a476',
       append:
-        'cc31bba265a859fe1be88962ba5f1427bd18480b79eb294d83d203b807304b8c',
+        '07edd2d691f2d1da612b34dddc17d21a8fa976c0971079277877aa6619a9d9b6',
     },
   );
   assert.equal(

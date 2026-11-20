@@ -2,10 +2,15 @@ import { detectLatestLanguage } from '../../src/shared/conversation-language.ts'
 
 const META_PHRASES = [
   '好问题',
+  '很好的问题',
+  '说得很好',
+  '说得好',
   '我明白了',
   '当然',
   'great question',
   'good question',
+  'good point',
+  'well said',
   'i understand',
   'of course',
 ];
@@ -26,6 +31,13 @@ const normalizeText = (value) =>
     .toLowerCase()
     .replace(/[\s，。、；：！？!?.,;:'"“”‘’]/g, '');
 
+const splitSentences = (text) =>
+  (text.match(/[^。！？!?.,;；\n]+[。！？!?.,;；]?/g) ?? [])
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+const isQuestionSentence = (sentence) => /[?？]/.test(sentence);
+
 export const evaluateTeacherReply = (reply, expectations = {}) => {
   const text = typeof reply === 'string' ? reply.trim() : '';
   const normalized = text.toLowerCase();
@@ -34,6 +46,7 @@ export const evaluateTeacherReply = (reply, expectations = {}) => {
     'non_empty',
     'language',
     'question_count',
+    'response',
     'markdown',
     'meta_language',
     'internal_leak',
@@ -54,12 +67,24 @@ export const evaluateTeacherReply = (reply, expectations = {}) => {
     }
   }
 
+  const sentences = splitSentences(text);
+  const questionSentences = sentences.filter(isQuestionSentence);
+  const responseSentences = sentences.filter(
+    (sentence) => !isQuestionSentence(sentence),
+  );
   const questionCount = (text.match(/[?？]/g) ?? []).length;
 
-  if (questionCount !== 1) {
+  if (questionCount > 1) {
     failures.push({
       rule: 'question_count',
-      message: `回复应只包含一个问号，实际为 ${questionCount}`,
+      message: `回复至多包含一个问号，实际为 ${questionCount}`,
+    });
+  }
+
+  if (text && normalizeText(responseSentences.join(' ')).length < 2) {
+    failures.push({
+      rule: 'response',
+      message: '回复应先对用户的话做出实质回应，而不是只提问',
     });
   }
 
@@ -117,13 +142,12 @@ export const evaluateTeacherReply = (reply, expectations = {}) => {
 
   if (expectations.previousQuestions?.length) {
     checks.add('repeated_question');
-    const currentQuestion = normalizeText(text);
+    const previousQuestions = expectations.previousQuestions.map(normalizeText);
+    const repeated = questionSentences.some((sentence) =>
+      previousQuestions.includes(normalizeText(sentence)),
+    );
 
-    if (
-      expectations.previousQuestions.some(
-        (question) => normalizeText(question) === currentQuestion,
-      )
-    ) {
+    if (repeated) {
       failures.push({
         rule: 'repeated_question',
         message: '回复完全重复了最近的老师问题',

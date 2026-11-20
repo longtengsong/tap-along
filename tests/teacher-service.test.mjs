@@ -877,7 +877,32 @@ test('老师服务应拒绝无效请求和不存在的页边', async (t) => {
   );
 });
 
-test('本地老师流应逐块输出并在聊透后建议合上', async () => {
+test('本地老师流应在聊透后建议合上', async () => {
+  const page = {
+    id: 1,
+    title: '注意力',
+    body: '注意力像带宽。',
+    source: '课程',
+    status: 'reading',
+    parseStatus: 'pending',
+    teachingRoundCount: 6,
+    messages: [],
+  };
+  const chunks = [];
+
+  for await (const chunk of createMockTeacherStream({
+    page,
+    userText: '我的理解。',
+    replyLanguage: 'zh-CN',
+  })) {
+    chunks.push(chunk);
+  }
+
+  assert.ok(chunks.length > 2);
+  assert.match(chunks.join(''), /先想到这/);
+});
+
+test('本地老师流在未聊透时不应只按轮数建议合上', async () => {
   const page = {
     id: 1,
     title: '注意力',
@@ -899,6 +924,30 @@ test('本地老师流应逐块输出并在聊透后建议合上', async () => {
   }
 
   assert.ok(chunks.length > 2);
+  assert.doesNotMatch(chunks.join(''), /先想到这/);
+});
+
+test('用户明确表示收住时本地老师流应提前建议合上', async () => {
+  const page = {
+    id: 1,
+    title: '注意力',
+    body: '注意力像带宽。',
+    source: '课程',
+    status: 'reading',
+    parseStatus: 'pending',
+    teachingRoundCount: 1,
+    messages: [],
+  };
+  const chunks = [];
+
+  for await (const chunk of createMockTeacherStream({
+    page,
+    userText: '先收住，差不多想明白了。',
+    replyLanguage: 'zh-CN',
+  })) {
+    chunks.push(chunk);
+  }
+
   assert.match(chunks.join(''), /先想到这/);
 });
 

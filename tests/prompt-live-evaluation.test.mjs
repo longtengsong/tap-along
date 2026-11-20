@@ -139,8 +139,8 @@ test('真实模型评测运行器应汇总通过、规则失败且不泄露 Key'
     const body = JSON.parse(options.body);
     const serialized = JSON.stringify(body.messages);
     const content = serialized.includes('Attention as a resource')
-      ? '你的注意力为什么会被任务带走？'
-      : '任务如何影响你的注意力？';
+      ? '你在问注意力为什么会被任务带走，像是在怀疑任务的力量。你是从哪件事上感到这一点的？'
+      : '你在问任务如何影响注意力，重点像是它的作用机制。最近哪个任务的影响最明显？';
 
     return completionResponse(content);
   };
@@ -284,7 +284,10 @@ test('真实模型评测 CLI 应支持单场景报告和帮助', async (t) => {
       PROMPT_EVAL_MODEL: 'reading-model',
       PROMPT_EVAL_API_KEY: 'sk-cli-private-key',
     },
-    fetchImpl: async () => completionResponse('任务如何影响你的注意力？'),
+    fetchImpl: async () =>
+      completionResponse(
+        '你在问任务如何影响注意力，重点像是它的作用机制。最近哪个任务的影响最明显？',
+      ),
     output,
   });
 

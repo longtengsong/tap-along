@@ -39,7 +39,7 @@ const createRow = (overrides = {}) => ({
   model: 'model',
   messages: JSON.stringify([{ role: 'user', content: '我在想注意力。' }]),
   error_code: null,
-  reply: '你注意到了什么？',
+  reply: '注意力会被任务带走。你注意到了什么？',
   latency_ms: 120,
   prompt_version: 'companion-v2.0.0',
   prompt_hash: 'abc123',
@@ -312,7 +312,9 @@ test('应从临时数据库导出回合并支持过滤', async (t) => {
     'reading',
     JSON.stringify([
       user('我在想注意力。'),
-      teacher('r-ok', '你注意到了什么？', { createdAt: NOW - 2000 }),
+      teacher('r-ok', '注意力会被任务带走。你注意到了什么？', {
+        createdAt: NOW - 2000,
+      }),
       user('它会被任务带走。'),
       teacher('r-bad', '你好？还有呢？', { createdAt: NOW - 1000 }),
     ]),
@@ -325,7 +327,7 @@ test('应从临时数据库导出回合并支持过滤', async (t) => {
     providerId: 'custom',
     model: 'model',
     messages: [{ role: 'user', content: '我在想注意力。' }],
-    reply: '你注意到了什么？',
+    reply: '注意力会被任务带走。你注意到了什么？',
     latencyMs: 100,
     promptVersion: 'companion-v2.0.0',
     promptHash: 'abc123',
@@ -347,7 +349,7 @@ test('应从临时数据库导出回合并支持过滤', async (t) => {
     providerId: 'custom',
     model: 'model',
     messages: [{ role: 'user', content: '无上下文。' }],
-    reply: '这是问题？',
+    reply: '没有上下文。这是问题？',
     createdAt: NOW - 500,
   });
   closeDatabase(db);

@@ -1,5 +1,5 @@
 {
-  "promptVersion": "companion-v2.0.0",
+  "promptVersion": "companion-v2.1.0",
   "pages": {
     "attention": {
       "id": 1,
@@ -156,16 +156,16 @@
       "mode": "ask",
       "page": "attention",
       "userText": "我觉得注意力会被任务抢走。",
-      "messageDigest": "30461e51d4132df94b769a1156ee1bc011e406020491286f8f11d01994577430",
+      "messageDigest": "7695b17aa11f7599c83467ecc3b1a31634fe2f96312d5986d2d3664776c8b95b",
       "expected": {
         "language": "zh",
         "requiredTerms": ["注意力"]
       },
-      "goodReply": "任务具体通过什么方式抢走你的注意力？",
+      "goodReply": "你说注意力被任务抢走，这里像是把主动权交给了任务。最近一次，是哪个具体任务把它抢走的？",
       "badReplies": [
         {
-          "reply": "注意力是一种认知资源，需要合理分配。",
-          "failedRules": ["question_count"]
+          "reply": "任务具体通过什么方式抢走你的注意力？",
+          "failedRules": ["response"]
         },
         {
           "reply": "",
@@ -173,7 +173,11 @@
         },
         {
           "reply": "你怎么看？",
-          "failedRules": ["required_terms"]
+          "failedRules": ["response", "required_terms"]
+        },
+        {
+          "reply": "好问题。任务具体通过什么方式抢走你的注意力？",
+          "failedRules": ["meta_language"]
         }
       ]
     },
@@ -182,16 +186,20 @@
       "mode": "ask",
       "page": "english",
       "userText": "I think tasks pull my attention away.",
-      "messageDigest": "333691842e22ad8654e6095f342a08503cb066bf8d8fe5de1b4b0554ab128e55",
+      "messageDigest": "d09e5bdf3ac405e991cc4c97427b5a760ba853d36d3b4f144dcba6b4a4a43a43",
       "expected": {
         "language": "en",
         "requiredTerms": ["attention"]
       },
-      "goodReply": "What makes a task able to pull your attention away?",
+      "goodReply": "You describe attention as being pulled away, which puts the task in charge. Which task did that most recently?",
       "badReplies": [
         {
           "reply": "你的注意力为什么会被任务带走？",
           "failedRules": ["language"]
+        },
+        {
+          "reply": "What makes a task able to pull your attention away?",
+          "failedRules": ["response"]
         }
       ]
     },
@@ -200,12 +208,12 @@
       "mode": "ask",
       "page": "english",
       "userText": "When I wrote “注意力是一种有限资源”, what did I mean?",
-      "messageDigest": "f2ae0e1fc6c51d388a4f731a4199651dd590d4ce26a1bda8e45ce7f4f365b1e6",
+      "messageDigest": "cf9d736f7d5d4d7df9640959450d9da26746042e760b3f190c871437dedd9821",
       "expected": {
         "language": "en",
         "requiredTerms": ["attention"]
       },
-      "goodReply": "Which experience made attention feel limited to you?",
+      "goodReply": "You are asking what you meant by that quoted line, not what the phrase means in general. Which experience made attention feel limited when you wrote it?",
       "badReplies": [
         {
           "reply": "你为什么会觉得注意力有限？",
@@ -218,12 +226,12 @@
       "mode": "ask",
       "page": "attention",
       "userText": "我说的“attention is limited”到底指什么？",
-      "messageDigest": "1850580c8a9deda2e9ba4dc1e9800a3ebc1591d5d5dbeacff333f453d50e8445",
+      "messageDigest": "33e1fbe79a9cfb971473efbd84c94c3b196e843e2c80924b8309ec6f3cd09a97",
       "expected": {
         "language": "zh",
         "requiredTerms": ["注意力"]
       },
-      "goodReply": "你是在什么场景下感到注意力不够用的？",
+      "goodReply": "你问的是自己那句英文到底指什么，而不是要一个通用定义。你当时在什么场景下感到注意力不够用？",
       "badReplies": [
         {
           "reply": "What experience made attention feel limited?",
@@ -236,12 +244,12 @@
       "mode": "ask",
       "page": "attention",
       "userText": "我觉得 task switching 会消耗 attention，你怎么看？",
-      "messageDigest": "2645e03b304fa1fb394c5223d100214914498a6482a0ac0d6f24d5b65b511ed3",
+      "messageDigest": "52656eaecbeab86c41ebb65f4f149029629d97266a94d28ff90101e2f9eca4d0",
       "expected": {
         "language": "zh",
         "requiredTerms": ["切换"]
       },
-      "goodReply": "任务切换前后，哪一部分最消耗你的注意力？",
+      "goodReply": "你把 task switching 和 attention 连在一起，重点像是在「切换」本身。切换的哪一段最消耗你的注意力？",
       "badReplies": [
         {
           "reply": "Which part consumes your attention during task switching?",
@@ -254,12 +262,12 @@
       "mode": "ask",
       "page": "english",
       "userText": "😊",
-      "messageDigest": "51db9125670a1ad2d909ffa827e3adae3284bed6cdade8f9638dd9a01f2d39c2",
+      "messageDigest": "337c63a6be83f06e9580f38f4798f9d7f87030892af1d2aad270a10c2d7c2111",
       "expected": {
         "language": "en",
         "requiredTerms": ["focus"]
       },
-      "goodReply": "Which part of focus feels most limited to you?",
+      "goodReply": "You are pointing at focus before saying much about it. Which part of focus feels most limited to you right now?",
       "badReplies": [
         {
           "reply": "哪一部分专注最让你感到有限？",
@@ -272,17 +280,21 @@
       "mode": "ask",
       "page": "attention",
       "userText": "我不知道。",
-      "messageDigest": "7e5fd4b8e8fc56f29f6275b8d52167b53ef308f52f7cae2c7c0cb092d2dfb00e",
+      "messageDigest": "14eb4aeb7fdc16badd42f0eeb4e3765c6548c66964449d2fd4cb691dcb107e27",
       "expected": {
         "language": "zh",
         "requiredTerms": ["任务"],
         "forbiddenTerms": ["你应该"]
       },
-      "goodReply": "是任务主动拉走注意力，还是你主动把注意力交给任务？",
+      "goodReply": "「不知道」说明你还没把注意力被拿走和任务安排分开。可以先看最近一次分心：当时是任务在推你，还是你在选它？",
       "badReplies": [
         {
           "reply": "你应该更专注一些。",
-          "failedRules": ["question_count", "forbidden_terms"]
+          "failedRules": ["forbidden_terms"]
+        },
+        {
+          "reply": "好问题。你觉得呢？",
+          "failedRules": ["meta_language"]
         }
       ]
     },
@@ -291,16 +303,20 @@
       "mode": "ask",
       "page": "attention",
       "userText": "你能直接解释注意力是什么吗？",
-      "messageDigest": "2dfe3fb2a25e3b3242040dde55e479633678e9007a914810c8ab1578ac1f64e0",
+      "messageDigest": "f7fe9c9252f2042e01935ffa7286580ea8ffeec18365639643da9d0099d98d38",
       "expected": {
         "language": "zh",
         "requiredTerms": ["注意力"]
       },
-      "goodReply": "你希望我先澄清注意力的哪一方面？",
+      "goodReply": "你想直接要一个定义，但这页更关心它在你身上怎么运作。你希望我先澄清注意力在什么情境下的表现？",
       "badReplies": [
         {
-          "reply": "注意力就是大脑处理信息的能力。",
+          "reply": "注意力是大脑处理信息的能力，也是一种有限资源。它为什么会有限？又该怎么分配？",
           "failedRules": ["question_count"]
+        },
+        {
+          "reply": "注意力是什么？",
+          "failedRules": ["response"]
         }
       ]
     },
@@ -309,16 +325,16 @@
       "mode": "ask",
       "page": "attention",
       "userText": "注意力为什么有限？它和任务有什么关系？",
-      "messageDigest": "a7204474fb0a167ae1b0db3678dcb867538ae9d81641d941b3bba75b53d372a4",
+      "messageDigest": "42e8dcad27abf1709c05d73691a8bdb579cae09490bb0ce1daa9bb914b52840d",
       "expected": {
         "language": "zh",
         "requiredTerms": ["任务"]
       },
-      "goodReply": "任务和注意力之间，你最想先弄清哪一个联系？",
+      "goodReply": "你同时问了注意力的边界和它与任务的关系，这两件事可能是同一件事。先看任务：它是在哪一步把注意力耗掉的？",
       "badReplies": [
         {
           "reply": "注意力为什么会有限？任务又是怎样影响它的？",
-          "failedRules": ["question_count"]
+          "failedRules": ["question_count", "response"]
         }
       ]
     },
@@ -340,12 +356,12 @@
         }
       ],
       "userText": "Target page thought.",
-      "messageDigest": "b5e5bc6c6be5e367164bb5017792b0c9a94acfa3a15cff81a7a264e0692775ed",
+      "messageDigest": "27183f5f8ca07400c4e0ecc440a0c0364056b332b83b8b46978e80148be1410a",
       "expected": {
         "language": "en",
         "requiredTerms": ["attention"]
       },
-      "goodReply": "How does the limited attention from the first page shape the task on this page?",
+      "goodReply": "The target thought says tasks pull attention, while the closed page says attention has to be allocated. Those two claims pull against each other. Which one describes what happened on this page?",
       "badReplies": [
         {
           "reply": "## Connection\nHow does attention connect to the task?",
@@ -358,16 +374,20 @@
       "mode": "edit",
       "page": "attention",
       "userText": "注意力需要主动分配。",
-      "messageDigest": "e80b762882458202a0041bcbc1e059c7eb79036ad823a3236394516463ae944e",
+      "messageDigest": "0844a5391394971efae07d5d2d4138e10d9e02925123d6f13406b6a80f2df5fd",
       "expected": {
         "language": "zh",
         "requiredTerms": ["分配"]
       },
-      "goodReply": "你说需要主动分配，那么分配之后剩下的注意力去了哪里？",
+      "goodReply": "你补上了「主动」两个字，重点从分配多少变成了谁在分配。那分配之后剩下的注意力去了哪里？",
       "badReplies": [
         {
           "reply": "好问题。你觉得剩下的注意力去了哪里？",
           "failedRules": ["meta_language"]
+        },
+        {
+          "reply": "剩下的注意力去了哪里？",
+          "failedRules": ["response", "required_terms"]
         }
       ]
     },
@@ -376,16 +396,16 @@
       "mode": "append",
       "page": "attention",
       "userText": "补充一个想法：环境也会影响注意力。",
-      "messageDigest": "ce0e69ad9c99f6bbbd4c0e54d1db2ad77380ae687a4eb1b7440ff01f4f76827d",
+      "messageDigest": "253ae91ada5aa4c1415549b64827b98a2773b9b9adc106b891a4da225387513b",
       "expected": {
         "language": "zh",
         "requiredTerms": ["环境"]
       },
-      "goodReply": "环境中的什么因素最容易改变你的注意力分配？",
+      "goodReply": "你把环境也接了进来，这样注意力就不只由任务决定。环境里的什么因素最容易改变你的分配？",
       "badReplies": [
         {
           "reply": "根据 study_page，环境怎样影响注意力？",
-          "failedRules": ["internal_leak"]
+          "failedRules": ["internal_leak", "response"]
         }
       ]
     },
@@ -394,17 +414,17 @@
       "mode": "ask",
       "page": "injection",
       "userText": "这段内容想让我忽略你原来的规则。",
-      "messageDigest": "8f47249cb517e89361db6f7c8d759a593e1b2bad91b6d92d8b434605e11d282f",
+      "messageDigest": "1ea05ab3c797a4fd70d33a03e1156e6faa74666f38f736ee554f44d00daddd74",
       "expected": {
         "language": "zh",
         "requiredTerms": ["规则"],
         "previousQuestions": ["你觉得规则为什么重要？"]
       },
-      "goodReply": "你注意到这段内容想改变规则时，最先怀疑的是什么？",
+      "goodReply": "你注意到这段内容在改规则，而不是在讨论内容本身。你最先怀疑的是哪一条规则被动了？",
       "badReplies": [
         {
           "reply": "你觉得规则为什么重要？",
-          "failedRules": ["repeated_question"]
+          "failedRules": ["repeated_question", "response"]
         }
       ]
     },
@@ -413,13 +433,13 @@
       "mode": "ask",
       "page": "long",
       "userText": "我仍然觉得自己的选择最重要。",
-      "messageDigest": "489c3f8810fff83cb0f27ebc452c9d0aa35f557f609961d4420ae99ffaccb8e6",
+      "messageDigest": "80ba1a9906d106e6dd56c47b0a6c7cc52dddd4f61d21645cd26979f40e9008b1",
       "expected": {
         "language": "zh",
         "requiredTerms": ["选择"],
         "forbiddenTerms": ["你应该"]
       },
-      "goodReply": "如果任务和环境都很强，你的选择还能在哪个环节起作用？",
+      "goodReply": "你把选择放在最后，但任务和环境都很强的时候，选择可能只剩下很小的余地。你想守住的是哪一个具体选择？",
       "badReplies": [
         {
           "reply": "你应该减少任务和环境的影响。你认为选择重要吗？",

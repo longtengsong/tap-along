@@ -79,6 +79,15 @@ const throwIfCancelled = (signal: AbortSignal) => {
   }
 };
 
+const CLOSE_INTENT_PATTERN =
+  /(收住|(?<!不)够了|不聊了|换(?:一?个)?话题|已经想明白|想明白了|先到这|到此为止|结束吧|stop here|that(?:'s| is) enough|enough for now|move on|change the (?:subject|topic)|switch topics|i(?:'ve| have) (?:got it|had enough)|i(?:'m| am) done)/i;
+
+const hasCloseIntent = (text: string) =>
+  typeof text === 'string' && CLOSE_INTENT_PATTERN.test(text);
+
+const shouldSuggestClose = (page: PageSnapshot, userText: string) =>
+  hasCloseIntent(userText) || page.teachingRoundCount >= 6;
+
 const parseTeacherCancelPayload = (
   payload: unknown,
 ): TeacherCancelPayload | null => {
@@ -186,6 +195,7 @@ export const createOpeningTeacherMessage = (body: string) => {
 
 const createMockReply = (
   page: PageSnapshot,
+  userText: string,
   replyLanguage: ReplyLanguage,
   contextPage?: PageSnapshot,
   maintenanceKind?: 'edit' | 'append',
@@ -217,7 +227,7 @@ const createMockReply = (
   }
 
   if (maintenanceKind) {
-    if (page.teachingRoundCount >= 4) {
+    if (shouldSuggestClose(page, userText)) {
       return {
         text: translateFixedMessage(
           replyLanguage,
@@ -247,7 +257,7 @@ const createMockReply = (
     };
   }
 
-  if (page.teachingRoundCount >= 3) {
+  if (shouldSuggestClose(page, userText)) {
     return {
       text: translateFixedMessage(
         replyLanguage,
@@ -277,6 +287,7 @@ const createMockReply = (
 
 export const createMockTeacherStream: TeacherGenerator = async function* ({
   page,
+  userText,
   replyLanguage,
   contextPage,
   maintenanceKind,
@@ -288,6 +299,7 @@ export const createMockTeacherStream: TeacherGenerator = async function* ({
 
   const reply = createMockReply(
     page,
+    userText,
     replyLanguage,
     contextPage,
     maintenanceKind,
@@ -735,7 +747,7 @@ export class TeacherService {
         pageId: page.id,
         requestId: input.requestId,
         reply,
-        suggestClose: page.teachingRoundCount >= 4,
+        suggestClose: shouldSuggestClose(page, input.triggerText),
       };
       emit(doneEvent);
       return doneEvent;
@@ -1051,7 +1063,7 @@ export class TeacherService {
         throw new Error('老师没有返回内容');
       }
 
-      const suggestClose = page.teachingRoundCount >= 3;
+      const suggestClose = shouldSuggestClose(page, input.userText);
       const updatedPage = this.repository.completeTeacherTurn(
         input.pageId,
         reply,

@@ -40,11 +40,13 @@ test('关键词提取应保留各语言的自然词序', () => {
 });
 
 test('真实模型 Prompt 应要求跟随最新用户语言并中文优先', () => {
-  assert.match(PROMPT_CATALOG.teacher.system, /asking one concise, genuine/);
+  assert.match(PROMPT_CATALOG.teacher.system, /respond substantively/);
   assert.match(
     PROMPT_CATALOG.teacher.system,
-    /Do not summarize, explain concepts/,
+    /at most one concrete follow-up question/,
   );
+  assert.match(PROMPT_CATALOG.teacher.system, /Do not change the subject/);
+  assert.match(PROMPT_CATALOG.teacher.system, /Do not answer for the user/);
   assert.doesNotMatch(PROMPT_CATALOG.teacher.system, /respond in Chinese/);
   assert.match(PROMPT_CATALOG.teacher.languagePolicy, /user writes their/);
   assert.match(PROMPT_CATALOG.teacher.languagePolicy, /quoted notes/);
@@ -56,8 +58,14 @@ test('真实模型 Prompt 应要求跟随最新用户语言并中文优先', () 
     /Do not use the application UI language/,
   );
   assert.match(PROMPT_CATALOG.teacher.resume, /body-only compressed context/);
+  assert.match(PROMPT_CATALOG.teacher.resume, /respond in one to three/);
+  assert.match(PROMPT_CATALOG.teacher.resume, /at most one concrete question/);
   assert.doesNotMatch(PROMPT_CATALOG.teacher.resume, /respond in Chinese/);
   assert.match(PROMPT_CATALOG.teacher.maintenance, /action is an edit/);
   assert.match(PROMPT_CATALOG.teacher.maintenance, /action is an append/);
+  assert.match(
+    PROMPT_CATALOG.teacher.maintenance,
+    /at most one concrete question/,
+  );
   assert.doesNotMatch(PROMPT_CATALOG.teacher.maintenance, /respond in Chinese/);
 });
