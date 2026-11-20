@@ -19,14 +19,14 @@
 
 ## 1. 渠道排期：间隔 3 天，每个渠道只发一次
 
-| 波次 | 日 | 渠道 | 语言 | 内容 | 建议时间 |
-| --- | --- | --- | --- | --- | --- |
-| 1 | D0 | V2EX · 分享创造 | 中 | 文字 + 10 s GIF | 周二–周四 09:30–10:30（北京时间） |
-| 2 | D+3 | Show HN | 英 | 标题 + 正文 + 评论区 | 08:00–09:00 美东（北京时间约 21:00–22:00） |
-| 3 | D+6 | 少数派 / Matrix | 中 | 先 Matrix，主站另投稿 | 20:00–22:00（北京时间） |
-| 4 | D+9 | 即刻 | 中 | 15 s 竖屏 + 短文 | 12:00–13:00 或 20:00–22:00 |
-| 5 | D+12 | r/macapps | 英 | 文字 + GIF | 09:00–11:00 美东 |
-| 6 | D+15 | B站 / 小红书 | 中 | 55 s 视频 + 配文 | B站 18:00–21:00；小红书 20:00–22:00 |
+| 波次 | 日   | 渠道            | 语言 | 内容                  | 建议时间                                   |
+| ---- | ---- | --------------- | ---- | --------------------- | ------------------------------------------ |
+| 1    | D0   | V2EX · 分享创造 | 中   | 文字 + 10 s GIF       | 周二–周四 09:30–10:30（北京时间）          |
+| 2    | D+3  | Show HN         | 英   | 标题 + 正文 + 评论区  | 08:00–09:00 美东（北京时间约 21:00–22:00） |
+| 3    | D+6  | 少数派 / Matrix | 中   | 先 Matrix，主站另投稿 | 20:00–22:00（北京时间）                    |
+| 4    | D+9  | 即刻            | 中   | 15 s 竖屏 + 短文      | 12:00–13:00 或 20:00–22:00                 |
+| 5    | D+12 | r/macapps       | 英   | 文字 + GIF            | 09:00–11:00 美东                           |
+| 6    | D+15 | B站 / 小红书    | 中   | 55 s 视频 + 配文      | B站 18:00–21:00；小红书 20:00–22:00        |
 
 **为什么不是 7 天内发完**：6 个渠道 × 最少 3 天间隔 = 15 天，塞不进 7 天。本清单选择保间隔，D+8 以后的动作见 §5；D+1–D+7 只做已发渠道的维护和下一波准备。
 
@@ -70,22 +70,26 @@ A local-first reading companion that asks questions instead of writing for you.
 It connects a new thought with earlier ones and leaves the thinking to you.
 
 ### Requirements
+
 - macOS 13+ on Apple silicon (arm64)
 - Node.js 24+ and pnpm 11.7.0
 
 ### Run from source
+
 git clone {{REPO_URL}}
 cd tap-along
 pnpm install
 pnpm start
 
 ### Known limitations
+
 - No signed or notarized installer. Source is the only supported path.
 - Export exists (`backup.json` + `images/`); there is no import/restore.
 - Windows and Linux are untested.
 - Data model, prompts, and UI may change without migration guarantees.
 
 ### Feedback
+
 - Bugs: Issues
 - Questions/ideas: Discussions
 - Security: private advisory (do not open a public issue)
@@ -97,14 +101,14 @@ MIT.
 
 在 Settings → General → Features 开启 Discussions，然后建：
 
-| 分区 | 用途 | 规则 |
-| --- | --- | --- |
-| 📣 Announcements | 版本、已知问题、发布更新 | 仅维护者发；不承诺时间表 |
-| 🙋 Q&A | 安装、配置、模型供应商问题 | 每条至少一个维护者回复或指路 |
-| 💡 Ideas | 方向讨论 | 先问“你当时在做什么”，再谈功能 |
-| 🧭 How I use it | 用户贴自己的用法 | 不要求截图；不收集笔记内容 |
-| 📝 Alpha notes | 每周状态、triage 摘要 | 只写事实和已发生的变化 |
-| 🎤 Feedback interviews | 15 分钟访谈招募 | 自愿报名；不公开个人信息 |
+| 分区                   | 用途                       | 规则                           |
+| ---------------------- | -------------------------- | ------------------------------ |
+| 📣 Announcements       | 版本、已知问题、发布更新   | 仅维护者发；不承诺时间表       |
+| 🙋 Q&A                 | 安装、配置、模型供应商问题 | 每条至少一个维护者回复或指路   |
+| 💡 Ideas               | 方向讨论                   | 先问“你当时在做什么”，再谈功能 |
+| 🧭 How I use it        | 用户贴自己的用法           | 不要求截图；不收集笔记内容     |
+| 📝 Alpha notes         | 每周状态、triage 摘要      | 只写事实和已发生的变化         |
+| 🎤 Feedback interviews | 15 分钟访谈招募            | 自愿报名；不公开个人信息       |
 
 置顶一篇 **Start here**：
 
@@ -112,6 +116,7 @@ MIT.
 # Start here: v0.1.0 alpha
 
 TapAlong is an experimental alpha. Before you try it:
+
 - macOS 13+ on Apple silicon only.
 - No signed installer yet. Build from source (Node 24, pnpm 11.7.0).
 - Notes stay local, but note content is sent to the model provider you configure when it generates a reply.
@@ -125,25 +130,25 @@ Reply here, open an Issue for a reproducible bug, or ask in Q&A.
 
 现有 Issue 模板会自动打 `bug` / `enhancement`，**不要删除这两个标签**；triage 时再补 `kind/*`。完整定义见 [feedback-playbook.md](feedback-playbook.md)。
 
-| 组 | 标签 | 用途 |
-| --- | --- | --- |
-| kind | `kind/bug` `kind/feature` `kind/question` `kind/docs` `kind/design` `kind/compatibility` | 每条 issue 恰好一个 |
-| area | `area/onboarding` `area/companion` `area/guidance` `area/conversation` `area/research` `area/editor` `area/images` `area/retrieval` `area/settings` `area/data` `area/i18n` `area/packaging` `area/a11y` | 1–2 个 |
-| 流程 | `needs-info` `needs-repro` `good-first-issue` `adopted` `alpha-limitation` `deferred` `blocked` `duplicate` `wontfix` `feedback-interview` | 按状态加 |
+| 组   | 标签                                                                                                                                                                                                     | 用途                |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| kind | `kind/bug` `kind/feature` `kind/question` `kind/docs` `kind/design` `kind/compatibility`                                                                                                                 | 每条 issue 恰好一个 |
+| area | `area/onboarding` `area/companion` `area/guidance` `area/conversation` `area/research` `area/editor` `area/images` `area/retrieval` `area/settings` `area/data` `area/i18n` `area/packaging` `area/a11y` | 1–2 个              |
+| 流程 | `needs-info` `needs-repro` `good-first-issue` `adopted` `alpha-limitation` `deferred` `blocked` `duplicate` `wontfix` `feedback-interview`                                                               | 按状态加            |
 
 创建后抽查 3 个模板 issue，确认标签存在、没有拼写错误。
 
 ### 2.5 反馈入口检查（D-5）
 
-| 入口 | 检查 | 通过标准 |
-| --- | --- | --- |
-| README「反馈与参与」 | Issues `new/choose`、Discussions、SECURITY.md（再到 advisory） | 全部 200；无 404 |
-| Release notes | 同三个入口 + 已知限制 | 从 Release 页可点到 |
-| 置顶 Discussion | 只问一个问题：“你会拿它做什么/哪里卡住” | 不是“求 star” |
-| Issue chooser | bug / feature 表单可渲染；config 指向 Discussions 与私密安全报告 | 能提交测试 issue 后关闭 |
-| 安全入口 | `security/advisories/new` 登录后可打开 | 不引导公开 issue |
-| 应用内 | 目前**没有**反馈按钮（已核实） | alpha 可接受；若要加，另开代码任务，不在本次范围 |
-| 每篇帖子 | 只有一个 CTA | 不同时要求回帖、加群、star、转发 |
+| 入口                 | 检查                                                             | 通过标准                                         |
+| -------------------- | ---------------------------------------------------------------- | ------------------------------------------------ |
+| README「反馈与参与」 | Issues `new/choose`、Discussions、SECURITY.md（再到 advisory）   | 全部 200；无 404                                 |
+| Release notes        | 同三个入口 + 已知限制                                            | 从 Release 页可点到                              |
+| 置顶 Discussion      | 只问一个问题：“你会拿它做什么/哪里卡住”                          | 不是“求 star”                                    |
+| Issue chooser        | bug / feature 表单可渲染；config 指向 Discussions 与私密安全报告 | 能提交测试 issue 后关闭                          |
+| 安全入口             | `security/advisories/new` 登录后可打开                           | 不引导公开 issue                                 |
+| 应用内               | 目前**没有**反馈按钮（已核实）                                   | alpha 可接受；若要加，另开代码任务，不在本次范围 |
+| 每篇帖子             | 只有一个 CTA                                                     | 不同时要求回帖、加群、star、转发                 |
 
 链接检查：
 
@@ -177,42 +182,42 @@ done
 
 ## 3. D0：只发 V2EX
 
-| 时间（北京时间） | 动作 | 完成标准 |
-| --- | --- | --- |
-| 08:30 | 最后检查 Release、置顶帖、链接、GIF 大小 | 全部 200；GIF ≤10 MB |
-| 09:30–10:30 | 发 V2EX「分享创造」 | 标题/正文按 [launch-posts.md](launch-posts.md)；首段含 alpha 与 macOS 限制 |
-| 发后 30 分钟内 | 回第一条评论 | 先问“你会拿它做什么”，不辩论 |
-| 10:30–12:00 | 每 20–30 分钟看一次 | 所有实质问题当天有回应 |
-| 14:00 | GitHub triage | 新 issue/discussion 都有标签或回复 |
-| 20:00 | 二次巡查 | 记录 5 条最有信息量的反馈 |
-| 22:00 | 当日小结 | 3 行：卡在哪、被误解什么、明天改什么 |
+| 时间（北京时间） | 动作                                     | 完成标准                                                                   |
+| ---------------- | ---------------------------------------- | -------------------------------------------------------------------------- |
+| 08:30            | 最后检查 Release、置顶帖、链接、GIF 大小 | 全部 200；GIF ≤10 MB                                                       |
+| 09:30–10:30      | 发 V2EX「分享创造」                      | 标题/正文按 [launch-posts.md](launch-posts.md)；首段含 alpha 与 macOS 限制 |
+| 发后 30 分钟内   | 回第一条评论                             | 先问“你会拿它做什么”，不辩论                                               |
+| 10:30–12:00      | 每 20–30 分钟看一次                      | 所有实质问题当天有回应                                                     |
+| 14:00            | GitHub triage                            | 新 issue/discussion 都有标签或回复                                         |
+| 20:00            | 二次巡查                                 | 记录 5 条最有信息量的反馈                                                  |
+| 22:00            | 当日小结                                 | 3 行：卡在哪、被误解什么、明天改什么                                       |
 
 D0 **不发其他渠道**。不要请朋友集中顶帖；不要删除负面评论；不要用多个账号。
 
 ## 4. D+1 至 D+7：维护与下一波
 
-| 日 | 动作 | 不做 |
-| --- | --- | --- |
-| D+1 | 回完 V2EX 所有问题；把重复问题整理成 FAQ 草稿；给新 issue 打标签 | 不发新渠道；不为个别请求改定位 |
-| D+2 | 30–60 分钟 triage；若同一问题出现 3 次，补 FAQ 或置顶回复；准备 Show HN 稿；搜 HN 是否已有同名帖 | 不提前发 HN |
-| D+3 | 08:00–09:00 美东发 Show HN；守评论区 4 小时；只回事实与技术问题 | 不同时发其他渠道；不请人 upvote；不删帖重发 |
-| D+4 | 继续回 HN；把“为什么会用/为什么不用”的原话记进反馈日志；triage | 不与嘲讽者缠斗；不承诺路线图 |
-| D+5 | 准备 Matrix 稿；读 Matrix 版规；确认配图版权 | 不发 |
-| D+6 | 发 Matrix；回评论；把高频安装问题补进置顶帖 | 不把同一篇同时贴到多个分组 |
-| D+7 | 周复盘：手工统计各渠道回复、Top 3 主题、安装失败数、访谈志愿者；在 Discussions 发一篇「第一周我们听到了什么」 | 不写“重大突破”；不公布未确定的时间表 |
+| 日  | 动作                                                                                                          | 不做                                        |
+| --- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| D+1 | 回完 V2EX 所有问题；把重复问题整理成 FAQ 草稿；给新 issue 打标签                                              | 不发新渠道；不为个别请求改定位              |
+| D+2 | 30–60 分钟 triage；若同一问题出现 3 次，补 FAQ 或置顶回复；准备 Show HN 稿；搜 HN 是否已有同名帖              | 不提前发 HN                                 |
+| D+3 | 08:00–09:00 美东发 Show HN；守评论区 4 小时；只回事实与技术问题                                               | 不同时发其他渠道；不请人 upvote；不删帖重发 |
+| D+4 | 继续回 HN；把“为什么会用/为什么不用”的原话记进反馈日志；triage                                                | 不与嘲讽者缠斗；不承诺路线图                |
+| D+5 | 准备 Matrix 稿；读 Matrix 版规；确认配图版权                                                                  | 不发                                        |
+| D+6 | 发 Matrix；回评论；把高频安装问题补进置顶帖                                                                   | 不把同一篇同时贴到多个分组                  |
+| D+7 | 周复盘：手工统计各渠道回复、Top 3 主题、安装失败数、访谈志愿者；在 Discussions 发一篇「第一周我们听到了什么」 | 不写“重大突破”；不公布未确定的时间表        |
 
 **每日固定动作（30 分钟）**：09:00 看 Issues/Discussions；18:00 再看一次；新条目 48 小时内至少有一句回应；每周至少关掉/推进 3 个 `needs-info`。
 
 ## 5. D+8 至 D+15：后续排期
 
-| 日 | 渠道 | 动作 |
-| --- | --- | --- |
-| D+8 | — | 准备即刻 15 s 竖屏；把 D+7 复盘里的真实问题做成 2 张图 |
-| D+9 | 即刻 | 发短文 + 竖屏；链接放评论区并置顶 |
-| D+10 | — | 回即刻；triage；准备 r/macapps 稿 |
-| D+12 | r/macapps | 发英文帖；第一段说明 Electron 与源码安装 |
-| D+13–14 | — | 回评论；把安装问题整理成图文步骤 |
-| D+15 | B站 / 小红书 | 发 55 s 视频；B站简介放链接，小红书链接放主页/评论区 |
+| 日      | 渠道         | 动作                                                   |
+| ------- | ------------ | ------------------------------------------------------ |
+| D+8     | —            | 准备即刻 15 s 竖屏；把 D+7 复盘里的真实问题做成 2 张图 |
+| D+9     | 即刻         | 发短文 + 竖屏；链接放评论区并置顶                      |
+| D+10    | —            | 回即刻；triage；准备 r/macapps 稿                      |
+| D+12    | r/macapps    | 发英文帖；第一段说明 Electron 与源码安装               |
+| D+13–14 | —            | 回评论；把安装问题整理成图文步骤                       |
+| D+15    | B站 / 小红书 | 发 55 s 视频；B站简介放链接，小红书链接放主页/评论区   |
 
 任何渠道审核失败或数据不佳：**顺延，不补发到其他渠道，不删帖重发**。同一渠道只发一次；补充信息只在原帖回复或编辑勘误。
 
